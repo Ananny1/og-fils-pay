@@ -2,8 +2,8 @@ import type { LucideIcon } from "lucide-react";
 import { TrendingDown, TrendingUp } from "lucide-react";
 import type { ReactNode } from "react";
 import { formatBhd, toFils } from "@filspay/money";
-import CountUp from "@/components/CountUp";
-import SpotlightCard from "@/components/SpotlightCard";
+import CountUp from "@/components/ui/CountUp";
+import SpotlightCard from "@/components/ui/SpotlightCard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 

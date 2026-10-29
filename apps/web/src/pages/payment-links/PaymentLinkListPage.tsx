@@ -5,7 +5,7 @@ import { listPaymentLinks } from "../../api/paymentLinks.js";
 import { describeError } from "../../api/client.js";
 import { useDashboardAuth } from "../../auth/DashboardAuthContext.js";
 import { RequireRole } from "../../auth/RequireRole.js";
-import FadeContent from "@/components/FadeContent";
+import FadeContent from "@/components/ui/FadeContent";
 import { EmptyState } from "@/components/dashboard/empty-state";
 import { ErrorAlert } from "@/components/dashboard/error-alert";
 import { FilterChips } from "@/components/dashboard/filter-chips";

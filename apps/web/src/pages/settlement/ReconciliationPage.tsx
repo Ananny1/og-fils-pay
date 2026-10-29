@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { getReconciliation } from "../../api/settlement.js";
 import { ApiError, describeError } from "../../api/client.js";
-import FadeContent from "@/components/FadeContent";
+import FadeContent from "@/components/ui/FadeContent";
 import { DateRangeFilter } from "@/components/dashboard/date-range-filter";
 import { ErrorAlert } from "@/components/dashboard/error-alert";
 import { formatMoney } from "@/components/dashboard/money";

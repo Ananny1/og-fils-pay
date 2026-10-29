@@ -1,6 +1,6 @@
 import { useTheme } from "next-themes";
 import type { ReactNode } from "react";
-import Aurora from "@/components/Aurora";
+import Aurora from "@/components/ui/Aurora";
 import { cn } from "@/lib/utils";
 
 /**

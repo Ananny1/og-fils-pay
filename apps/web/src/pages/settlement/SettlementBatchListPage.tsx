@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { listSettlementBatches } from "../../api/settlement.js";
 import { describeError } from "../../api/client.js";
-import FadeContent from "@/components/FadeContent";
+import FadeContent from "@/components/ui/FadeContent";
 import { DateRangeFilter } from "@/components/dashboard/date-range-filter";
 import { EmptyState } from "@/components/dashboard/empty-state";
 import { ErrorAlert } from "@/components/dashboard/error-alert";

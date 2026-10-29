@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import BlurText from "@/components/BlurText";
+import BlurText from "@/components/ui/BlurText";
 import { cn } from "@/lib/utils";
 
 /** Title row for every dashboard page: animated title, optional

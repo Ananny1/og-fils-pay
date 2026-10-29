@@ -9,13 +9,13 @@ import {
   writeLastMerchantId,
 } from "../../auth/DashboardAuthContext.js";
 import type { DashboardLoginResponse } from "../../types.js";
-import AnimatedContent from "@/components/AnimatedContent";
-import BlurText from "@/components/BlurText";
-import FadeContent from "@/components/FadeContent";
-import GlareHover from "@/components/GlareHover";
-import GradientText from "@/components/GradientText";
-import Magnet from "@/components/Magnet";
-import StarBorder from "@/components/StarBorder";
+import AnimatedContent from "@/components/ui/AnimatedContent";
+import BlurText from "@/components/ui/BlurText";
+import FadeContent from "@/components/ui/FadeContent";
+import GlareHover from "@/components/ui/GlareHover";
+import GradientText from "@/components/ui/GradientText";
+import Magnet from "@/components/ui/Magnet";
+import StarBorder from "@/components/ui/StarBorder";
 import { BatchPreview } from "@/components/dashboard/batch-preview";
 import { ErrorAlert } from "@/components/dashboard/error-alert";
 import { BrandMark } from "@/components/dashboard/public-shell";

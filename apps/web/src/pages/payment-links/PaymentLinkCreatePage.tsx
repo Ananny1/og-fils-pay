@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { createPaymentLink } from "../../api/paymentLinks.js";
 import { describeError } from "../../api/client.js";
 import { useDashboardAuth } from "../../auth/DashboardAuthContext.js";
-import FadeContent from "@/components/FadeContent";
+import FadeContent from "@/components/ui/FadeContent";
 import { ErrorAlert } from "@/components/dashboard/error-alert";
 import { Money } from "@/components/dashboard/money";
 import { PageHeader } from "@/components/dashboard/page-header";

@@ -6,7 +6,7 @@ import { cancelPaymentLink, listPaymentLinks } from "../../api/paymentLinks.js";
 import { describeError } from "../../api/client.js";
 import { useDashboardAuth } from "../../auth/DashboardAuthContext.js";
 import { RequireRole } from "../../auth/RequireRole.js";
-import FadeContent from "@/components/FadeContent";
+import FadeContent from "@/components/ui/FadeContent";
 import { CopyButton } from "@/components/dashboard/copy-button";
 import { EmptyState } from "@/components/dashboard/empty-state";
 import { ErrorAlert } from "@/components/dashboard/error-alert";

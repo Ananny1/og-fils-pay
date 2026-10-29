@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { listTransactions } from "../../api/transactions.js";
 import { describeError } from "../../api/client.js";
-import FadeContent from "@/components/FadeContent";
+import FadeContent from "@/components/ui/FadeContent";
 import { CopyButton } from "@/components/dashboard/copy-button";
 import { DateRangeFilter } from "@/components/dashboard/date-range-filter";
 import { EmptyState } from "@/components/dashboard/empty-state";

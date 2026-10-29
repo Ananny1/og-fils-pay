@@ -1,7 +1,7 @@
 import { Fragment } from "react";
 import { Link, Outlet, useLocation } from "react-router-dom";
 import { AnimatePresence, motion } from "motion/react";
-import ClickSpark from "@/components/ClickSpark";
+import ClickSpark from "@/components/ui/ClickSpark";
 import { AppSidebar } from "@/components/dashboard/app-sidebar";
 import { CommandMenu } from "@/components/dashboard/command-menu";
 import { ThemeToggle } from "@/components/dashboard/theme-toggle";

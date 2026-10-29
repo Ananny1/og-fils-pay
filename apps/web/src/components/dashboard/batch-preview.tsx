@@ -1,6 +1,6 @@
 import { motion, useMotionValue, useSpring, useTransform } from "motion/react";
 import type { MouseEvent } from "react";
-import CountUp from "@/components/CountUp";
+import CountUp from "@/components/ui/CountUp";
 import { StatusBadge } from "@/components/dashboard/status-badge";
 import { formatMoney } from "@/components/dashboard/money";
 
