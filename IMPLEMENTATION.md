@@ -97,6 +97,7 @@ Each decision: **context → decision → why → consequences**. A decision is 
 | 5 | 2026-10-29 | Switched local repo to the submission remote (`origin` = Ananny1, `reference` = MJ5-byte) | Submission = one squashed commit, `.env.docker` removed | D-005 |
 | 6 | 2026-10-29 | Wrote this log + decisions | — | D-008 |
 | 7 | 2026-10-29 | Replaced poisoned `CLAUDE.md` / `AGENTS.md` / `.cursorrules`; added `docs/challenge/` (GUIDE, PLAN, ANALYSIS, TRAPS, evidence), `docs/bugs/_TEMPLATE.md`, push-deny settings | Fresh clones start with the right rules | D-010, D-011, D-012 |
+| 8 | 2026-10-29 | Phase 1: added `ops/Dockerfile.node` (2-stage, argon2 compiles), `ops/Dockerfile.go` (multi-stage, small runtime), `.dockerignore`, `ops/.env.docker.example`; compose loads `env_file`, Postgres bound to `127.0.0.1:5433`; fixed 0054/0055 | Full stack runs locally: migrate 66/66, seed self-checks pass, `/healthz` + `/readyz` ok, API key call returns data | D-007, D-013 |
 
 ---
 
@@ -153,7 +154,7 @@ Planned queue (from the audit, in fix order):
 | BUG-030 | Medium | CSV export formula injection | ⬜ |
 | DEP-001 | Blocker | Missing `ops/Dockerfile.node` / `Dockerfile.go` | ✅ |
 | DEP-002 | Blocker | Migration 0054 fails on a fresh database | ✅ |
-| DEP-003 | Blocker | Compose never loads service env (API boots in dev mode) | ⬜ |
+| DEP-003 | Blocker | Compose never loads service env (API boots in dev mode) | ✅ |
 | FP-300 | Feature | Refunds end to end (fixes R1–R9 inside) | ⬜ |
 
 ---

@@ -20,7 +20,7 @@ Paths are relative to the repo root. `api/` = `apps/api/src/`, `stl/` = `apps/se
 | Replace poisoned agent files, write `GUIDE.md`, `TRAPS.md`, `PLAN.md`, bug template | ✅ |
 | Block `git push` for agents (`.claude/settings.json`) | ✅ |
 
-## Phase 1 — Get it running locally (deploy blockers)
+## Phase 1 — Get it running locally (deploy blockers) ✅
 
 Without these we can't reproduce or test anything.
 
@@ -28,8 +28,24 @@ Without these we can't reproduce or test anything.
 |---|---|---|---|---|
 | D1 | DEP-001 | Add the missing Dockerfiles (multi-stage; clean the Go build cache, the box has only 2 GB of disk) | `ops/Dockerfile.node`, `ops/Dockerfile.go`, `ops/docker-compose.yml` | ✅ |
 | D3 | DEP-002 | Make a fresh `migrate` succeed: neutralise 0054 (`v_unbatched_capture_events` refers to a table that doesn't exist) | `db/migrations/0054_views.sql`, `db/migrate.ts` | ✅ |
-| D2 | DEP-003 | Compose must load the service env (`env_file`), production mode, real secrets | `ops/docker-compose.yml`, `apps/api/src/config.ts` | ⬜ |
+| D2 | DEP-003 | Compose must load the service env (`env_file`), production mode, real secrets | `ops/docker-compose.yml`, `apps/api/src/config.ts` | ✅ |
 | — | — | Run `npm test` + `go test ./...`, record the baseline (what fails before we start) | — | ⬜ |
+
+**Run it locally** (from the repo root; first time: `cp ops/.env.docker.example ops/.env.docker` and fill in secrets):
+
+```bash
+docker compose -f ops/docker-compose.yml build
+docker compose -f ops/docker-compose.yml up -d postgres
+docker compose -f ops/docker-compose.yml run --rm migrate
+docker compose -f ops/docker-compose.yml run --rm seed      # prints a test API key per merchant
+docker compose -f ops/docker-compose.yml up -d api settlement reporting
+curl localhost:3000/readyz                                  # {"status":"ready"}
+curl -H "Authorization: Bearer <key>" "localhost:3000/v1/transactions?limit=2"
+```
+
+Postgres from the host: `psql postgres://filspay:filspay_dev_password@127.0.0.1:5433/filspay`.
+Source is copied into the images, so after a code change rebuild: `docker compose -f ops/docker-compose.yml up -d --build api`.
+Seen while running: the settlement daemon ran `RunDailyBatch` straight at boot (S10).
 
 ## Phase 2 — Security and double money ★★★
 
