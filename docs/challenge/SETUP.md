@@ -57,7 +57,7 @@ curl localhost:3000/readyz              # {"status":"ready"}
 | Staff console | **http://localhost:5174** → login, then `/merchants` |
 | API health | http://localhost:3000/healthz · http://localhost:3000/readyz |
 
-`http://localhost:3000/` is the API, not a
+`http://localhost:5173/` also goes to the dashboard (F0). `http://localhost:3000/` is the API, not a
 website: a 404 there is normal. Every page URL is listed in `PLAN.md` → Phase F → Page checklist.
 
 ## 4. Logins (seed data)
@@ -127,6 +127,7 @@ cd apps/settlement && go test ./...
 | `migrate` fails at 0054 or 0055 | Old checkout (before DEP-002) | `git pull`, `dc build migrate` |
 | Port 5432 already in use | You have a local Postgres | We use **5433**; change with `FILSPAY_PG_PORT=5440 dc up -d postgres` |
 | Browser on 5173/5174: "refused to connect" | web/admin not started | `dc up -d web admin` |
+| `localhost:5173` shows "Unexpected Application Error! 404" | Old checkout (before F0) | `git pull`; or open `/dashboard` |
 | `localhost:3000` shows "Route GET:/ not found" | That's the API, not a website | Use 5173 / 5174 |
 | Dashboard calls fail with CORS errors | Running Vite outside Docker without the proxy | Set `VITE_API_BASE_URL=` (empty) before `npm run dev`; the Vite proxy sends `/v1` to `localhost:3000` |
 | `npm ci` fails on `argon2` / python | Building without the compile stage | Use `ops/Dockerfile.node` as committed |

@@ -49,7 +49,7 @@ BUG-021/022/028 → BUG-027 → the rest (see `PLAN.md` → Track B).
 
 **Frontend (last, after the backend fixes it depends on):** `PLAN.md` → Phase F: F1–F12 fixes plus
 the **page checklist** (every page × loading / empty / error / 403 / 401 / not found / 3-decimal
-amounts / mobile). F0 (home URL + not-found and error pages) is first. Also T4 (frontend tests)
+amounts / mobile). F0 (home URL + not-found and error pages) is done. Also T4 (frontend tests)
 and T5 (checklist ticked in the browser).
 Frontend lives in `apps/web/` (shop dashboard + checkout, port 5173) and `apps/admin/` (staff
 console, port 5174). Both run in Docker with live reload.

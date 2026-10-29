@@ -185,7 +185,7 @@ must load, every error must show a clear sentence, never a blank page, raw JSON 
 
 | ID | Task | Files | Depends on | Status |
 |---|---|---|---|---|
-| F0 | `/` → dashboard; "Page not found" + "Something went wrong" pages in both apps | `apps/*/src/router.tsx`, `apps/*/src/components/RouteErrorPage.tsx` | — | ⬜ |
+| F0 | `/` → dashboard; "Page not found" + "Something went wrong" pages in both apps | `apps/*/src/router.tsx`, `apps/*/src/components/RouteErrorPage.tsx` | — | ✅ |
 | F1 | Refund drawer + refunds in the transaction timeline (FP-300 step 9); restore the refunds route ("removed until FP-212") | `apps/web/src/pages/transactions/RefundDrawer.tsx`, `TransactionDetailPage.tsx`, `apps/web/src/api/transactions.ts`, `router.tsx` | FP-300 steps 1–8 | ⬜ |
 | F2 | Checkout stops sending `submittedAt` (server decides expiry) | `apps/web/src/pages/checkout/CheckoutPage.tsx`, `apps/web/src/api/paymentLinks.ts` | BUG-004 | ⬜ |
 | F3 | Login pages work without the dev OTP on screen (clear "check your email" step) | both `LoginPage.tsx` | A5 | ⬜ |
@@ -209,7 +209,7 @@ For each page check: **loads**, **loading state**, **empty state**, **API error*
 
 | URL | Page | Who | Checked |
 |---|---|---|---|
-| `/` | → `/dashboard` | all | ⬜ |
+| `/` | → `/dashboard` | all | ✅ (F0) |
 | `/dashboard/login` | Login (Merchant ID + email + password → OTP) | all | ⬜ |
 | `/dashboard` | → transactions | all | ⬜ |
 | `/dashboard/transactions` | Transaction list, filters, export | all | ⬜ |
@@ -223,7 +223,7 @@ For each page check: **loads**, **loading state**, **empty state**, **API error*
 | `/dashboard/reconciliation` | Reconciliation | owner/finance | ⬜ |
 | `/dashboard/overview` | Overview / analytics | all | ⬜ |
 | `/pay/:token` | Public checkout: valid, not found, expired (410), paid, canceled, declined (402), acquirer error (502), success | public | ⬜ |
-| any other URL | "Page not found" | — | ⬜ |
+| any other URL | "Page not found" | — | ✅ (F0) |
 
 **Staff console (`apps/admin`, http://localhost:5174)**
 
@@ -237,7 +237,7 @@ For each page check: **loads**, **loading state**, **empty state**, **API error*
 | `/settlement` | Settlement ops: run batch, rebuild balances, MDR recalculation | finance+ | ⬜ |
 | `/adjustment-imports` | CSV adjustment import | finance+ | ⬜ |
 | `/webhooks`, `/webhooks/:merchantId` | Webhook replay | staff | ⬜ |
-| any other URL | "Page not found" | — | ⬜ |
+| any other URL | "Page not found" | — | ✅ (F0) |
 
 ## Phase T — Tests and final checks (both)
 
