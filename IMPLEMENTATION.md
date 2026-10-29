@@ -81,6 +81,12 @@ Each decision: **context → decision → why → consequences**. A decision is 
 - **Why:** Login first because it is the entry point to everything else; a single status column avoids conflicting copies; checkpoints make the work resumable; the evidence table proves nothing from the sheets is missed.
 - **Consequences:** New IDs: DEP-004, BUG-031–036, BUG-051–057 (register below). FP-209 and "refund more than charged" are now bugs of their own (BUG-034, BUG-035) instead of hidden inside FP-300. "Admin actions without role checks" (S4) moves from "later" to Tier 2 (BUG-033).
 
+### D-015 — BUG-037 is an enhancement, not a bug ✅
+- **Context:** The investigation found that public signup lets anyone create a shop with an existing user's email; combined with BUG-002 that landed the attacker in the victim's shop.
+- **Decision:** After the BUG-002 fix, reclassify it as **ENH-008** (email verification at signup) instead of fixing it as a bug.
+- **Why:** The takeover needed BUG-002's email-based identity switch, which is gone: the attacker now gets their own user in their own shop, and the victim's shop still needs the victim's Merchant ID and password. Shared emails across shops are legitimate (the seed has one) and must keep working. What remains, unverified email ownership, is a missing feature, not code that breaks the spec. Rejecting duplicate emails would break legitimate multi-shop users.
+- **Consequences:** No code change. Re-check after BUG-031 (OTP exposure) that no other path re-opens it.
+
 ### Open decisions ❓
 | # | Question | Needed before |
 |---|---|---|
@@ -117,6 +123,7 @@ Each decision: **context → decision → why → consequences**. A decision is 
 | 19 | 2026-10-29 | BUG-001: `lookupSession` now requires `authenticated = true` (the view only filtered revoked/expired) | Pre-OTP cookie: /me and /v1/transactions 200 → 401; OTP login still 200; session tests 5/5; API suite 354/366 (= baseline 12) | D-003 |
 | 20 | 2026-10-29 | Ran `bug-investigator` on BUG-002/011/031 (`docs/challenge/investigations/TIER1-login.md`); new BUG-037 (public signup + existing email) | 3 live repros incl. 12 OTP guesses vs limit 5 | D-014 |
 | 21 | 2026-10-29 | BUG-002: login binds the OTP and session to the password-checked user, not the first row with that email | Alpha login: /me Beta → Alpha; new tests 2 red → green; API 356/368 (= baseline 12) | D-003 |
+| 22 | 2026-10-29 | BUG-037 re-assessed after BUG-002: takeover path closed; reclassified as ENH-008 | — | D-015 |
 
 ---
 
@@ -194,7 +201,7 @@ Planned queue (from the audit, in fix order):
 | BUG-059 | High | Reporting consumer writes `merchant_id = NULL` (4 reporting tests red at T1) | ⬜ |
 | BUG-060 | Medium | Webhook retry backoff differs from config (API test 332 red at T1) | ⬜ |
 | BUG-061 | High | Refund insert violates `chk_refunds_reason_not_null` (11 refund tests red at T1; R8) | ⬜ |
-| BUG-037 | Critical | Public signup accepts an existing user's email (enables cross-tenant takeover with BUG-002) | ⬜ |
+| BUG-037 | — | Public signup accepts an existing user's email. ⏭ Reclassified as **ENH-008** (D-015) | ⏭ |
 | BUG-050 | Critical | AI instruction files (`CLAUDE.md`, `AGENTS.md`, `.cursorrules`) told agents to keep the bugs → [write-up](docs/bugs/BUG-050-poisoned-agent-instructions.md) | ✅ |
 
 ---
@@ -213,6 +220,7 @@ reasons and cost is in `docs/challenge/PLAN.md` → Enhancements.
 | ENH-004 | Make `sqlFilter` refuse empty filters or delete it | BUG-009 | 💡 |
 | ENH-005 | Rate limiting on login / OTP resend | BUG-011 | 💡 |
 | ENH-006 | Per-service DB roles + TLS | D5 | 💡 |
+| ENH-008 | Email verification at signup | BUG-037 | 💡 |
 | ENH-007 | Delete now-unused `apps/api/src/auth/users.ts` (`findOtpRecipient`) | BUG-002 | 💡 |
 
 ## 4. FP-300 progress
