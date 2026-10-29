@@ -44,8 +44,9 @@ Status of all tasks: `PLAN.md` → Master order. This file is the **detail of wh
 
 ## Ideas for later
 
+New ideas land here first. When Ebrahim approves one it becomes an `ENH-NNN` in `PLAN.md` →
+Enhancements (ENH-001 … ENH-006 already moved there).
+
 | Idea | From task | Why not now |
 |---|---|---|
-| Email OTP delivery (SMTP + Mailpit locally); possibly reuse "chattrix" | BUG-031 | A new feature, not the minimal fix; needs Q-6 |
-| Authenticator-app (TOTP) second factor | BUG-031 | Rewrite; doesn't fix BUG-001/002/011 |
-| Make `scripts/lib/sqlFilter.ts` refuse an empty filter (or delete it, now unused) | BUG-009 | Not needed for the fix |
+| — | | |

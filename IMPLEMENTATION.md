@@ -187,6 +187,21 @@ Planned queue (from the audit, in fix order):
 
 ---
 
+## 3b. Enhancement register
+
+Enhancements are **not bugs**: improvements beyond the spec, done only after approval, each in its
+own commit with a write-up in `docs/enhancements/` (template `_TEMPLATE.md`). The list with
+reasons and cost is in `docs/challenge/PLAN.md` → Enhancements.
+
+| ID | Title | Supports | Status |
+|---|---|---|---|
+| ENH-001 | Email OTP delivery (SMTP + local Mailpit; maybe "chattrix") | BUG-031 | 💡 |
+| ENH-002 | Authenticator-app (TOTP) second factor | Tier 1 | 💡 |
+| ENH-003 | CORS allowlist for production | F12, DEPLOY | 💡 |
+| ENH-004 | Make `sqlFilter` refuse empty filters or delete it | BUG-009 | 💡 |
+| ENH-005 | Rate limiting on login / OTP resend | BUG-011 | 💡 |
+| ENH-006 | Per-service DB roles + TLS | D5 | 💡 |
+
 ## 4. FP-300 progress
 
 | Done when | Status | Notes |

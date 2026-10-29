@@ -99,6 +99,33 @@ the screens (Tier 7) and hand-in (Tier 8).
 cache-only · S10 daemon closes on boot · S11 rebuild vs CloseBatch race · W8 replay keeps delivery
 ids? · W9 timestamp check order.
 
+## Task types (how every item is classified)
+
+| Type | ID | What it is | Scored by the brief? | Where it's written up |
+|---|---|---|---|---|
+| **Bug** | `BUG-NNN` | The code does something wrong against the spec (ADRs, HANDOVER, the sheets) or is insecure | ✅ yes (main points) | `docs/bugs/BUG-NNN-*.md` |
+| **Deploy blocker** | `DEP-NNN` | Stops the app from building, migrating, starting or deploying | ✅ (needed for "live on Dilmune Cloud") | `docs/bugs/DEP-NNN-*.md` |
+| **Feature** | `FP-300.x` | The missing feature the brief asks us to finish (Refunds) | ✅ yes | `docs/bugs/` + FP-300 section in `IMPLEMENTATION.md` |
+| **Frontend item** | `F<n>` | A screen that is broken or unclear (some are bugs, some polish) | partly | `docs/bugs/F<n>-*.md` |
+| **Test / QA** | `T<n>` | Baselines, smoke scripts, checklists | supports all | `IMPLEMENTATION.md` step log |
+| **Enhancement** | `ENH-NNN` | Not a bug: an improvement beyond what the spec asks (e.g. email OTP delivery). Done only after approval, and after the tier it supports | ➕ bonus only | `docs/enhancements/ENH-NNN-*.md` |
+| **Idea** | — | Not yet judged; parked in `PROGRESS.md` → Ideas | — | becomes an ENH when approved |
+
+**Rule:** a bug fix is the **smallest** change that removes the root cause. Anything bigger
+("while we're here…") is split off as an `ENH`, so fixes stay small and enhancements are a
+separate, optional decision.
+
+## Enhancements (bonus, after approval)
+
+| ID | Enhancement | Supports | Why | Cost | Status |
+|---|---|---|---|---|---|
+| ENH-001 | **Email OTP delivery**: real email via SMTP; Mailpit inbox at `localhost:8025` for local runs; possibly reuse Ebrahim's "chattrix" (Q-6) | BUG-031 | After BUG-031 the code no longer shows on screen; users still need to receive it, and a demo can show the full login | ~1 file per notifier + compose service + 1 dependency | 💡 |
+| ENH-002 | Authenticator-app second factor (TOTP, e.g. Microsoft Authenticator) | Tier 1 | No code sent at all; strongest option | Enrolment flow, secret storage, recovery codes, UI, migration | 💡 |
+| ENH-003 | Proper CORS allowlist on the API for production (instead of the dev proxy) | F12, DEPLOY | Dashboards hosted on another origin can call the API safely | Small API plugin + config | 💡 |
+| ENH-004 | `scripts/lib/sqlFilter.ts`: refuse an empty filter, or delete it (now unused) | BUG-009 | Removes a footgun that turned "delete these" into "delete all" | Tiny | 💡 |
+| ENH-005 | Rate limiting on login, OTP resend and pending-session lookups | BUG-011 | Slows brute force and resend abuse beyond the per-challenge attempt limit | Small middleware | 💡 (may become a bug if BUG-011 shows it's exploitable) |
+| ENH-006 | Per-service database roles + TLS to Postgres | D5, DEPLOY | Least privilege; one leaked service can't touch everything | Migration + compose | 💡 |
+
 ## Evidence coverage (every line of the 4 sheets → a task)
 
 | Sheet | Line | Task |

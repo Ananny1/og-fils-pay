@@ -1,6 +1,7 @@
 # Workflow — how every task is done
 
-Every task (bug, feature step, frontend item, deploy step) goes through the same 8 steps. The
+Every task (bug, deploy blocker, feature step, frontend item, approved enhancement) goes through the same
+8 steps; types are defined in `PLAN.md` → Task types. Enhancements use `docs/enhancements/_TEMPLATE.md`. The
 order of tasks is the **Master order** at the top of `PLAN.md`. The live checkpoint is
 `PROGRESS.md`: if work is cut off at any point, the next session reads it and carries on.
 
@@ -45,7 +46,9 @@ Before writing code, write down (in `PROGRESS.md` → "Notes", later copied into
 
 Then list **at least 3 options**, including one "outside the box" idea (a different design, a
 platform feature, something reused from another project), rank them, and pick one. Record why
-the others lost. Ideas that are good but too big go to "Ideas for later" in `PROGRESS.md`.
+the others lost. **Classify before building:** the smallest change that removes the root cause is
+the bug fix; anything bigger is an **enhancement** (`ENH-NNN`, see `PLAN.md` → Task types) that goes
+to "Ideas for later" in `PROGRESS.md` and waits for approval. Never mix an enhancement into a bug commit.
 
 `PROGRESS.md`: step `2-planned`, chosen option.
 
