@@ -143,6 +143,8 @@ cd apps/settlement && go test ./...
 | Port 5432 already in use | You have a local Postgres | We use **5433**; change with `FILSPAY_PG_PORT=5440 dc up -d postgres` |
 | Browser on 5173/5174: "refused to connect" | web/admin not started | `dc up -d web admin` |
 | `localhost:5173` shows "Unexpected Application Error! 404" | Old checkout (before F0) | `git pull`; or open `/dashboard` |
+| Shop login fails with the right details | A comma or space copied into a field, or the browser auto-filled an old password | Type exactly: Merchant ID, `owner@alpharetail.example` (no comma), `FilsPaySeed!2026` |
+| Where is the OTP? | Dev mode shows it | On the page ("Development code: …") or DevTools → Network → the POST `login` reply → `devOtpCode` (bug A5) |
 | `localhost:3000` shows "Route GET:/ not found" | That's the API, not a website | Use 5173 / 5174 |
 | Dashboard calls fail with CORS errors | Running Vite outside Docker without the proxy | Set `VITE_API_BASE_URL=` (empty) before `npm run dev`; the Vite proxy sends `/v1` to `localhost:3000` |
 | `npm ci` fails on `argon2` / python | Building without the compile stage | Use `ops/Dockerfile.node` as committed |

@@ -197,6 +197,7 @@ must load, every error must show a clear sentence, never a blank page, raw JSON 
 | F9 | Correct browser tab title per page (the shop app says "FilsPay Checkout" everywhere) | `apps/web/index.html`, pages | — | ⬜ |
 | F10 | Money buttons can't be double-clicked (pay, refund, capture, void, credits, imports) | pages with submit buttons | — | ⬜ |
 | F11 | Dates and times shown in Bahrain time | `apps/*/src/format.ts` | — | ⬜ |
+| F13 | Login forms: trim spaces/commas around the email (only Merchant ID is trimmed today) and show a clear "wrong Merchant ID, email or password" message | both `LoginPage.tsx` | — | ⬜ |
 | F12 | Production build of both dashboards for the deploy, with SPA fallback so a refresh on a deep link (e.g. `/dashboard/transactions/123`) doesn't 404 | `ops/` | Phase 6 | ⬜ |
 
 ### Page checklist (every page × every state)
