@@ -126,6 +126,7 @@ Each decision: **context → decision → why → consequences**. A decision is 
 | 22 | 2026-10-29 | BUG-037 re-assessed after BUG-002: takeover path closed; reclassified as ENH-008 | — | D-015 |
 | 23 | 2026-10-29 | BUG-031: OTP exposure off by default, refused in production, one switch for reply and log; laptop `.env.dev` opts in; hosted example opts out | Forgotten setting: code in reply+log → none; prod+expose refuses to boot; 5 new tests; API 361/373 (= baseline 12) | D-003 |
 | 24 | 2026-10-29 | BUG-011: atomic attempt reservation before comparing, single-winner consume, resend carries the count, `crypto.randomInt` (also payment-link tokens / invite codes); merchant + admin | Live 40 parallel guesses: attempt_count 12/5 → 5/5; 6 new tests red → green; API 367/379 (= baseline 12) | D-003 |
+| 25 | 2026-10-29 | BUG-032: rotate the session token at OTP verify and set it with the full TTL (merchant + admin); test helpers take the verify cookie (D-004) | Copied pre-OTP cookie: 200 → 401; merchant cookie 600 s → 43200 s; API 371/383 (= baseline 12) | D-003, D-004 |
 
 ---
 
@@ -187,7 +188,7 @@ Planned queue (from the audit, in fix order):
 | DEP-005 | High | `npm test` never ran the API/reporting suites on Node 20 (glob not expanded) → [write-up](docs/bugs/DEP-005-tests-never-ran-on-node20.md) | ✅ |
 | DEP-004 | High | `docker compose up` from `ops/` (the brief's instruction) fails on a fresh clone → [write-up](docs/bugs/DEP-004-compose-up-from-ops.md) | ✅ |
 | BUG-031 | Critical | OTP code returned in the login reply and logged (`otpDevExpose` defaults on) → [write-up](docs/bugs/BUG-031-otp-exposed-in-reply-and-logs.md) | ✅ |
-| BUG-032 | Medium | Admin session token not rotated after OTP (fixation) | ⬜ |
+| BUG-032 | Medium | Session token not rotated after OTP (fixation, merchant + admin); merchant cookie kept the 10-min pending lifetime → [write-up](docs/bugs/BUG-032-session-fixation.md) | ✅ |
 | BUG-033 | High | Admin actions missing role checks (audit every `/v1/admin` route) | ⬜ |
 | BUG-034 | Critical | Two refunds at once both succeed (FP-209) | ⬜ |
 | BUG-035 | Critical | Refund more than was captured | ⬜ |

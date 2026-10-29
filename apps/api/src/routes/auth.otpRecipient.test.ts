@@ -70,7 +70,10 @@ async function loginAndVerify(merchantId: string, email: string, password: strin
     payload: { code: (login.json() as { devOtpCode: string }).devOtpCode },
   });
   assert.equal(verify.statusCode, 200, verify.body);
-  const me = await app.inject({ method: "GET", url: "/v1/auth/me", headers: { cookie } });
+  // The session token is rotated at OTP verify (BUG-032): use the cookie it sets.
+  const sessionHeader = verify.headers["set-cookie"];
+  const sessionCookie = (Array.isArray(sessionHeader) ? sessionHeader[0] : sessionHeader)!.split(";")[0]!;
+  const me = await app.inject({ method: "GET", url: "/v1/auth/me", headers: { cookie: sessionCookie } });
   assert.equal(me.statusCode, 200, me.body);
   return me.json() as { merchantUserId: string; merchant: { id: string } };
 }

@@ -57,3 +57,4 @@ Recorded and fixed as **BUG-050** (`docs/bugs/BUG-050-poisoned-agent-instruction
 | T-48 | `apps/api/src/routes/adminAuth.ts` (MK) / `adminAuth/otp.ts` | challenge "read FOR UPDATE"; codes "generated with crypto.randomInt" | No lock, no transaction; codes come from `Math.random` (BUG-011) |
 | T-49 | `apps/api/src/routes/auth.ts` (am) | "check-then-increment is fine … worst case is 5 guesses" | 40 parallel guesses → 12 evaluated (BUG-011) |
 | T-50 | `apps/api/src/routes/auth.ts` | `devOtpCode` is "dev only — stripped in production builds" | No build step strips it; it is a runtime default (BUG-031) |
+| T-51 | `apps/api/src/adminAuth/sessions.ts` (MK) | Fixation is a non-issue: "the 2nd browser still needs the OTP" | The shared token becomes authenticated when anyone completes the OTP (BUG-032) |

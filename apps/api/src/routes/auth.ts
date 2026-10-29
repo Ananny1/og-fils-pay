@@ -183,18 +183,28 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
         if (consumed.rowCount === 0) {
           throw new GoneError("otp_expired"); // a parallel request already used this code
         }
-        // promoteSession bumps expires_at to 12h server-side; the cookie maxAge doesn't matter because
-        // MK: admin verify re-sets the cookie after this, merchant verify doesnt. related to the 10 min logouts?
-        await promoteSession(client, pending.sessionId, app.config.sessionTtlHours);
+        const promoted = await promoteSession(client, pending.sessionId, app.config.sessionTtlHours);
         const result = await client.query<{ merchant_id: string; role: "owner" | "finance" | "support" }>(
           `SELECT merchant_id, role FROM merchant_users WHERE id = $1`,
           [pending.merchantUserId],
         );
-        return result.rows[0];
+        const row = result.rows[0];
+        return row ? { ...row, sessionToken: promoted.rawToken } : undefined;
       });
       if (!merchantUserResult) {
         throw new Error("otp/verify: merchant_users row disappeared mid-transaction");
       }
+
+      // The rotated session token, with the session's full TTL: the login
+      // cookie only lived for the pending window, so shops were logged out
+      // after 10 minutes, and the pre-OTP token no longer works (BUG-032).
+      reply.setCookie(app.config.cookieName, merchantUserResult.sessionToken, {
+        httpOnly: true,
+        path: "/",
+        sameSite: "lax",
+        secure: app.config.cookieSecure,
+        maxAge: app.config.sessionTtlHours * 3_600,
+      });
 
       reply.code(200).send({
         authenticated: true,
