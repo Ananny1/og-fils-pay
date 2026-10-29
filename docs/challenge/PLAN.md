@@ -11,6 +11,68 @@ Paths are relative to the repo root. `api/` = `apps/api/src/`, `stl/` = `apps/se
 
 ---
 
+## Team split (2 people)
+
+The work is split **by area of code**, so the two of us almost never edit the same file.
+Each track has about the same number of critical (★★★) bugs. Pick who takes which track.
+
+### Track A — "Who can get in" (security, TypeScript `apps/api`)
+
+| Order | ID | Bug # | What | Main files |
+|---|---|---|---|---|
+| 1 | A1 | BUG-001 | Login without OTP | `api/auth/sessions.ts` |
+| 2 | A2 | BUG-002 | OTP logs you into another shop | `api/routes/auth.ts` |
+| 3 | A6 | BUG-003 | Shop A cancels shop B's link | `api/paymentLinks/cancel.ts` |
+| 4 | A7/A8 | BUG-010 | Impersonation = owner powers | `api/admin/impersonation.ts` |
+| 5 | P1 | BUG-004 | Expired link still payable | `api/paymentLinks/pay.ts` |
+| 6 | P2 | BUG-005 | Link charged twice | `api/paymentLinks/pay.ts` |
+| 7 | W2 | BUG-006 | Duplicate acquirer callbacks | `api/acquirer/callbacks.ts` |
+| 8 | W3–W5 | BUG-007 | Callback signature optional | `api/webhooks/inboundVerify.ts` |
+| 9 | A3/A4 | BUG-011 | OTP brute force + `Math.random` | `api/routes/auth.ts`, `api/lib/random.ts` |
+| 10 | A11 | BUG-012 | Old API key still works | `api/admin/apiKeys.ts`, `api/apiKeys/verify.ts` |
+| 11 | A9 | BUG-013 | Credit self-approval | `api/admin/creditApproval.ts` |
+| 12 | A5 | — | OTP shown in the login reply | `api/config.ts` |
+| 13 | Q2/Q3, Q4 | BUG-025, BUG-030 | Export: memory, skipped rows, formula injection | `api/transactions/exportCsv.ts` |
+| 14 | Q5 | BUG-026 | Dashboard fee 245 vs 225 | `api/fees/currentFeeScheduleDisplay.ts` |
+
+### Track B — "Is the money right" (money + settlement, Go `apps/settlement` + money tools)
+
+| Order | ID | Bug # | What | Main files |
+|---|---|---|---|---|
+| 1 | B6 | BUG-009 | Holds script deletes every hold | `scripts/expire_holds.ts` |
+| 2 | B2 | BUG-014 | CSV import 10× off | `api/admin/adjustmentCsvParsing.ts` |
+| 3 | S1 | BUG-020 | Daily close at 03:00 instead of midnight | `stl/settlement/window.go`, `stl/scheduler/daemon.go` |
+| 4 | S3 | BUG-015 | Scheme file a few fils over | `stl/settlement/scheme_export.go` |
+| 5 | S5 | BUG-016 | Split payouts lose fils | `stl/splits/allocate.go` |
+| 6 | B1 | BUG-017 | Rebuild balances 135K → 7K | `stl/internalapi/server.go` |
+| 7 | S6 | BUG-018 | MDR recalculation rewrites paid batches | `stl/settlement/recalculate_mdr.go` |
+| 8 | S7 | BUG-019 | Test shops get real payouts | `api/admin/merchantFlags.ts` |
+| 9 | W6/W7 | BUG-008 | Duplicate payout notifications | `stl/settlement/payout_notify.go`, `api/webhooks/dispatcher.ts` |
+| 10 | W1 | BUG-023 | Webhook signs different bytes than it sends | `api/webhooks/dispatcher.ts`, `api/webhooks/sign.ts` |
+| 11 | S2, S8, S9 | BUG-021, 022, 028 | float32 net, int32 overflow, drifting estimate | `stl/settlement/payable.go`, `platform_volume.go`, `payout_estimate.go` |
+| 12 | B5, B3 | BUG-027, BUG-029 | March sweep twice; import double-submit | `scripts/reconcile_march.ts`, `api/admin/adjustmentImport.ts` |
+| 13 | Q1 | BUG-024 | Settlement summary double-counts | `api/settlement/query.ts` |
+| 14 | S4, P3, Q6, Q7/P4/Q8 | — | Residue posting, fee mismatch, UTC-date bucketing | see Phases 3–4 |
+
+### Together
+
+- **First (both):** pull, set up Docker (see Phase 1), and run the test baseline once.
+- **FP-300 Refunds (after Phases 2–3):** A does API route, locking, validation, state, `RefundDrawer` (steps 1–3, 5–6, 9, 11). B does fee reversal, settlement batch, webhook, reports (steps 4, 7, 8, 10).
+- **Phase 6 deploy:** whoever finishes first; the other reviews.
+
+### Rules so we don't collide
+
+| Shared thing | Rule |
+|---|---|
+| Git | Before each bug: `git pull --rebase origin main`. After each fix commit, push so the other gets it. |
+| New migrations | Track A uses **0073–0079**, Track B uses **0080–0089**. Never reuse a number. |
+| New bug numbers (bugs not listed yet) | Track A **BUG-031–049**, Track B **BUG-050–069**. |
+| `IMPLEMENTATION.md`, `PLAN.md` | Edit only your own rows. Each new decision gets the next free D-number; on a clash, rename yours. |
+| Same file needed | `api/webhooks/dispatcher.ts` and `api/payments/capture.ts` are Track B's. Tell the other before touching their files. |
+| A trap found | Add it to `TRAPS.md` right away and tell your mate. |
+
+---
+
 ## Phase 0 — Setup ✅
 
 | Task | Status |
