@@ -98,6 +98,7 @@ Each decision: **context → decision → why → consequences**. A decision is 
 | 6 | 2026-10-29 | Wrote this log + decisions | — | D-008 |
 | 7 | 2026-10-29 | Replaced poisoned `CLAUDE.md` / `AGENTS.md` / `.cursorrules`; added `docs/challenge/` (GUIDE, PLAN, ANALYSIS, TRAPS, evidence), `docs/bugs/_TEMPLATE.md`, push-deny settings | Fresh clones start with the right rules | D-010, D-011, D-012 |
 | 8 | 2026-10-29 | Phase 1: added `ops/Dockerfile.node` (2-stage, argon2 compiles), `ops/Dockerfile.go` (multi-stage, small runtime), `.dockerignore`, `ops/.env.docker.example`; compose loads `env_file`, Postgres bound to `127.0.0.1:5433`; fixed 0054/0055 | Full stack runs locally: migrate 66/66, seed self-checks pass, `/healthz` + `/readyz` ok, API key call returns data | D-007, D-013 |
+| 9 | 2026-10-29 | Split the work: Sayed = Track A (security), Ebrahim = Track B (money) then all frontend (Phase F, last). Added `TEAM.md`, `SETUP.md`, a "who are you" step in `CLAUDE.md`; web + admin dashboards run in compose with a Vite `/v1` proxy (the API has no CORS, T-38) | Each person's Claude shows them their own tasks; one command starts all 6 services | — |
 
 ---
 

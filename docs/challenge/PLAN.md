@@ -14,9 +14,14 @@ Paths are relative to the repo root. `api/` = `apps/api/src/`, `stl/` = `apps/se
 ## Team split (2 people)
 
 The work is split **by area of code**, so the two of us almost never edit the same file.
-Each track has about the same number of critical (★★★) bugs. Pick who takes which track.
+Each track has about the same number of critical (★★★) bugs. Details per person: `TEAM.md`.
 
-### Track A — "Who can get in" (security, TypeScript `apps/api`)
+| Person | Takes |
+|---|---|
+| **Sayed** | Track A, FP-300 A steps |
+| **Ebrahim** | Track B, FP-300 B steps, then Phase F (all frontend / UI, last) |
+
+### Track A — "Who can get in" (security, TypeScript `apps/api`) — **Sayed**
 
 | Order | ID | Bug # | What | Main files |
 |---|---|---|---|---|
@@ -35,7 +40,7 @@ Each track has about the same number of critical (★★★) bugs. Pick who take
 | 13 | Q2/Q3, Q4 | BUG-025, BUG-030 | Export: memory, skipped rows, formula injection | `api/transactions/exportCsv.ts` |
 | 14 | Q5 | BUG-026 | Dashboard fee 245 vs 225 | `api/fees/currentFeeScheduleDisplay.ts` |
 
-### Track B — "Is the money right" (money + settlement, Go `apps/settlement` + money tools)
+### Track B — "Is the money right" (money + settlement, Go `apps/settlement` + money tools) — **Ebrahim**
 
 | Order | ID | Bug # | What | Main files |
 |---|---|---|---|---|
@@ -57,7 +62,7 @@ Each track has about the same number of critical (★★★) bugs. Pick who take
 ### Together
 
 - **First (both):** pull, set up Docker (see Phase 1), and run the test baseline once.
-- **FP-300 Refunds (after Phases 2–3):** A does API route, locking, validation, state, `RefundDrawer` (steps 1–3, 5–6, 9, 11). B does fee reversal, settlement batch, webhook, reports (steps 4, 7, 8, 10).
+- **FP-300 Refunds (after Phases 2–3):** Sayed (A) does API route, locking, validation, state, ledger, tests (steps 1–3, 5–6, 11). Ebrahim (B) does fee reversal, settlement batch, webhook, reports (steps 4, 7, 8, 10) and the refund screens (step 9, in Phase F).
 - **Phase 6 deploy:** whoever finishes first; the other reviews.
 
 ### Rules so we don't collide
@@ -93,20 +98,7 @@ Without these we can't reproduce or test anything.
 | D2 | DEP-003 | Compose must load the service env (`env_file`), production mode, real secrets | `ops/docker-compose.yml`, `apps/api/src/config.ts` | ✅ |
 | — | — | Run `npm test` + `go test ./...`, record the baseline (what fails before we start) | — | ⬜ |
 
-**Run it locally** (from the repo root; first time: `cp ops/.env.docker.example ops/.env.docker` and fill in secrets):
-
-```bash
-docker compose -f ops/docker-compose.yml build
-docker compose -f ops/docker-compose.yml up -d postgres
-docker compose -f ops/docker-compose.yml run --rm migrate
-docker compose -f ops/docker-compose.yml run --rm seed      # prints a test API key per merchant
-docker compose -f ops/docker-compose.yml up -d api settlement reporting
-curl localhost:3000/readyz                                  # {"status":"ready"}
-curl -H "Authorization: Bearer <key>" "localhost:3000/v1/transactions?limit=2"
-```
-
-Postgres from the host: `psql postgres://filspay:filspay_dev_password@127.0.0.1:5433/filspay`.
-Source is copied into the images, so after a code change rebuild: `docker compose -f ops/docker-compose.yml up -d --build api`.
+**Run it locally:** see `SETUP.md` (Docker, migrate, seed, dashboards, logins, tests).
 Seen while running: the settlement daemon ran `RunDailyBatch` straight at boot (S10).
 
 ## Phase 2 — Security and double money ★★★
@@ -177,6 +169,22 @@ Fixes R1–R9 along the way. Open questions: **Q-1** route path, **Q-2** how ref
 | 9 | Timeline + `RefundDrawer` wired | `apps/web/src/pages/transactions/RefundDrawer.tsx`, `TransactionDetailPage.tsx` | ⬜ |
 | 10 | Reports + reconciliation (0072 join R7, 0070 constraint R8) | `apps/reporting/src/consumer/applyEvent.ts`, `api/settlement/query.ts`, new migration | ⬜ |
 | 11 | Tests: parallel refunds, over-refund, cross-merchant, partial fee sums | new `*.test.ts` | ⬜ |
+
+## Phase F — Frontend / UI / UX (Ebrahim, last)
+
+Done after the backend fix each one depends on. Code: `apps/web/src/` (shop + checkout, :5173) and
+`apps/admin/src/` (staff console, :5174). Live reload in Docker.
+
+| ID | Task | Files | Depends on | Status |
+|---|---|---|---|---|
+| F1 | Refund drawer + refunds in the transaction timeline (FP-300 step 9) | `apps/web/src/pages/transactions/RefundDrawer.tsx`, `TransactionDetailPage.tsx`, `apps/web/src/api/transactions.ts` | FP-300 steps 1–8 | ⬜ |
+| F2 | Checkout stops sending `submittedAt` (server decides expiry) | `apps/web/src/pages/checkout/CheckoutPage.tsx`, `apps/web/src/api/paymentLinks.ts` | BUG-004 | ⬜ |
+| F3 | Login pages work without the dev OTP on screen (clear "check your email" step) | `apps/web/src/pages/dashboard-login/LoginPage.tsx`, `apps/admin/src/pages/login/LoginPage.tsx` | A5 | ⬜ |
+| F4 | "View as merchant" is visibly read-only (banner, no write buttons) | `apps/admin/src/components/ImpersonationBanner.tsx`, `apps/web` write actions | BUG-010 | ⬜ |
+| F5 | Every amount shown as BD with **3 decimals** (fils), never 2 | `apps/web/src`, `apps/admin/src` (search `toFixed`, `/ 100`, format helpers) | — | ⬜ |
+| F6 | Refunds shown in reports, settlement and reconciliation pages | `apps/web/src/pages/*`, `apps/admin/src/pages/settlement/` | FP-300 step 10 | ⬜ |
+| F7 | UI/UX pass: errors, empty states, loading, mobile width | both apps | — | ⬜ |
+| F8 | Production build of both dashboards for the deploy | `ops/` | Phase 6 | ⬜ |
 
 ## Phase 6 — Deploy and hand in
 

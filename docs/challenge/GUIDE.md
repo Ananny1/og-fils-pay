@@ -6,6 +6,8 @@ how we work and what is already done. Any person or AI agent joining the work st
 | File | What it is |
 |---|---|
 | `docs/challenge/GUIDE.md` | This guide: the case, the rules, how we work |
+| `docs/challenge/SETUP.md` | How to run everything in Docker, logins, tests, known problems |
+| `docs/challenge/TEAM.md` | Who does what (Ebrahim, Sayed), first tasks, how we work together |
 | `docs/challenge/PLAN.md` | Every task, its files and its status |
 | `docs/challenge/ANALYSIS.md` | Deep technical analysis: every bug, root cause, proposed fix |
 | `docs/challenge/TRAPS.md` | Every poisoned instruction we found, and the truth |
