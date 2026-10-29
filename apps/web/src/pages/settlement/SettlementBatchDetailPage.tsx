@@ -1,8 +1,23 @@
+import { ArrowLeft, Banknote, FileSearch, Hash, Percent, Wallet } from "lucide-react";
+import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { getSettlementBatch, getSettlementBatchTransactions } from "../../api/settlement.js";
 import { ApiError, describeError } from "../../api/client.js";
-import { bhd, dash, dateTime } from "../../format.js";
+import FadeContent from "@/components/FadeContent";
+import { CopyButton } from "@/components/dashboard/copy-button";
+import { EmptyState } from "@/components/dashboard/empty-state";
+import { ErrorAlert } from "@/components/dashboard/error-alert";
+import { Money } from "@/components/dashboard/money";
+import { PageHeader } from "@/components/dashboard/page-header";
+import { SectionCard } from "@/components/dashboard/section-card";
+import { StatCard } from "@/components/dashboard/stat-card";
+import { StatusBadge } from "@/components/dashboard/status-badge";
+import { TableSkeleton } from "@/components/dashboard/table-skeleton";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { dash, dateTime } from "../../format.js";
 import type { SettlementBatchDetailDto, SettlementBatchTransactionDto } from "../../types.js";
 
 type LoadState =
@@ -10,6 +25,26 @@ type LoadState =
   | { kind: "not_found" }
   | { kind: "error"; message: string }
   | { kind: "loaded"; batch: SettlementBatchDetailDto };
+
+const LINE_COLUMNS = 7;
+
+function BackButton() {
+  return (
+    <Button variant="outline" size="sm" render={<Link to="/dashboard/settlement" />}>
+      <ArrowLeft />
+      All batches
+    </Button>
+  );
+}
+
+function DetailRow({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="grid gap-1 py-3 sm:grid-cols-[12rem_1fr] sm:gap-4">
+      <dt className="text-sm text-muted-foreground">{label}</dt>
+      <dd className="text-sm">{children}</dd>
+    </div>
+  );
+}
 
 /**
  * `GET /v1/settlement/batches/:id` plus its line items.
@@ -59,118 +94,183 @@ export function SettlementBatchDetailPage() {
     };
   }, [id]);
 
-  if (state.kind === "loading") return <p>Loading...</p>;
-  if (state.kind === "not_found") {
+  if (state.kind === "loading") {
     return (
-      <section>
-        <h1>Settlement batch not found</h1>
-        <p>
-          No settlement batch with this id exists on your account.{" "}
-          <Link to="/dashboard/settlement">Back to settlement batches</Link>
-        </p>
-      </section>
+      <>
+        <PageHeader title="Settlement batch" description={<Skeleton className="h-4 w-48" />} actions={<BackButton />} />
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <StatCard label="Gross" loading />
+          <StatCard label="Fee" loading />
+          <StatCard label="Net payout" loading />
+          <StatCard label="Transactions" loading />
+        </div>
+        <SectionCard title="Details">
+          <div className="space-y-3">
+            <Skeleton className="h-4 w-2/3" />
+            <Skeleton className="h-4 w-1/2" />
+            <Skeleton className="h-4 w-1/3" />
+          </div>
+        </SectionCard>
+        <SectionCard flush title="Included transactions">
+          <Table>
+            <TableSkeleton rows={5} cols={LINE_COLUMNS} />
+          </Table>
+        </SectionCard>
+      </>
     );
   }
+
+  if (state.kind === "not_found") {
+    return (
+      <>
+        <PageHeader title="Settlement batch not found" actions={<BackButton />} />
+        <EmptyState
+          icon={FileSearch}
+          title="No batch with this id"
+          description="No settlement batch with this id exists on your account."
+          action={
+            <Button variant="outline" render={<Link to="/dashboard/settlement" />}>
+              <ArrowLeft />
+              Back to settlement batches
+            </Button>
+          }
+        />
+      </>
+    );
+  }
+
   if (state.kind === "error") {
     return (
-      <section>
-        <h1>Settlement batch</h1>
-        <p className="dash-error">{state.message}</p>
-      </section>
+      <>
+        <PageHeader title="Settlement batch" actions={<BackButton />} />
+        <ErrorAlert message={state.message} title="Could not load this batch" />
+      </>
     );
   }
 
   const { batch } = state;
-  const displayProgress = parseFloat((batch.grossFils / 10000).toFixed(2));
+  const countsDiffer = batch.includedEventCount !== batch.includedTransactionCount;
 
   return (
-    <section>
-      <h1>Settlement batch {batch.batchDate}</h1>
-      {batch.status === "closed" && (
-        <div className="dash-progress-bar" style={{ width: "100%", background: "#e0e0e0", height: 6, borderRadius: 3 }}>
-          <div style={{ width: `${Math.min(displayProgress, 100)}%`, background: "#2563eb", height: 6, borderRadius: 3 }} />
+    <>
+      <PageHeader
+        title={`Settlement batch ${batch.batchDate}`}
+        description={
+          <span className="inline-flex flex-wrap items-center gap-2">
+            <StatusBadge status={batch.status} />
+            <span>Bahrain business date {batch.batchDate}</span>
+          </span>
+        }
+        actions={<BackButton />}
+      />
+
+      <FadeContent trigger="mount" duration={0.5} delay={0.05}>
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <StatCard label="Gross" fils={batch.grossFils} icon={Wallet} hint="Sum of captured amounts in the window" />
+          <StatCard label="Fee" fils={batch.feeFils} icon={Percent} hint="Acquirer fee for this batch" />
+          <StatCard label="Net payout" fils={batch.netPayoutFils} icon={Banknote} hint="Gross minus fee" />
+          <StatCard
+            label="Transactions"
+            count={batch.includedTransactionCount}
+            icon={Hash}
+            hint={`${batch.includedEventCount.toLocaleString()} capture ${batch.includedEventCount === 1 ? "event" : "events"} in this batch`}
+          />
         </div>
-      )}
-      <p className="dash-muted">
-        <code>{batch.id}</code>
-      </p>
+      </FadeContent>
 
-      <dl className="dash-dl">
-        <dt>Status</dt>
-        <dd>
-          <span className={`dash-status dash-status-${batch.status}`}>{batch.status}</span>
-        </dd>
-        <dt>Gross</dt>
-        <dd>{bhd(batch.grossFils)}</dd>
-        <dt>Fee</dt>
-        <dd>{bhd(batch.feeFils)}</dd>
-        <dt>Net payout</dt>
-        <dd>{bhd(batch.netPayoutFils)}</dd>
-        <dt>Closed at</dt>
-        <dd>{dateTime(batch.closedAt)}</dd>
-        <dt>Paid at</dt>
-        <dd>{dateTime(batch.paidAt)}</dd>
-        <dt>Included transactions</dt>
-        <dd>{batch.includedTransactionCount}</dd>
-        <dt>Capture events in this batch</dt>
-        <dd>
-          {batch.includedEventCount}
-          {batch.includedEventCount !== batch.includedTransactionCount ? (
-            <span className="dash-muted">
-              {" "}
-              — more events than transactions is normal: a transaction captured
-              more than once in this window contributes one export line and
-              several events.
-            </span>
-          ) : null}
-        </dd>
-      </dl>
+      <FadeContent trigger="mount" duration={0.5} delay={0.12}>
+        <SectionCard title="Details" description="Identifiers and lifecycle timestamps for this batch.">
+          <dl className="divide-y">
+            <DetailRow label="Batch id">
+              <span className="inline-flex items-center gap-1">
+                <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs break-all">{batch.id}</code>
+                <CopyButton value={batch.id} label="Copy batch id" />
+              </span>
+            </DetailRow>
+            <DetailRow label="Batch date">
+              <span className="font-mono">{batch.batchDate}</span>
+            </DetailRow>
+            <DetailRow label="Status">
+              <StatusBadge status={batch.status} />
+            </DetailRow>
+            <DetailRow label="Closed at">{dateTime(batch.closedAt)}</DetailRow>
+            <DetailRow label="Paid at">{dateTime(batch.paidAt)}</DetailRow>
+            <DetailRow label="Included transactions">
+              <span className="font-mono tabular-nums">{batch.includedTransactionCount.toLocaleString()}</span>
+            </DetailRow>
+            <DetailRow label="Capture events in this batch">
+              <span className="font-mono tabular-nums">{batch.includedEventCount.toLocaleString()}</span>
+              {countsDiffer ? (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  More events than transactions is normal: a transaction captured more than once in this window
+                  contributes one export line and several events.
+                </p>
+              ) : null}
+            </DetailRow>
+          </dl>
+        </SectionCard>
+      </FadeContent>
 
-      <h2>Included transactions</h2>
-      <table className="dash-table">
-        <thead>
-          <tr>
-            <th>Line</th>
-            <th>Transaction</th>
-            <th>Reference</th>
-            <th>Status</th>
-            <th>Authorized</th>
-            <th>Captured</th>
-            <th>Scheme amount</th>
-          </tr>
-        </thead>
-        <tbody>
-          {lines.map((line) => (
-            <tr key={`${line.transactionId}-${line.lineSequence}`}>
-              <td>{line.lineSequence}</td>
-              <td>
-                <Link to={`/dashboard/transactions/${line.transactionId}`}>
-                  <code>{line.transactionId}</code>
-                </Link>
-              </td>
-              <td>{dash(line.reference)}</td>
-              <td>{line.status}</td>
-              <td>{bhd(line.authorizedFils)}</td>
-              <td>{bhd(line.capturedFils)}</td>
-              <td>{bhd(line.schemeAmountFils)}</td>
-            </tr>
-          ))}
+      <FadeContent trigger="mount" duration={0.5} delay={0.2}>
+        <SectionCard
+          flush
+          title="Included transactions"
+          description="The scheme amount is the card-network export figure, quantized to two decimal places at that boundary — it can be up to 9 fils below the captured amount by design."
+        >
           {lines.length === 0 ? (
-            <tr>
-              <td colSpan={7}>No scheme export lines in this batch.</td>
-            </tr>
-          ) : null}
-        </tbody>
-      </table>
-      <p className="dash-muted">
-        The scheme amount is the card-network export figure, quantized to two
-        decimal places at that boundary — it can be up to 9 fils below the
-        captured amount by design.
-      </p>
-
-      <p>
-        <Link to="/dashboard/settlement">Back to settlement batches</Link>
-      </p>
-    </section>
+            <div className="p-4">
+              <EmptyState
+                title="No scheme export lines"
+                description="This batch has no scheme export lines yet."
+              />
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-16 text-right">Line</TableHead>
+                  <TableHead>Transaction</TableHead>
+                  <TableHead>Reference</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Authorized</TableHead>
+                  <TableHead className="text-right">Captured</TableHead>
+                  <TableHead className="text-right">Scheme amount</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {lines.map((line) => (
+                  <TableRow key={`${line.transactionId}-${line.lineSequence}`}>
+                    <TableCell className="text-right font-mono tabular-nums text-muted-foreground">
+                      {line.lineSequence}
+                    </TableCell>
+                    <TableCell>
+                      <Link
+                        to={`/dashboard/transactions/${line.transactionId}`}
+                        className="font-mono text-xs text-primary underline-offset-4 hover:underline"
+                      >
+                        {line.transactionId}
+                      </Link>
+                    </TableCell>
+                    <TableCell className="max-w-[14rem] truncate">{dash(line.reference)}</TableCell>
+                    <TableCell>
+                      <StatusBadge status={line.status} />
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Money fils={line.authorizedFils} />
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Money fils={line.capturedFils} />
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Money fils={line.schemeAmountFils} className="font-medium" />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </SectionCard>
+      </FadeContent>
+    </>
   );
 }

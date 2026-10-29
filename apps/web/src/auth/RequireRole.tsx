@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
 import { useDashboardAuth } from "./DashboardAuthContext.js";
 import type { MerchantRole } from "../types.js";
+import { ShieldAlert } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 /**
  * A UI-only convenience gate. It is **explicitly not** the security boundary
@@ -62,12 +64,15 @@ export function RoleGatedPage({
     <RequireRole
       allow={allow}
       fallback={
-        <section>
-          <h1>{title}</h1>
-          <p className="dash-error">
-            You don&apos;t have permission to use this page — ask an owner or finance
-            user on your account.
-          </p>
+        <section className="space-y-3">
+          <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
+          <Alert variant="destructive">
+            <ShieldAlert />
+            <AlertTitle>Not permitted</AlertTitle>
+            <AlertDescription>
+              You don&apos;t have permission to use this page — ask an owner or finance user on your account.
+            </AlertDescription>
+          </Alert>
         </section>
       }
     >

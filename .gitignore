@@ -8,3 +8,4 @@ npm-debug.log*
 .claude/*
 !.claude/settings.json
 .env.*
+.playwright-mcp/

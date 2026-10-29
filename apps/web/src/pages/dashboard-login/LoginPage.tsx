@@ -1,3 +1,4 @@
+import { ArrowRight, Info } from "lucide-react";
 import { useState } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { login, resendOtp, verifyOtp } from "../../api/dashboardAuth.js";
@@ -8,9 +9,46 @@ import {
   writeLastMerchantId,
 } from "../../auth/DashboardAuthContext.js";
 import type { DashboardLoginResponse } from "../../types.js";
-import "../../dashboard.css";
+import AnimatedContent from "@/components/AnimatedContent";
+import BlurText from "@/components/BlurText";
+import FadeContent from "@/components/FadeContent";
+import GlareHover from "@/components/GlareHover";
+import GradientText from "@/components/GradientText";
+import Magnet from "@/components/Magnet";
+import StarBorder from "@/components/StarBorder";
+import { BatchPreview } from "@/components/dashboard/batch-preview";
+import { ErrorAlert } from "@/components/dashboard/error-alert";
+import { BrandMark } from "@/components/dashboard/public-shell";
+import { ThemeToggle } from "@/components/dashboard/theme-toggle";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { Spinner } from "@/components/ui/spinner";
 
 type Step = { kind: "credentials" } | { kind: "otp"; challenge: DashboardLoginResponse };
+
+const FACTS = ["1 BD = 1000 fils", "Closes 00:00 Bahrain", "Visa · Mastercard", "Signed webhooks"];
+
+const STEPS = [
+  {
+    title: "Send a link",
+    body: "Type the amount in dinars, three decimals and all. Share the link on WhatsApp, by email, or print the QR for the counter.",
+  },
+  {
+    title: "Customer taps pay",
+    body: "Card, 3-D Secure, done. The capture shows up in your Transactions list before the customer has put their phone away.",
+  },
+  {
+    title: "Midnight, Bahrain",
+    body: "Every capture from the day rolls into one batch: gross, our fee, your net. Integer fils, banker's rounding, nothing lost in the gap.",
+  },
+  {
+    title: "Money in the bank",
+    body: "The net lands in your account. A signed settlement.paid webhook tells your own system the same second.",
+  },
+];
 
 /**
  * Two-step merchant login: merchantId + email + password
@@ -19,14 +57,10 @@ type Step = { kind: "credentials" } | { kind: "otp"; challenge: DashboardLoginRe
  * wrong — the API answers a single generic `invalid_credentials`, and this
  * screen repeats it verbatim rather than guessing at something more specific.
  *
- * The Merchant ID field is a raw pasted UUID. This is a genuine rough edge,
- * not a preference: `merchant_users.email` is unique per merchant rather than
- * globally (Phase 1 schema), so an email alone cannot identify a user, and no
- * merchant slug or subdomain concept exists anywhere in the platform to infer
- * the id from. `localStorage` remembering the last-used value is the whole
- * mitigation available without new backend work; a lookup-by-email endpoint
- * or a per-merchant subdomain would be the real fix, and both are out of
- * scope for a frontend-only phase.
+ * The Merchant ID field is a raw pasted UUID: `merchant_users.email` is
+ * unique per merchant rather than globally, so an email alone cannot identify
+ * a user. `localStorage` remembering the last-used value is the whole
+ * mitigation available without new backend work.
  */
 export function LoginPage() {
   const { status, refresh } = useDashboardAuth();
@@ -119,94 +153,343 @@ export function LoginPage() {
     }
   }
 
+  const isOtp = step.kind === "otp";
+
   return (
-    <main className="dash-centered">
-      <h1>FilsPay dashboard</h1>
-      <p className="dash-muted">Merchant sign-in.</p>
+    <div className="min-h-svh bg-card text-foreground">
+      <header className="sticky top-0 z-20 border-b border-border/60 bg-card/80 backdrop-blur">
+        <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-4 md:px-6">
+          <BrandMark />
+          <div className="flex items-center gap-2">
+            <a
+              href="#how-it-works"
+              className="hidden text-sm font-medium text-muted-foreground transition-colors hover:text-foreground md:inline"
+            >
+              How it works
+            </a>
+            <ThemeToggle />
+          </div>
+        </div>
+      </header>
 
-      {error ? <p className="dash-error">{error}</p> : null}
-      {notice ? <p className="dash-notice">{notice}</p> : null}
+      <main className="mx-auto w-full max-w-6xl px-4 md:px-6">
+        {/* Hero + sign-in */}
+        <section className="grid items-start gap-10 py-10 md:py-16 lg:grid-cols-[1.1fr_minmax(22rem,26rem)] lg:gap-16">
+          <div className="space-y-7">
+            <FadeContent trigger="mount" duration={0.5}>
+              <span className="inline-flex items-center gap-2 rounded-full border border-primary/25 bg-primary/10 px-4 py-1.5 text-sm font-medium text-primary">
+                <span className="relative flex size-1.5">
+                  <span className="absolute inline-flex size-full animate-ping rounded-full bg-primary/60" />
+                  <span className="relative inline-flex size-1.5 rounded-full bg-primary" />
+                </span>
+                Merchant dashboard
+              </span>
+            </FadeContent>
 
-      {step.kind === "credentials" ? (
-        <form onSubmit={(e) => void handleCredentials(e)} className="dash-form">
-          <label>
-            Merchant ID
-            <input
-              type="text"
-              required
-              autoComplete="off"
-              spellCheck={false}
-              placeholder="00000000-0000-0000-0000-000000000000"
-              value={merchantId}
-              onChange={(e) => setMerchantId(e.target.value)}
-            />
-          </label>
-          <p className="dash-muted dash-hint">
-            The UUID issued when your account was created. Your API integration
-            already uses this value.
-          </p>
-          <label>
-            Email
-            <input
-              type="email"
-              autoComplete="username"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-          </label>
-          <label>
-            Password
-            <input
-              type="password"
-              autoComplete="current-password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-          </label>
-          <button type="submit" className="dash-button" disabled={submitting}>
-            {submitting ? "Signing in..." : "Continue"}
-          </button>
-        </form>
-      ) : (
-        <form onSubmit={(e) => void handleOtp(e)} className="dash-form">
-          <p>
-            A one-time code was issued for <strong>{email}</strong>. It expires at{" "}
-            {new Date(step.challenge.otpExpiresAt).toLocaleTimeString()}.
-          </p>
-          {step.challenge.devOtpCode ? (
-            <p className="dash-muted">
-              Development code: <code>{step.challenge.devOtpCode}</code>
-            </p>
-          ) : null}
-          <label>
-            One-time code
-            <input
-              type="text"
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              required
-              value={code}
-              onChange={(e) => setCode(e.target.value)}
-            />
-          </label>
-          <button type="submit" className="dash-button" disabled={submitting}>
-            {submitting ? "Verifying..." : "Verify"}
-          </button>
-          <button
-            type="button"
-            className="dash-button"
-            disabled={submitting}
-            onClick={() => void handleResend()}
-          >
-            Resend code
-          </button>
-          <button type="button" className="dash-button" onClick={() => backToCredentials(null)}>
-            Start over
-          </button>
-        </form>
-      )}
-    </main>
+            <h1 className="text-4xl font-bold leading-[1.05] tracking-[-0.03em] md:text-6xl">
+              <BlurText
+                text="Card payments for Bahrain,"
+                trigger="load"
+                animateBy="words"
+                delay={70}
+                stepDuration={0.35}
+                className="block"
+              />
+              <GradientText
+                colors={["hsl(4 90% 55%)", "hsl(220 55% 35%)", "hsl(4 90% 55%)"]}
+                animationSpeed={6}
+                className="inline-block"
+              >
+                settled to the fil.
+              </GradientText>
+            </h1>
+
+            <FadeContent trigger="mount" duration={0.6} delay={0.25}>
+              <p className="max-w-xl text-lg leading-8 text-muted-foreground">
+                Your captures, your fees and tonight&apos;s payout, all in one place. The books close at
+                midnight Bahrain time and what you see here is what reaches your bank.
+              </p>
+            </FadeContent>
+
+            <FadeContent trigger="mount" duration={0.6} delay={0.4}>
+              <ul className="flex flex-wrap gap-2">
+                {FACTS.map((f) => (
+                  <li
+                    key={f}
+                    className="rounded-full border border-border/70 bg-background px-3 py-1 font-mono text-[12.5px] text-muted-foreground"
+                  >
+                    {f}
+                  </li>
+                ))}
+              </ul>
+            </FadeContent>
+
+            <FadeContent trigger="mount" duration={0.7} delay={0.5}>
+              <BatchPreview />
+            </FadeContent>
+          </div>
+
+          <FadeContent trigger="mount" duration={0.7} delay={0.15}>
+            <GlareHover
+              background="transparent"
+              borderRadius="1.35rem"
+              borderColor="transparent"
+              glareColor="#ffffff"
+              glareOpacity={0.18}
+              glareSize={220}
+              variant="sheen"
+              mode="hover"
+              transitionDuration={900}
+              className="w-full"
+              style={{ width: "100%", height: "auto" }}
+            >
+              <Card className="w-full rounded-2xl border-border/70 shadow-elegant">
+                <CardHeader>
+                  <CardTitle className="text-xl font-bold">{isOtp ? "Check your inbox" : "Sign in"}</CardTitle>
+                  <CardDescription>
+                    {isOtp ? (
+                      <>
+                        A one-time code was issued for{" "}
+                        <span className="font-medium text-foreground">{email}</span>. It expires at{" "}
+                        <span className="font-mono tabular-nums text-foreground">
+                          {new Date(step.challenge.otpExpiresAt).toLocaleTimeString()}
+                        </span>
+                        .
+                      </>
+                    ) : (
+                      "Merchant ID, email and password. A one-time code finishes it."
+                    )}
+                  </CardDescription>
+                </CardHeader>
+
+                <CardContent className="flex flex-col gap-4">
+                  <ErrorAlert message={error} title="Sign-in failed" />
+                  {notice ? (
+                    <Alert>
+                      <Info className="text-info" />
+                      <AlertDescription>{notice}</AlertDescription>
+                    </Alert>
+                  ) : null}
+
+                  {step.kind === "credentials" ? (
+                    <form onSubmit={(e) => void handleCredentials(e)}>
+                      <FieldGroup>
+                        <Field>
+                          <FieldLabel htmlFor="login-merchant-id">Merchant ID</FieldLabel>
+                          <Input
+                            id="login-merchant-id"
+                            type="text"
+                            required
+                            autoComplete="off"
+                            spellCheck={false}
+                            placeholder="00000000-0000-0000-0000-000000000000"
+                            className="h-11 font-mono text-[13px]"
+                            value={merchantId}
+                            onChange={(e) => setMerchantId(e.target.value)}
+                          />
+                          <FieldDescription>From your onboarding email. We remember it on this device.</FieldDescription>
+                        </Field>
+                        <Field>
+                          <FieldLabel htmlFor="login-email">Email</FieldLabel>
+                          <Input
+                            id="login-email"
+                            type="email"
+                            autoComplete="username"
+                            required
+                            className="h-11"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                          />
+                        </Field>
+                        <Field>
+                          <FieldLabel htmlFor="login-password">Password</FieldLabel>
+                          <Input
+                            id="login-password"
+                            type="password"
+                            autoComplete="current-password"
+                            required
+                            className="h-11"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                          />
+                        </Field>
+                        <Magnet padding={40} magnetStrength={14} wrapperClassName="block w-full" innerClassName="block w-full">
+                          <Button type="submit" size="lg" className="group w-full" disabled={submitting}>
+                            {submitting ? (
+                              <>
+                                <Spinner /> Signing in...
+                              </>
+                            ) : (
+                              <>
+                                Continue{" "}
+                                <ArrowRight className="transition-transform duration-200 group-hover:translate-x-0.5" />
+                              </>
+                            )}
+                          </Button>
+                        </Magnet>
+                        <Button type="button" variant="outline" size="lg" className="w-full" render={<a href="#how-it-works" />}>
+                          How does it work?
+                        </Button>
+                      </FieldGroup>
+                    </form>
+                  ) : (
+                    <form onSubmit={(e) => void handleOtp(e)}>
+                      <FieldGroup>
+                        {step.challenge.devOtpCode ? (
+                          <div className="flex items-center justify-between gap-3 rounded-xl border border-dashed border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+                            <span>
+                              Development code:{" "}
+                              <code className="font-mono text-sm font-medium tracking-widest text-foreground">
+                                {step.challenge.devOtpCode}
+                              </code>
+                            </span>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="xs"
+                              disabled={submitting}
+                              onClick={() => setCode(step.challenge.devOtpCode ?? "")}
+                            >
+                              Use this code
+                            </Button>
+                          </div>
+                        ) : null}
+                        <Field>
+                          <FieldLabel htmlFor="login-otp">One-time code</FieldLabel>
+                          <Input
+                            id="login-otp"
+                            type="text"
+                            inputMode="numeric"
+                            autoComplete="one-time-code"
+                            autoFocus
+                            required
+                            maxLength={6}
+                            placeholder="••••••"
+                            className="h-12 text-center font-mono text-2xl tracking-[0.5em] placeholder:tracking-[0.5em]"
+                            value={code}
+                            onChange={(e) => setCode(e.target.value)}
+                          />
+                        </Field>
+                        <Button type="submit" size="lg" className="w-full" disabled={submitting}>
+                          {submitting ? (
+                            <>
+                              <Spinner /> Verifying...
+                            </>
+                          ) : (
+                            "Verify"
+                          )}
+                        </Button>
+                        <div className="flex items-center justify-between">
+                          <Button
+                            type="button"
+                            variant="link"
+                            size="sm"
+                            className="px-0 text-muted-foreground"
+                            disabled={submitting}
+                            onClick={() => backToCredentials(null)}
+                          >
+                            Back
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            disabled={submitting}
+                            onClick={() => void handleResend()}
+                          >
+                            Resend code
+                          </Button>
+                        </div>
+                      </FieldGroup>
+                    </form>
+                  )}
+                </CardContent>
+              </Card>
+            </GlareHover>
+          </FadeContent>
+        </section>
+
+        {/* How it works */}
+        <section id="how-it-works" className="scroll-mt-20 border-t border-border/60 py-14 md:py-20">
+          <AnimatedContent distance={40} duration={0.7} threshold={0.2}>
+            <div className="mx-auto max-w-3xl text-center">
+              <h2 className="text-3xl font-bold tracking-tight md:text-4xl">From a link to your bank, in four moves</h2>
+              <p className="mt-3 text-lg text-muted-foreground">
+                No terminal to rent, nothing to install. Each move shows up in the dashboard as it happens.
+              </p>
+            </div>
+          </AnimatedContent>
+          <ol className="mx-auto mt-12 grid max-w-5xl gap-6 md:grid-cols-2 lg:grid-cols-4">
+            {STEPS.map((s, i) => (
+              <AnimatedContent key={s.title} distance={60} duration={0.7} delay={i * 0.12} threshold={0.15}>
+                <li className="h-full">
+                  <GlareHover
+                    background="transparent"
+                    borderRadius="1.35rem"
+                    borderColor="transparent"
+                    glareColor="#ffffff"
+                    glareOpacity={0.2}
+                    glareSize={240}
+                    variant="streak"
+                    mode="hover"
+                    transitionDuration={800}
+                    className="h-full w-full"
+                    style={{ width: "100%", height: "100%" }}
+                  >
+                    <div className="flex h-full flex-col rounded-2xl border border-border/70 bg-card p-6 shadow-card transition-transform duration-300 hover:-translate-y-1">
+                      <span className="flex size-10 items-center justify-center rounded-full bg-primary/10 font-mono text-sm font-semibold text-primary ring-1 ring-primary/15">
+                        {i + 1}
+                      </span>
+                      <h3 className="mt-5 text-lg font-bold">{s.title}</h3>
+                      <p className="mt-2 text-sm leading-6 text-muted-foreground">{s.body}</p>
+                    </div>
+                  </GlareHover>
+                </li>
+              </AnimatedContent>
+            ))}
+          </ol>
+        </section>
+
+        {/* Closing */}
+        <section className="pb-16">
+          <AnimatedContent distance={40} duration={0.7} threshold={0.2}>
+            <div className="rounded-3xl bg-primary/[0.06] px-6 py-12 text-center ring-1 ring-primary/15 md:px-12">
+              <h2 className="text-2xl font-bold tracking-tight md:text-3xl">Already with FilsPay?</h2>
+              <p className="mx-auto mt-3 max-w-xl text-muted-foreground">
+                Sign in above. Not a merchant yet? Our onboarding takes a licence, an ID and one working day.
+              </p>
+              <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+                <StarBorder
+                  as="a"
+                  href="#login-merchant-id"
+                  color="hsl(4 90% 55%)"
+                  trailColor="hsl(220 55% 35%)"
+                  duration={5}
+                  thickness={1}
+                  radius={12}
+                  glow={0.5}
+                  theme="light"
+                  backgroundColor="hsl(4 90% 55%)"
+                  textColor="#fff"
+                  className="inline-flex h-11 items-center gap-2 px-6 text-[15px] font-medium"
+                >
+                  Go to sign in <ArrowRight className="size-4" />
+                </StarBorder>
+                <Button size="lg" variant="outline" render={<a href="mailto:support@filspay.example" />}>
+                  Talk to onboarding
+                </Button>
+              </div>
+            </div>
+          </AnimatedContent>
+        </section>
+      </main>
+
+      <footer className="border-t border-border/60 py-8">
+        <div className="mx-auto flex w-full max-w-6xl flex-col items-center justify-between gap-3 px-4 text-sm text-muted-foreground md:flex-row md:px-6">
+          <BrandMark className="opacity-80" />
+          <p>© 2026 FilsPay · Manama, Kingdom of Bahrain</p>
+        </div>
+      </footer>
+    </div>
   );
 }

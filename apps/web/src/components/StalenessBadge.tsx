@@ -1,3 +1,7 @@
+import { Clock, Radio } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
+
 /**
  * Renders the `readModelAsOf`/`live` pair every analytics response carries.
  * Staleness in this platform is a disclosed property, not a
@@ -16,23 +20,48 @@
 export function StalenessBadge({
   readModelAsOf,
   live,
+  className,
 }: {
   readModelAsOf: string | null;
   live: boolean;
+  className?: string;
 }) {
   if (live) {
-    return <span className="dash-badge dash-badge-live">Live · computed just now</span>;
+    return (
+      <Badge
+        variant="outline"
+        className={cn("gap-1.5 border-success/30 bg-success/10 text-success", className)}
+        title="Computed just now from the live ledger"
+      >
+        <span className="relative flex size-1.5" aria-hidden>
+          <span className="absolute inline-flex size-full animate-ping rounded-full bg-success opacity-75" />
+          <span className="relative inline-flex size-1.5 rounded-full bg-success" />
+        </span>
+        Live
+      </Badge>
+    );
   }
   if (!readModelAsOf) {
     return (
-      <span className="dash-badge dash-badge-stale">
-        No data yet — the reporting worker has not completed a pass
-      </span>
+      <Badge
+        variant="outline"
+        className={cn("gap-1 border-warning/30 bg-warning/10 text-warning", className)}
+        title="The reporting worker has not completed a pass yet"
+      >
+        <Radio />
+        No data yet
+      </Badge>
     );
   }
+  const asOf = new Date(readModelAsOf);
   return (
-    <span className="dash-badge dash-badge-stale">
-      Data as of {new Date(readModelAsOf).toLocaleTimeString()}
-    </span>
+    <Badge
+      variant="outline"
+      className={cn("gap-1 border-warning/30 bg-warning/10 text-warning", className)}
+      title={`Read model last updated ${asOf.toLocaleString()}`}
+    >
+      <Clock />
+      Data as of {asOf.toLocaleTimeString()}
+    </Badge>
   );
 }
