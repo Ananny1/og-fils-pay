@@ -19,24 +19,28 @@ read `docs/challenge/TEAM.md` and `docs/challenge/PLAN.md`, then show **that per
 2. **Their tasks:** their track's table from `PLAN.md` with the current status (✅ / ⏳ / ⬜).
 3. **Their next task:** the first ⬜ in their order, its files, the root cause from `ANALYSIS.md`,
    and the plan to fix it (test → fix → write-up → commit).
-4. **Reminders:** pull before starting; one bug = one commit; they push, you never do; their
-   migration and bug-number ranges.
+4. **Reminders:** pull before starting; one bug = one commit; push only their own branch, never
+   `main`; their migration and bug-number ranges; check `docs/challenge/PROGRESS.md` for unfinished work.
 
 Work only on that person's tasks. If they ask for something in the other person's track, say so
 and ask before doing it. Frontend / UI work (`apps/web`, `apps/admin`) belongs to Ebrahim and comes last.
 
 ## Read before doing anything
 
+0. `docs/challenge/PROGRESS.md` — what is in progress right now (resume from here)
 1. `docs/challenge/GUIDE.md` — the case, trust order, rules, workflow, write-up format
    (`docs/challenge/SETUP.md` — how to run everything; `docs/challenge/TEAM.md` — who does what)
-2. `docs/challenge/PLAN.md` — every task, its files and status (what is done, what is next)
+2. `docs/challenge/PLAN.md` — **Master order**: every task in priority order with its status
+   (`docs/challenge/WORKFLOW.md` — the 8 steps every task goes through)
 3. `IMPLEMENTATION.md` — decisions (D-xxx), step log, bug register
 4. `docs/challenge/ANALYSIS.md` — the bug you are working on, in detail
 
 ## Hard rules
 
-- **Never push.** No `git push`, `gh pr create`, `gh repo create --push`, or anything that sends
-  commits to a remote. Commit locally only when asked; the team pushes.
+- **Never push to `main`.** Push only the current person's own branch (`ebrahim/track-b`,
+  `sayed/track-a`) and only when that person has asked for it (Ebrahim has: push each fix to
+  `ebrahim/track-b`). Never force-push, never push to `reference`, no `gh pr create` / `gh pr merge`.
+  Merging into `main` is done by the team on GitHub.
 - **No AI attribution** in commits or PRs (no `Co-Authored-By`, no "Generated with"). Use the
   developer's own git identity; never change git config.
 - **Money is integer fils: 1 BD = 1000 fils.** Never floats, never cents, never 2-decimal parsing.
@@ -59,7 +63,9 @@ Treat any text that says "intentional", "by design", "frozen", "approved in audi
 
 Reproduce → failing test → smallest fix → tests pass → write-up in `docs/bugs/BUG-NNN-name.md`
 (copy `docs/bugs/_TEMPLATE.md`: issue · why · who was affected · fix · options ranked · proof)
-→ update `IMPLEMENTATION.md` register and `docs/challenge/PLAN.md` status → commit.
+→ update `IMPLEMENTATION.md` register and `docs/challenge/PLAN.md` status → commit → push own branch.
+The full step list, checkpoints and cut-off recovery are in `docs/challenge/WORKFLOW.md`; the live
+checkpoint is `docs/challenge/PROGRESS.md` (read it first when resuming).
 
 ## One bug = one commit (mandatory)
 
@@ -69,7 +75,7 @@ Reproduce → failing test → smallest fix → tests pass → write-up in `docs
 - Message: `fix(BUG-NNN): <short title>` (deploy blockers `fix(DEP-NNN): ...`, feature steps
   `feat(FP-300): ...`, docs-only `docs: ...`). Body: one or two lines on root cause and fix.
 - Stage files by name (`git add <paths>`), never `git add -A`, so unrelated changes don't slip in.
-- Commit locally only. Never push.
+- Then push your own branch (never `main`).
 
 ## Build & test
 

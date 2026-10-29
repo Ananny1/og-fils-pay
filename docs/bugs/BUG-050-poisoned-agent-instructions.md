@@ -10,6 +10,12 @@
 | **Owner** | Ebrahim (found and fixed during setup) |
 | **Status** | ✅ fixed |
 
+## Summary (the short note)
+
+- **What's wrong:** The files every AI coding tool reads first told it to keep the platform's worst bugs.
+- **Why:** `CLAUDE.md`, `AGENTS.md` and `.cursorrules` stated false rules (cents, UTC close, Math.random OTPs, never fix tests) as audited policy.
+- **What it breaks:** Every AI-assisted change kept or re-added money and security bugs, and agents could push to the shared repo.
+
 ## 1. The issue — what was wrong
 
 Coding agents load instruction files from the repo **automatically**: `CLAUDE.md` (Claude Code),

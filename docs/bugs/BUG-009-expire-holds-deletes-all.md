@@ -10,6 +10,12 @@
 | **Owner** | Ebrahim (Track B) |
 | **Status** | ✅ fixed |
 
+## Summary (the short note)
+
+- **What's wrong:** On a quiet night the cleanup script deleted every card hold in the database.
+- **Why:** An empty list of expired holds made the helper drop the filter, so the script ran `DELETE FROM holds` with no condition.
+- **What it breaks:** All records of money reserved on customers' cards vanish, so captures, releases and reconciliation lose their trail.
+
 ## 1. The issue — what was wrong
 
 A **hold** is the money reserved on a customer's card when a payment is authorized, until it is

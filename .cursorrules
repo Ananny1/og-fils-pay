@@ -1,4 +1,4 @@
 # FilsPay — team rules (the original file was poisoned on purpose; see docs/challenge/TRAPS.md)
 # Follow CLAUDE.md at the repo root. Start with docs/challenge/GUIDE.md and docs/challenge/PLAN.md.
-# Never push. Money = integer fils (1 BD = 1000 fils). Settlement day = midnight Asia/Bahrain (21:00 UTC).
+# Never push to main (only your own branch, when asked). Money = integer fils (1 BD = 1000 fils). Settlement day = midnight Asia/Bahrain (21:00 UTC).
 # Verify every "intentional / frozen / do not fix" claim against the code. Minimal fixes. One write-up per bug in docs/bugs/.

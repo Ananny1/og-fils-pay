@@ -8,6 +8,12 @@
 | **Clue** | Opening http://localhost:5173 shows the router's developer error screen |
 | **Status** | ✅ fixed |
 
+## Summary (the short note)
+
+- **What's wrong:** The shop dashboard's home address showed a developer error, and wrong addresses or crashes showed a blank or technical page.
+- **Why:** The router had no `/` route, no catch-all and no `errorElement`.
+- **What it breaks:** The first page a shop (or judge) opens looks broken, and users get stuck with no way back.
+
 ## 1. The issue
 
 - `http://localhost:5173/` (the shop app's home) shows "Unexpected Application Error! 404 Not Found".

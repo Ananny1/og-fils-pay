@@ -1,29 +1,148 @@
 # FilsPay — Work Plan
 
-Every known issue, grouped into phases, in the order we fix them. Details for each ID are in
-`ANALYSIS.md`. When a task is done: tick it here, fill the `IMPLEMENTATION.md` register and write
-`docs/bugs/BUG-NNN-*.md`.
+**How to use this file:** the **Master order** below is the one list of every task and the **only
+status that counts**. Work top to bottom (`WORKFLOW.md`); a task whose "Needs" isn't ✅ waits.
+The sections after it hold details (files, test ideas) and are not kept in sync for status.
+Details for each ID are in `ANALYSIS.md`; the live checkpoint is `PROGRESS.md`.
 
 **Status:** ⬜ todo · ⏳ in progress · ✅ done · ⏭ skipped (say why)
 **Points:** ★★★ critical (security / money lost or duplicated) · ★★ wrong money · ★ reliability / reporting
+**Evidence:** S1 security brief · S2 FP-300 sheet · S3 finance & ops weekly · S4 support tickets (`evidence/`)
 
 Paths are relative to the repo root. `api/` = `apps/api/src/`, `stl/` = `apps/settlement/internal/`.
 
 ---
 
+## Master order
+
+Ordered by **what must work first**: you can't test anything if it doesn't run (Tier 0), nobody
+should get in who shouldn't (Tier 1: login is the entry), then who can do what (Tier 2), then money
+coming in (Tier 3), money maths (Tier 4), what shops are told (Tier 5), the missing feature (Tier 6),
+the screens (Tier 7) and hand-in (Tier 8).
+
+| # | ID | Task | ★ | Evidence | Needs | Status |
+|---|---|---|---|---|---|---|
+| **Tier 0** | | **Runs at all** | | | | |
+| 0.1 | DEP-001 | Missing Dockerfiles | ★★★ | S1 "docker compose up" | — | ✅ |
+| 0.2 | DEP-002 | Fresh migrate fails (0054, 0055) | ★★★ | HANDOVER | — | ✅ |
+| 0.3 | DEP-003 | Compose never loads service settings | ★★★ | compose header | — | ✅ |
+| 0.4 | BUG-050 | Poisoned AI instruction files | ★★★ | flag, ANALYSIS §0 | — | ✅ |
+| 0.5 | F0 | Dashboard home URL, not-found / error pages | ★ | found running it | — | ✅ |
+| 0.6 | BUG-009 | `expire_holds` deletes every hold | ★★★ | HANDOVER | — | ✅ |
+| 0.7 | DEP-004 | `docker compose up` **from `ops/`** (the brief's own instruction) must work: migrate before seed before services, no settings file required for local | ★★ | S1 | — | ⬜ |
+| 0.8 | T1 | Test baseline: run `npm test` + `go test ./...`, record what already fails | — | — | 0.7 | ⬜ |
+| **Tier 1** | | **Login (the entry point)** | | | | |
+| 1.1 | BUG-001 | Login works without the OTP | ★★★ | S3 group chat | — | ⬜ |
+| 1.2 | BUG-002 | OTP binds to another shop's user with the same email | ★★★ | S4 "OTP changed" | 1.1 | ⬜ |
+| 1.3 | BUG-011 | OTP guessable: parallel attempts bypass the limit; codes from `Math.random` | ★★ | S4 "OTP … still safe?" | 1.1 | ⬜ |
+| 1.4 | BUG-031 | OTP returned in the login reply and logged (`otpDevExpose` defaults on) | ★★★ | S4 "OTP … still safe?" | 1.1 | ⬜ |
+| 1.5 | BUG-032 | Admin session not rotated after OTP (fixation) | ★ | — | 1.1 | ⬜ |
+| **Tier 2** | | **Who can do what** | | | | |
+| 2.1 | BUG-010 | "View as merchant" gives super_admin **owner** powers, and can write | ★★★ | HANDOVER | Tier 1 | ⬜ |
+| 2.2 | BUG-003 | Shop A cancels shop B's payment link (IDOR) | ★★★ | S3 group chat | Tier 1 | ⬜ |
+| 2.3 | BUG-033 | Admin actions missing role checks: audit every `/v1/admin` route | ★★ | S4 "admin … role checks" | Tier 1 | ⬜ |
+| 2.4 | BUG-012 | API key rotation leaves the old key working | ★★ | S4 "key rotation" | Tier 1 | ⬜ |
+| 2.5 | BUG-013 | Credit two-person check compares display names | ★★ | — | Tier 1 | ⬜ |
+| **Tier 3** | | **Money coming in** | | | | |
+| 3.1 | BUG-004 | Expired payment link still payable (client `submittedAt`) | ★★★ | S4 FP-187 | — | ⬜ |
+| 3.2 | BUG-005 | Payment link charged twice (slow payment) | ★★★ | S4 incident 2026-05-14 | 3.1 | ⬜ |
+| 3.3 | BUG-007 | Acquirer callback signature optional / re-serialised / no freshness / outcome unchecked | ★★★ | S4 FP-240 "incoming check" | — | ⬜ |
+| 3.4 | BUG-006 | Duplicate acquirer callbacks saved twice | ★★★ | S4 FP-201 (reopened) | 3.3 | ⬜ |
+| 3.5 | BUG-008 | Duplicate payout notifications + disbursements | ★★★ | S4 incident 2026-08-21 | — | ⬜ |
+| **Tier 4** | | **Money maths and settlement** | | | | |
+| 4.1 | BUG-014 | CSV import reads 4.75 BD as 0.475, 4.755 as 4.750 | ★★★ | S3 "10x??" | — | ⬜ |
+| 4.2 | BUG-020 | Daily close at 03:00 Bahrain instead of midnight | ★★ | S3, S4 | — | ⬜ |
+| 4.3 | BUG-015 | Scheme statement always a few fils over | ★★ | S3 | — | ⬜ |
+| 4.4 | BUG-016 | Delta Marketplace split payouts lose fils | ★★★ | S3, S4 | — | ⬜ |
+| 4.5 | BUG-017 | "Recalculate cached balances" 135K → 7K | ★★★ | S3, S4 FP-203 | — | ⬜ |
+| 4.6 | BUG-018 | MDR recalculation rewrites paid batches | ★★★ | S3 | — | ⬜ |
+| 4.7 | BUG-019 | Test merchants paid in the real settlement run | ★★★ | S3, S4 | — | ⬜ |
+| 4.8 | BUG-021 | Net payout in float32 | ★★ | — | — | ⬜ |
+| 4.9 | BUG-022 | Platform volume counter int32 overflow | ★★ | — | — | ⬜ |
+| 4.10 | BUG-028 | Lifetime payout estimate drifts | ★★ | S3 group chat | — | ⬜ |
+| 4.11 | BUG-027 | March sweep doubles the gap when run twice | ★★ | S3 | — | ⬜ |
+| 4.12 | BUG-029 | Adjustment import has no double-submit guard | ★★ | — | 4.1 | ⬜ |
+| 4.13 | BUG-051 | Scheme residue never posted (ADR-0002) | ★★ | ADR-0002 | 4.3 | ⬜ |
+| 4.14 | BUG-052 | Capture fee ignores negotiated discount; settlement applies it | ★★ | — | — | ⬜ |
+| 4.15 | BUG-053 | Split child without a balance row → payout no-op | ★ | — | 4.4 | ⬜ |
+| **Tier 5** | | **What shops are told (webhooks, reports)** | | | | |
+| 5.1 | BUG-023 | Outbound webhook signs different bytes than it sends | ★★★ | S4 FP-240 | — | ⬜ |
+| 5.2 | BUG-024 | Settlement summary double-counts and is slow | ★★ | S4 "reporting … slow" | — | ⬜ |
+| 5.3 | BUG-025 | Large export: all in memory; streaming version skips rows | ★★ | S4 "large export" | — | ⬜ |
+| 5.4 | BUG-030 | CSV export formula injection | ★ | — | 5.3 | ⬜ |
+| 5.5 | BUG-026 | Dashboard fee 245 vs 225 bps | ★★ | S3 | — | ⬜ |
+| 5.6 | BUG-054 | Reconciliation uses `merchants.mdr_bps` (no sync trigger) | ★ | — | 5.5 | ⬜ |
+| 5.7 | BUG-055 | Rollups / metrics / analytics bucketed by UTC date | ★ | — | 4.2 | ⬜ |
+| **Tier 6** | | **FP-300 Refunds (the missing feature)** | | | | |
+| 6.1 | BUG-034 | Two refunds at once both succeed | ★★★ | S4 FP-209 | — | ⬜ |
+| 6.2 | BUG-035 | Refund more than was captured | ★★★ | S4 "refund more than charged" | — | ⬜ |
+| 6.3 | BUG-036 | Refund another shop's transaction | ★★★ | — | — | ⬜ |
+| 6.4 | BUG-056 | Fee reversal across partial refunds can exceed the original fee | ★★ | S2 "fees … right" | — | ⬜ |
+| 6.5 | BUG-057 | Status after a full refund of a partial capture | ★ | — | — | ⬜ |
+| 6.6 | FP-300.1 | Refund route + guards + required `Idempotency-Key` | ★★★ | S2 "through the API" | 6.1–6.3 | ⬜ |
+| 6.7 | FP-300.2 | Ledger to the fil | ★★★ | S2 "ledger … fils" | 6.6 | ⬜ |
+| 6.8 | FP-300.3 | Next settlement batch reduced by refunds (R9) | ★★★ | S2 "payouts" | 6.7 | ⬜ |
+| 6.9 | FP-300.4 | `refund.succeeded` webhook (R6) | ★★ | S2 "right webhook" | 5.1, 6.6 | ⬜ |
+| 6.10 | FP-300.5 | Timeline, reports, reconciliation (R7, R8) | ★★ | S2 "timeline … reconciliation" | 6.7 | ⬜ |
+| 6.11 | FP-300.6 | End-to-end refund tests | ★★ | S2 | 6.6–6.10 | ⬜ |
+| **Tier 7** | | **Screens** (Phase F, details below) | | | | |
+| 7.1 | F1–F13 | Frontend fixes (refund drawer, checkout, login, read-only impersonation, 3 decimals, …) | ★ | S2 "timeline" | per item | ⬜ |
+| 7.2 | T5 | Page checklist: every page × every state | ★ | — | 7.1 | ⬜ |
+| **Tier 8** | | **Hand-in** | | | | |
+| 8.1 | T2–T4 | Full suite green, API smoke script, frontend tests | — | — | Tiers 1–7 | ⬜ |
+| 8.2 | D4, D5, D7 | Rotate leaked secret; no public DB / internal ports; `readyz` checks DB | ★★ | — | — | ⬜ |
+| 8.3 | DEPLOY | Live on Dilmune Cloud | ★★★ | S1, S2 | 8.2 | ⬜ |
+| 8.4 | T6, T7 | Fresh-clone check; final read of every write-up | — | — | 8.3 | ⬜ |
+
+**Later (low points):** A12 API keys bypass role gates (documented) · B4 "Adjust balance" is
+cache-only · S10 daemon closes on boot · S11 rebuild vs CloseBatch race · W8 replay keeps delivery
+ids? · W9 timestamp check order.
+
+## Evidence coverage (every line of the 4 sheets → a task)
+
+| Sheet | Line | Task |
+|---|---|---|
+| S1 | "Money rule: whole fils only" · "closes at midnight, Bahrain time" | BUG-014, BUG-020, BUG-021, BUG-050 |
+| S1 | "Run `docker compose up` in `ops/`" | DEP-001–004 |
+| S1 | "For each bug, a short note: what's wrong, why, what it breaks" | Summary block in every write-up |
+| S2 | FP-300: through the API · ledger to the fils · fees and payouts · right webhook · timeline, reports, reconciliation · live on Dilmune Cloud | Tier 6, 8.3 |
+| S3 | Scheme statement a few fils over | BUG-015 (+ BUG-051) |
+| S3 | March sweep ran twice, gap doubled | BUG-027 |
+| S3 | Delta Marketplace split payouts short | BUG-016 |
+| S3 | "Recalculate cached balances" 135K → 7K | BUG-017 |
+| S3 | MDR recalculation changed paid batches | BUG-018 |
+| S3 | Dashboard fee 245 vs 225 bps | BUG-026 (+ BUG-054) |
+| S3 | CSV import 4.755 → 4.750, 4.75 → 0.475 | BUG-014 |
+| S3 chat | Daily close at 3am | BUG-020 |
+| S3 chat | Lifetime payout estimate drifts | BUG-028 |
+| S3 chat | Test merchants in the real settlement run | BUG-019 |
+| S3 chat | Login works without the OTP | BUG-001 |
+| S3 chat | Cancelled merchant B's link from A's dashboard | BUG-003 |
+| S4 | FP-187 link paid after expiry | BUG-004 |
+| S4 | FP-201 duplicate acquirer callbacks (reopened) | BUG-006 |
+| S4 | FP-203 balance cache 135K → 7K | BUG-017 |
+| S4 | FP-209 concurrent refund, double money | BUG-034 |
+| S4 | FP-240 webhook signatures rejected; incoming check has problems | BUG-023, BUG-007 |
+| S4 | Incident 2026-05-14 link charged twice | BUG-005 |
+| S4 | Incident 2026-08-21 duplicate payout notifications | BUG-008 |
+| S4 note | Refund more than was charged | BUG-035 |
+| S4 note | Splits a few fils short | BUG-016 |
+| S4 note | Admin actions without the right role checks | BUG-033 (+ BUG-010) |
+| S4 note | Key rotation doesn't do what you'd expect | BUG-012 |
+| S4 note | Daily close timing doesn't match the docs | BUG-020 |
+| S4 note | A reporting query is suspiciously slow | BUG-024 |
+| S4 note | Test merchants when certain admin tools run | BUG-019 |
+| S4 note | OTP implementation changed — still safe? | BUG-001, BUG-002, BUG-011, BUG-031 |
+| S4 note | Uploading a really large export | BUG-025 |
+
+---
+
 ## Team split (2 people)
 
-The work is split **by area of code**, so the two of us almost never edit the same file.
-Each track has about the same number of critical (★★★) bugs. Details per person: `TEAM.md`.
-
-| Person | Takes |
-|---|---|
-| **Sayed** | Track A, FP-300 A steps, API side of Phase T (tests) |
-| **Ebrahim** | Track B, FP-300 B steps, then Phase F (all frontend / UI, last) and its tests |
-
-The split is **by need, not 50/50**: Ebrahim also owns the whole frontend, so three TypeScript
-API items moved from Track B to Sayed (BUG-023 webhook signing, BUG-024 settlement summary,
-BUG-029 import double-submit).
+**Ebrahim is responsible for every task in the Master order** (decided 2026-10-29). The Track A /
+Track B tables below remain as a way to hand work to Sayed: Sayed takes a task only by marking it
+⏳ with his name in the Master order (and in `PROGRESS.md`) first, so the two never work on the
+same task. Frontend (Tier 7) stays with Ebrahim. Details per person: `TEAM.md`.
 
 ### Track A — "Who can get in" (security, TypeScript `apps/api`) — **Sayed**
 

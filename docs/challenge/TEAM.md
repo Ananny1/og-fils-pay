@@ -1,13 +1,12 @@
 # Team — who does what
 
-| Person | Git name | Role | Task list |
+| Person | Git name | Role | Branch |
 |---|---|---|---|
-| **Ebrahim** | `ealnasser` | **Track B** "Is the money right" (money + Go settlement), then **all frontend / UI / UX** (last) | `PLAN.md` → Track B, FP-300 (B steps), Phase F, Phase T (T4, T5) |
-| **Sayed** | — | **Track A** "Who can get in" (security in `apps/api`) + 3 TS items moved from B | `PLAN.md` → Track A, FP-300 (A steps), Phase T (T3) |
+| **Ebrahim** | `ealnasser` | **Responsible for every task** in `PLAN.md` → Master order, including all frontend (Tier 7) | `ebrahim/track-b` |
+| **Sayed** | — | Helps by taking tasks from Track A (security in `apps/api`); claims each one first | `sayed/track-a` (to create) |
 
-Shared: Phase T (T1 baseline first, T6 fresh-clone check by the non-author, T7 final read), Phase 6 deploy.
-
-The split is **by need, not equal**: Ebrahim also owns all frontend, so Sayed took three TypeScript API items from Track B.
+**Claiming:** before starting a task, mark it ⏳ with your name in the Master order and in
+`PROGRESS.md`, commit and push that line. Never start a task someone else has marked ⏳.
 
 The task status (⬜ ⏳ ✅) lives only in `PLAN.md`. This file says **who** and **how**.
 
@@ -61,9 +60,10 @@ console, port 5174). Both run in Docker with live reload.
 ## How we work together
 
 1. **First time:** follow `SETUP.md` (Docker, migrate, seed, logins).
-2. **Before each bug:** `git pull --rebase origin main`.
+2. **Before each bug:** on your branch, `git pull --rebase origin main`. The full per-task steps are in `WORKFLOW.md`.
 3. **Each bug:** failing test → small fix → test passes → write-up `docs/bugs/BUG-NNN-*.md`
    → your rows in `IMPLEMENTATION.md` and `PLAN.md` → **one commit for that bug only**.
-4. **After each commit:** push yourself (Claude never pushes), so your mate gets it.
+4. **After each commit:** push **your own branch** (Claude may push it for you when you've asked;
+   never `main`). Merge into `main` through GitHub with a normal or rebase merge, never squash.
 5. **Only edit your own rows** in shared files. Ask before touching the other track's files.
 6. **Found a trap?** Add it to `TRAPS.md` and tell your mate.

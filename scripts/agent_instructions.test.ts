@@ -32,7 +32,7 @@ const POISONED_RULES: Array<[string, RegExp]> = [
 const REQUIRED_RULES: Array<[string, RegExp]> = [
   ["1 BD = 1000 fils", /1 BD = 1000 fils/],
   ["Bahrain business day", /Asia\/Bahrain/],
-  ["never push", /never push/i],
+  ["never push to main", /never push to `?main/i],
 ];
 
 for (const file of AGENT_FILES) {
@@ -49,9 +49,12 @@ for (const file of AGENT_FILES) {
   });
 }
 
-test("agents are blocked from pushing (.claude/settings.json)", () => {
+test("agents are blocked from pushing to main or force-pushing (.claude/settings.json)", () => {
   const settings = JSON.parse(readFileSync(join(root, ".claude", "settings.json"), "utf8")) as {
     permissions?: { deny?: string[] };
   };
-  assert.ok(settings.permissions?.deny?.includes("Bash(git push:*)"));
+  const deny = settings.permissions?.deny ?? [];
+  for (const rule of ["Bash(git push origin main:*)", "Bash(git push --force:*)", "Bash(git push -f:*)", "Bash(gh pr merge:*)"]) {
+    assert.ok(deny.includes(rule), `missing deny rule ${rule}`);
+  }
 });

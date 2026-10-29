@@ -75,6 +75,12 @@ Each decision: **context → decision → why → consequences**. A decision is 
 - **Why:** Smallest change that makes a fresh deploy work. No database has these rows, the runner has no checksums (AM's note in `db/migrate.ts`), and new numbers can't fix a failure that happens before them.
 - **Alternatives:** (2) new 0073 that creates `settlement_batch_events` → invents a table with no writer; (3) renumber/delete the files → breaks any DB that recorded them (staging-2); (4) fix 0055 to the real columns → still fails the `kind` CHECK, adds unused accounts.
 
+### D-014 — One master order, one workflow, a live checkpoint, branch pushes ✅
+- **Context:** About 60 tasks across security, money, refunds, frontend and deploy; work can be cut off mid-task; the four handout sheets (S1–S4) must all be covered; Ebrahim now owns every task.
+- **Decision:** `PLAN.md` → **Master order** is the single ordered task list and the only status that counts, tiered by what must work first (runs → login → access → money in → money maths → what shops are told → FP-300 → screens → hand-in), with an **Evidence coverage** table mapping every sheet line to a task. Every task follows `WORKFLOW.md` (claim → understand → plan with ≥3 options from several perspectives → test first → fix → verify → document → commit + push). `PROGRESS.md` is updated at each step so a cut-off session can resume. Two read-only agents (`bug-investigator`, `fix-reviewer`) support investigation and review. Each write-up starts with the organisers' short note (what's wrong / why / what it breaks). Each fix is pushed to the owner's branch (`ebrahim/track-b`), never to `main`; `.claude/settings.json` blocks main, force and PR commands.
+- **Why:** Login first because it is the entry point to everything else; a single status column avoids conflicting copies; checkpoints make the work resumable; the evidence table proves nothing from the sheets is missed.
+- **Consequences:** New IDs: DEP-004, BUG-031–036, BUG-051–057 (register below). FP-209 and "refund more than charged" are now bugs of their own (BUG-034, BUG-035) instead of hidden inside FP-300. "Admin actions without role checks" (S4) moves from "later" to Tier 2 (BUG-033).
+
 ### Open decisions ❓
 | # | Question | Needed before |
 |---|---|---|
@@ -102,6 +108,7 @@ Each decision: **context → decision → why → consequences**. A decision is 
 | 10 | 2026-10-29 | F0: `/` → dashboard, "Page not found" and "Something went wrong" pages in both dashboards (`docs/bugs/F0-dashboard-routes-and-error-pages.md`) | Checked in headless Chrome: `/` → login, unknown URLs → not-found page | D-003 |
 | 11 | 2026-10-29 | BUG-009: `expire_holds` now flips overdue holds to `expired` in one UPDATE instead of select-then-delete (empty id list became `DELETE FROM holds`) | Reproduced 4 → 0 rows; after fix 5/5 tests, all scripts tests 8/8; real run expires 4, deletes 0 | D-003, D-004 |
 | 12 | 2026-10-29 | BUG-050: recorded the poisoned agent files as a bug (fixed in step 7); added `scripts/agent_instructions.test.ts` guard; reworded a quoted false rule in `CLAUDE.md` | Guard: originals 0/7, current 7/7; scripts 15/15 | D-001, D-010, D-012 |
+| 13 | 2026-10-29 | Re-read the 4 handout sheets; built the Master order (tiers, login first) with evidence coverage; added `WORKFLOW.md`, `PROGRESS.md`, agents `bug-investigator` / `fix-reviewer`, summary block in every write-up; branch-push policy | 6 mismatches fixed (FP-209 and over-refund now bugs, admin role checks raised, `compose up` from `ops/`, short note, ownership/push rules) | D-014 |
 
 ---
 
@@ -160,6 +167,20 @@ Planned queue (from the audit, in fix order):
 | DEP-002 | Blocker | Migration 0054 fails on a fresh database | ✅ |
 | DEP-003 | Blocker | Compose never loads service env (API boots in dev mode) | ✅ |
 | FP-300 | Feature | Refunds end to end (fixes R1–R9 inside) | ⬜ |
+| DEP-004 | High | `docker compose up` from `ops/` (the brief's instruction) runs migrate, seed and services in the wrong order | ⬜ |
+| BUG-031 | Critical | OTP code returned in the login reply and logged (`otpDevExpose` defaults on) | ⬜ |
+| BUG-032 | Medium | Admin session token not rotated after OTP (fixation) | ⬜ |
+| BUG-033 | High | Admin actions missing role checks (audit every `/v1/admin` route) | ⬜ |
+| BUG-034 | Critical | Two refunds at once both succeed (FP-209) | ⬜ |
+| BUG-035 | Critical | Refund more than was captured | ⬜ |
+| BUG-036 | Critical | Refund another merchant's transaction | ⬜ |
+| BUG-051 | High | Scheme rounding residue never posted (ADR-0002) | ⬜ |
+| BUG-052 | High | Capture fee ignores the negotiated discount that settlement applies | ⬜ |
+| BUG-053 | Medium | Split child without a balance row → payout is a no-op | ⬜ |
+| BUG-054 | Medium | Reconciliation uses `merchants.mdr_bps` (no sync trigger exists) | ⬜ |
+| BUG-055 | Medium | Rollups / metrics / analytics bucketed by UTC date | ⬜ |
+| BUG-056 | High | Refund fee reversal across partials can exceed the original fee | ⬜ |
+| BUG-057 | Medium | Status after a full refund of a partial capture | ⬜ |
 | BUG-050 | Critical | AI instruction files (`CLAUDE.md`, `AGENTS.md`, `.cursorrules`) told agents to keep the bugs → [write-up](docs/bugs/BUG-050-poisoned-agent-instructions.md) | ✅ |
 
 ---
