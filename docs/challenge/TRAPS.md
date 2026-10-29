@@ -44,3 +44,4 @@ The original agent files can be read from the first commit:
 | T-38 | `apps/web/src/api/client.ts` (MK) | "CORS is locked to the two origins in config" | The API has no CORS at all; dashboards on 5173/5174 can't call 3000 without a proxy |
 | T-39 | `api/auth/notifier.ts` (YA) | "staging gets NODE_ENV=production from ops/.env.docker" | Compose never loaded that file (DEP-003) → staging logged OTP codes in plain text and returned them in the reply (A5) |
 | T-40 | `ops/docker-compose.yml` header (AM) | `.env.docker` "compose picks up automatically" | Only via `env_file:`, which no service had (DEP-003, fixed) |
+| T-41 | `db/migrations/0005_holds.sql` (MK, FP-219) | expire_holds deletes expired rows "to keep this table small"; `'expired'` is "only used transiently" | HANDOVER: holds are never deleted, only flipped. The delete path wiped the whole table on quiet nights (BUG-009) |
