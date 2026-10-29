@@ -32,7 +32,7 @@ the screens (Tier 7) and hand-in (Tier 8).
 | 0.65 | BUG-058 | Built-in dev webhook key invalid (34 bytes) → API and seed crash without a key | ★★ | S1 | — | ✅ |
 | 0.7 | DEP-004 | `docker compose up` **from `ops/`** (the brief's own instruction) must work: migrate before seed before services, no settings file required for local | ★★ | S1 | — | ✅ |
 | 0.75 | DEP-005 | `npm test` never ran the API/reporting suites (Node 20 doesn't expand the test glob) | ★★ | — | — | ✅ |
-| 0.8 | T1 | Test baseline: run `npm test` + `go test ./...`, record what already fails | — | — | 0.7 | ⬜ |
+| 0.8 | T1 | Test baseline: run `npm test` + `go test ./...`, record what already fails (`TEST-BASELINE.md`) | — | — | 0.75 | ✅ |
 | **Tier 1** | | **Login (the entry point)** | | | | |
 | 1.1 | BUG-001 | Login works without the OTP | ★★★ | S3 group chat | — | ⬜ |
 | 1.2 | BUG-002 | OTP binds to another shop's user with the same email | ★★★ | S4 "OTP changed" | 1.1 | ⬜ |
@@ -74,8 +74,11 @@ the screens (Tier 7) and hand-in (Tier 8).
 | 5.4 | BUG-030 | CSV export formula injection | ★ | — | 5.3 | ⬜ |
 | 5.5 | BUG-026 | Dashboard fee 245 vs 225 bps | ★★ | S3 | — | ⬜ |
 | 5.6 | BUG-054 | Reconciliation uses `merchants.mdr_bps` (no sync trigger) | ★ | — | 5.5 | ⬜ |
+| 5.65 | BUG-059 | Reporting consumer writes `merchant_id = NULL` into `merchant_daily_volume` (4 reporting tests red) | ★★ | T1 | — | ⬜ |
+| 5.66 | BUG-060 | Webhook retry backoff differs from config (test 332 red) | ★ | T1 | — | ⬜ |
 | 5.7 | BUG-055 | Rollups / metrics / analytics bucketed by UTC date | ★ | — | 4.2 | ⬜ |
 | **Tier 6** | | **FP-300 Refunds (the missing feature)** | | | | |
+| 6.0 | BUG-061 | Refund insert violates `chk_refunds_reason_not_null` (11 refund tests red; R8) | ★★ | T1 | — | ⬜ |
 | 6.1 | BUG-034 | Two refunds at once both succeed | ★★★ | S4 FP-209 | — | ⬜ |
 | 6.2 | BUG-035 | Refund more than was captured | ★★★ | S4 "refund more than charged" | — | ⬜ |
 | 6.3 | BUG-036 | Refund another shop's transaction | ★★★ | — | — | ⬜ |

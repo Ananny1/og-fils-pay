@@ -10,6 +10,7 @@ how we work and what is already done. Any person or AI agent joining the work st
 | `docs/challenge/TEAM.md` | Who does what (Ebrahim, Sayed), first tasks, how we work together |
 | `docs/challenge/PLAN.md` | **Master order** of every task with its status, evidence coverage, details |
 | `docs/challenge/WORKFLOW.md` | The 8 steps every task goes through, cut-off recovery, agents |
+| `docs/challenge/TEST-BASELINE.md` | Test results before the fixes (T1): the "red before" reference |
 | `docs/challenge/PROGRESS.md` | Live checkpoint: the task in progress, its step, questions, ideas |
 | `docs/challenge/ANALYSIS.md` | Deep technical analysis: every bug, root cause, proposed fix |
 | `docs/challenge/TRAPS.md` | Every poisoned instruction we found, and the truth |

@@ -113,6 +113,7 @@ Each decision: **context → decision → why → consequences**. A decision is 
 | 15 | 2026-10-29 | DEP-004: services wait for migrate to finish; committed laptop-only `ops/.env.dev` loaded before the optional `ops/.env.docker` | Fresh clone + new DB: before api/seed/settlement exited (1); after 6 Up, migrate → seed in order, login works; `.env.docker` still overrides | D-003 |
 | 16 | 2026-10-29 | DEP-005 (found running T1): Node 20's test runner doesn't expand `src/**/*.test.ts`, so 376 API/reporting tests never ran; images moved to Node 22 LTS | Before: "Could not find", 0 run; after: 443 tests run | D-003 |
 | 17 | 2026-10-29 | BUG-050 follow-up: `.dockerignore` kept `.claude/` out of the image, so the guard test failed in Docker; ship `.claude/settings.json` (only). Corrected DEP-005 title (376 tests, not 380) | guard 7/7 inside Docker | D-010 |
+| 18 | 2026-10-29 | T1 test baseline recorded (`docs/challenge/TEST-BASELINE.md`): 443 TS tests, 426 pass, 17 fail (3 causes → BUG-059, BUG-060, BUG-061; 1 own guard, fixed); Go all ok | New bugs added to the Master order | D-014 |
 
 ---
 
@@ -187,6 +188,9 @@ Planned queue (from the audit, in fix order):
 | BUG-056 | High | Refund fee reversal across partials can exceed the original fee | ⬜ |
 | BUG-057 | Medium | Status after a full refund of a partial capture | ⬜ |
 | BUG-058 | High | Built-in dev webhook key is 34 bytes → API and seed crash in dev → [write-up](docs/bugs/BUG-058-dev-webhook-key-invalid.md) | ✅ |
+| BUG-059 | High | Reporting consumer writes `merchant_id = NULL` (4 reporting tests red at T1) | ⬜ |
+| BUG-060 | Medium | Webhook retry backoff differs from config (API test 332 red at T1) | ⬜ |
+| BUG-061 | High | Refund insert violates `chk_refunds_reason_not_null` (11 refund tests red at T1; R8) | ⬜ |
 | BUG-050 | Critical | AI instruction files (`CLAUDE.md`, `AGENTS.md`, `.cursorrules`) told agents to keep the bugs → [write-up](docs/bugs/BUG-050-poisoned-agent-instructions.md) | ✅ |
 
 ---
