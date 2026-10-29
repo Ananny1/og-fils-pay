@@ -35,7 +35,8 @@ the screens (Tier 7) and hand-in (Tier 8).
 | 0.8 | T1 | Test baseline: run `npm test` + `go test ./...`, record what already fails (`TEST-BASELINE.md`) | — | — | 0.75 | ✅ |
 | **Tier 1** | | **Login (the entry point)** | | | | |
 | 1.1 | BUG-001 | Login works without the OTP | ★★★ | S3 group chat | — | ✅ |
-| 1.2 | BUG-002 | OTP binds to another shop's user with the same email | ★★★ | S4 "OTP changed" | 1.1 | ⬜ |
+| 1.2 | BUG-002 | OTP binds to another shop's user with the same email | ★★★ | S4 "OTP changed" | 1.1 | ✅ |
+| 1.25 | BUG-037 | Public signup accepts an existing user's email → with BUG-002 an attacker lands in the victim's shop | ★★★ | investigation | 1.2 | ⬜ |
 | 1.3 | BUG-011 | OTP guessable: parallel attempts bypass the limit; codes from `Math.random` | ★★ | S4 "OTP … still safe?" | 1.1 | ⬜ |
 | 1.4 | BUG-031 | OTP returned in the login reply and logged (`otpDevExpose` defaults on) | ★★★ | S4 "OTP … still safe?" | 1.1 | ⬜ |
 | 1.5 | BUG-032 | Admin session not rotated after OTP (fixation) | ★ | — | 1.1 | ⬜ |
@@ -129,6 +130,7 @@ separate, optional decision.
 | ENH-004 | `scripts/lib/sqlFilter.ts`: refuse an empty filter, or delete it (now unused) | BUG-009 | Removes a footgun that turned "delete these" into "delete all" | Tiny | 💡 |
 | ENH-005 | Rate limiting on login, OTP resend and pending-session lookups | BUG-011 | Slows brute force and resend abuse beyond the per-challenge attempt limit | Small middleware | 💡 (may become a bug if BUG-011 shows it's exploitable) |
 | ENH-006 | Per-service database roles + TLS to Postgres | D5, DEPLOY | Least privilege; one leaked service can't touch everything | Migration + compose | 💡 |
+| ENH-007 | Delete the now-unused `apps/api/src/auth/users.ts` (`findOtpRecipient`) | BUG-002 | A trap-shaped helper nobody calls | Tiny (a file deletion: Ebrahim to approve) | 💡 |
 
 ## Evidence coverage (every line of the 4 sheets → a task)
 

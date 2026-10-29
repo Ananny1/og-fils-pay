@@ -7,7 +7,7 @@ Status of all tasks: `PLAN.md` → Master order. This file is the **detail of wh
 
 | Field | Value |
 |---|---|
-| Task | BUG-002 — OTP binds to another shop's user (next; investigator report pending) |
+| Task | BUG-037 — public signup accepts an existing user's email (next) |
 | Owner | Ebrahim |
 | Branch | `ebrahim/track-b` |
 | Step | 0-claimed (0-claimed · 1-understood · 2-planned · 3-test-red · 4-fixed · 5-verified · 6-documented · 7-pushed) |
@@ -23,7 +23,8 @@ Status of all tasks: `PLAN.md` → Master order. This file is the **detail of wh
 
 | Date | Task | Commit | Pushed to |
 |---|---|---|---|
-| 2026-10-29 | BUG-001 login without OTP | (this commit) | `ebrahim/track-b` |
+| 2026-10-29 | BUG-002 OTP lands in another shop | (this commit) | `ebrahim/track-b` |
+| 2026-10-29 | BUG-001 login without OTP | `c409a21` | `ebrahim/track-b` |
 | 2026-10-29 | T1 test baseline | `6f87076` | `ebrahim/track-b` |
 | 2026-10-29 | BUG-050 follow-up: guard runs in Docker | `9d209d7` | `ebrahim/track-b` |
 | 2026-10-29 | DEP-005 tests never ran on Node 20 | `a57fdce` | `ebrahim/track-b` |

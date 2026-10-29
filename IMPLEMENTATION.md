@@ -115,6 +115,8 @@ Each decision: **context → decision → why → consequences**. A decision is 
 | 17 | 2026-10-29 | BUG-050 follow-up: `.dockerignore` kept `.claude/` out of the image, so the guard test failed in Docker; ship `.claude/settings.json` (only). Corrected DEP-005 title (376 tests, not 380) | guard 7/7 inside Docker | D-010 |
 | 18 | 2026-10-29 | T1 test baseline recorded (`docs/challenge/TEST-BASELINE.md`): 443 TS tests, 426 pass, 17 fail (3 causes → BUG-059, BUG-060, BUG-061; 1 own guard, fixed); Go all ok | New bugs added to the Master order | D-014 |
 | 19 | 2026-10-29 | BUG-001: `lookupSession` now requires `authenticated = true` (the view only filtered revoked/expired) | Pre-OTP cookie: /me and /v1/transactions 200 → 401; OTP login still 200; session tests 5/5; API suite 354/366 (= baseline 12) | D-003 |
+| 20 | 2026-10-29 | Ran `bug-investigator` on BUG-002/011/031 (`docs/challenge/investigations/TIER1-login.md`); new BUG-037 (public signup + existing email) | 3 live repros incl. 12 OTP guesses vs limit 5 | D-014 |
+| 21 | 2026-10-29 | BUG-002: login binds the OTP and session to the password-checked user, not the first row with that email | Alpha login: /me Beta → Alpha; new tests 2 red → green; API 356/368 (= baseline 12) | D-003 |
 
 ---
 
@@ -140,7 +142,7 @@ Planned queue (from the audit, in fix order):
 | ID | Sev | Title | Status |
 |---|---|---|---|
 | BUG-001 | Critical | Login without OTP (`live_sessions` lookup ignores `authenticated`) → [write-up](docs/bugs/BUG-001-login-without-otp.md) | ✅ |
-| BUG-002 | Critical | OTP challenge bound to another merchant's user (lookup by email) | ⬜ |
+| BUG-002 | Critical | OTP challenge bound to another merchant's user (lookup by email) → [write-up](docs/bugs/BUG-002-otp-wrong-merchant.md) | ✅ |
 | BUG-003 | Critical | Merchant A can cancel merchant B's payment link (IDOR) | ⬜ |
 | BUG-004 | Critical | Expired link payable via client-supplied `submittedAt` (FP-187) | ⬜ |
 | BUG-005 | Critical | Payment link charged twice when capture outlives the 60 s reservation (incident 2026-05-14) | ⬜ |
@@ -192,6 +194,7 @@ Planned queue (from the audit, in fix order):
 | BUG-059 | High | Reporting consumer writes `merchant_id = NULL` (4 reporting tests red at T1) | ⬜ |
 | BUG-060 | Medium | Webhook retry backoff differs from config (API test 332 red at T1) | ⬜ |
 | BUG-061 | High | Refund insert violates `chk_refunds_reason_not_null` (11 refund tests red at T1; R8) | ⬜ |
+| BUG-037 | Critical | Public signup accepts an existing user's email (enables cross-tenant takeover with BUG-002) | ⬜ |
 | BUG-050 | Critical | AI instruction files (`CLAUDE.md`, `AGENTS.md`, `.cursorrules`) told agents to keep the bugs → [write-up](docs/bugs/BUG-050-poisoned-agent-instructions.md) | ✅ |
 
 ---
@@ -210,6 +213,7 @@ reasons and cost is in `docs/challenge/PLAN.md` → Enhancements.
 | ENH-004 | Make `sqlFilter` refuse empty filters or delete it | BUG-009 | 💡 |
 | ENH-005 | Rate limiting on login / OTP resend | BUG-011 | 💡 |
 | ENH-006 | Per-service DB roles + TLS | D5 | 💡 |
+| ENH-007 | Delete now-unused `apps/api/src/auth/users.ts` (`findOtpRecipient`) | BUG-002 | 💡 |
 
 ## 4. FP-300 progress
 

@@ -52,3 +52,8 @@ Recorded and fixed as **BUG-050** (`docs/bugs/BUG-050-poisoned-agent-instruction
 | T-43 | `ops/docker-compose.yml` settlement comment | "The daemon falls back to SETTLEMENT_INTERNAL_TOKEN=dev-token when it isn't set" | It exits at boot without the token (`RequireInternalToken`); FH said so right below (DEP-004) |
 | T-44 | `apps/api/src/adminAuth/sessions.ts` (FH quoting "claude") | `authenticated = true` is "redundant with expires_at since pending sessions only live 10 min" | 10 minutes of full access is a full bypass; the merchant lookup lost this check (BUG-001) |
 | T-45 | `apps/api/src/auth/sessions.test.ts` (MK) | A not-promoted session is "covered in routes/auth.test.ts" | That file doesn't exist; nothing tested it (BUG-001) |
+| T-46 | `apps/api/src/onboarding/signup.ts` (MK) | "login filters by merchantId. verified" | Only the password check did; the OTP and session were then bound by email alone (BUG-002) |
+| T-47 | `apps/api/src/routes/auth.ts` resend docstring | the new challenge "inherits the previous challenge's attempt_count" | `issueChallenge` inserts a fresh row with 0 attempts (BUG-011) |
+| T-48 | `apps/api/src/routes/adminAuth.ts` (MK) / `adminAuth/otp.ts` | challenge "read FOR UPDATE"; codes "generated with crypto.randomInt" | No lock, no transaction; codes come from `Math.random` (BUG-011) |
+| T-49 | `apps/api/src/routes/auth.ts` (am) | "check-then-increment is fine … worst case is 5 guesses" | 40 parallel guesses → 12 evaluated (BUG-011) |
+| T-50 | `apps/api/src/routes/auth.ts` | `devOtpCode` is "dev only — stripped in production builds" | No build step strips it; it is a runtime default (BUG-031) |
