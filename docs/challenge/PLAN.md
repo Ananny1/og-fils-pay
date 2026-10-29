@@ -41,7 +41,7 @@ the screens (Tier 7) and hand-in (Tier 8).
 | 1.4 | BUG-031 | OTP returned in the login reply and logged (`otpDevExpose` defaults on) | ★★★ | S4 "OTP … still safe?" | 1.1 | ✅ |
 | 1.5 | BUG-032 | Session not rotated after OTP (fixation, merchant + admin) + merchant cookie dies after 10 min | ★★ | YA handover note | 1.1 | ✅ |
 | **Tier 2** | | **Who can do what** | | | | |
-| 2.1 | BUG-010 | "View as merchant" gives super_admin **owner** powers, and can write | ★★★ | HANDOVER | Tier 1 | ⬜ |
+| 2.1 | BUG-010 | "View as merchant" gives super_admin **owner** powers, and can write | ★★★ | HANDOVER | Tier 1 | ✅ |
 | 2.2 | BUG-003 | Shop A cancels shop B's payment link (IDOR) | ★★★ | S3 group chat | Tier 1 | ⬜ |
 | 2.3 | BUG-033 | Admin actions missing role checks: audit every `/v1/admin` route | ★★ | S4 "admin … role checks" | Tier 1 | ⬜ |
 | 2.4 | BUG-012 | API key rotation leaves the old key working | ★★ | S4 "key rotation" | Tier 1 | ⬜ |
@@ -273,7 +273,7 @@ Seen while running: the settlement daemon ran `RunDailyBatch` straight at boot (
 | W3/W4/W5 | BUG-007 | Callback signature **optional**, re-serialised, no freshness, outcome not validated | `api/webhooks/inboundVerify.ts`, `api/routes/acquirerCallbacks.ts` | no header → 401; tampered body → 401 | ⬜ |
 | W6/W7 | BUG-008 | **Duplicate payout notifications + disbursements** (incident 2026-08-21) | `stl/settlement/payout_notify.go`, `api/webhooks/dispatcher.ts`, new migration | run twice / 2 replicas → one event, one disbursement | ⬜ |
 | B6 | BUG-009 | `expire_holds` **deletes every hold** when nothing expired | `scripts/expire_holds.ts`, `scripts/lib/sqlFilter.ts` | nothing expired → 0 rows touched; status flipped, never deleted | ✅ |
-| A7/A8 | BUG-010 | Impersonation gives **owner powers** (must be read-only support) | `api/admin/impersonation.ts`, `api/auth/requireMerchantAuth.ts` | impersonated write → 403 | ⬜ |
+| A7/A8 | BUG-010 | Impersonation gives **owner powers** (must be read-only support) | `api/admin/impersonation.ts`, `api/auth/requireMerchantAuth.ts` | impersonated write → 403 | ✅ |
 | A3/A4 | BUG-011 | OTP attempts bypassable in parallel; OTP from `Math.random` | `api/routes/auth.ts`, `api/lib/random.ts` (+ admin OTP: `api/adminAuth/otp.ts`) | 20 parallel guesses → max N counted | ⬜ |
 | A11 | BUG-012 | **Old API key still works** after rotation | `api/admin/apiKeys.ts`, `api/apiKeys/verify.ts`, `0056_api_keys_revoke_after.sql` | old key after rotation → 401 | ⬜ |
 | A9 | BUG-013 | Credit **self-approval** (compares display names) | `api/admin/creditApproval.ts` | same admin, renamed → rejected | ⬜ |

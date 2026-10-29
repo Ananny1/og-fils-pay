@@ -7,7 +7,7 @@ Status of all tasks: `PLAN.md` → Master order. This file is the **detail of wh
 
 | Field | Value |
 |---|---|
-| Task | Tier 2 next: BUG-010 impersonation as owner |
+| Task | Tier 2 next: BUG-003 payment link IDOR |
 | Owner | Ebrahim |
 | Branch | `ebrahim/track-b` |
 | Step | — (0-claimed · 1-understood · 2-planned · 3-test-red · 4-fixed · 5-verified · 6-documented · 7-pushed) |
@@ -23,7 +23,8 @@ Status of all tasks: `PLAN.md` → Master order. This file is the **detail of wh
 
 | Date | Task | Commit | Pushed to |
 |---|---|---|---|
-| 2026-10-29 | BUG-032 session fixation + 10-min logouts | (this commit) | `ebrahim/track-b` |
+| 2026-10-29 | BUG-010 impersonation owner powers + writes | (this commit) | `ebrahim/track-b` |
+| 2026-10-29 | BUG-032 session fixation + 10-min logouts | `765c69f` | `ebrahim/track-b` |
 | 2026-10-29 | BUG-011 OTP guessable (merchant + admin) | `67ac85e` | `ebrahim/track-b` |
 | 2026-10-29 | BUG-031 OTP in reply and logs | `cc456c7` | `ebrahim/track-b` |
 | 2026-10-29 | BUG-037 reclassified → ENH-008 (D-015) | `eba1a78` | `ebrahim/track-b` |
