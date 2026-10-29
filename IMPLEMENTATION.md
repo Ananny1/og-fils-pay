@@ -111,6 +111,7 @@ Each decision: **context → decision → why → consequences**. A decision is 
 | 13 | 2026-10-29 | Re-read the 4 handout sheets; built the Master order (tiers, login first) with evidence coverage; added `WORKFLOW.md`, `PROGRESS.md`, agents `bug-investigator` / `fix-reviewer`, summary block in every write-up; branch-push policy | 6 mismatches fixed (FP-209 and over-refund now bugs, admin role checks raised, `compose up` from `ops/`, short note, ownership/push rules) | D-014 |
 | 14 | 2026-10-29 | BUG-058 (found reproducing DEP-004): dev fallback webhook key decoded to 34 bytes; replaced with a valid 32-byte dev-only key | config tests 2 red → 3/3 green; API boots in dev with no key | D-003 |
 | 15 | 2026-10-29 | DEP-004: services wait for migrate to finish; committed laptop-only `ops/.env.dev` loaded before the optional `ops/.env.docker` | Fresh clone + new DB: before api/seed/settlement exited (1); after 6 Up, migrate → seed in order, login works; `.env.docker` still overrides | D-003 |
+| 16 | 2026-10-29 | DEP-005 (found running T1): Node 20's test runner doesn't expand `src/**/*.test.ts`, so 376 API/reporting tests never ran; images moved to Node 22 LTS | Before: "Could not find", 0 run; after: 443 tests run | D-003 |
 
 ---
 
@@ -169,6 +170,7 @@ Planned queue (from the audit, in fix order):
 | DEP-002 | Blocker | Migration 0054 fails on a fresh database | ✅ |
 | DEP-003 | Blocker | Compose never loads service env (API boots in dev mode) | ✅ |
 | FP-300 | Feature | Refunds end to end (fixes R1–R9 inside) | ⬜ |
+| DEP-005 | High | `npm test` never ran the API/reporting suites on Node 20 (glob not expanded) → [write-up](docs/bugs/DEP-005-tests-never-ran-on-node20.md) | ✅ |
 | DEP-004 | High | `docker compose up` from `ops/` (the brief's instruction) fails on a fresh clone → [write-up](docs/bugs/DEP-004-compose-up-from-ops.md) | ✅ |
 | BUG-031 | Critical | OTP code returned in the login reply and logged (`otpDevExpose` defaults on) | ⬜ |
 | BUG-032 | Medium | Admin session token not rotated after OTP (fixation) | ⬜ |

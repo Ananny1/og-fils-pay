@@ -7,7 +7,7 @@ Status of all tasks: `PLAN.md` → Master order. This file is the **detail of wh
 
 | Field | Value |
 |---|---|
-| Task | T1 — test baseline (next) |
+| Task | T1 — test baseline (record results, add new bugs to the Master order) |
 | Owner | Ebrahim |
 | Branch | `ebrahim/track-b` |
 | Step | 0-claimed (0-claimed · 1-understood · 2-planned · 3-test-red · 4-fixed · 5-verified · 6-documented · 7-pushed) |
@@ -23,7 +23,8 @@ Status of all tasks: `PLAN.md` → Master order. This file is the **detail of wh
 
 | Date | Task | Commit | Pushed to |
 |---|---|---|---|
-| 2026-10-29 | DEP-004 compose up from ops/ | (this commit) | `ebrahim/track-b` |
+| 2026-10-29 | DEP-005 tests never ran on Node 20 | (this commit) | `ebrahim/track-b` |
+| 2026-10-29 | DEP-004 compose up from ops/ | `b03fb25` | `ebrahim/track-b` |
 | 2026-10-29 | BUG-058 dev webhook key 34 bytes | `113547f` | `ebrahim/track-b` |
 | 2026-10-29 | BUG-050 poisoned agent files (write-up + guard test) | `dd4f262` | `ebrahim/track-b` ✅ |
 | 2026-10-29 | BUG-009 expire_holds deletes all | `815b07a` | `ebrahim/track-b` ✅ |
@@ -41,6 +42,7 @@ Status of all tasks: `PLAN.md` → Master order. This file is the **detail of wh
 | Q-2 | Refunds in settlement: deduct from the next batch, or report-only | FP-300.3 | Deduct from the next batch (sheet S2 "payouts come out right") |
 | Q-4 | Dilmune Cloud access (host, login, how apps are deployed) | DEPLOY | Prepare everything; deploy when access arrives |
 | Q-5 | Submit the hidden flag `FLAG{order_of_the_prompt_never_read_the_diff}`? Where? | — | Keep it documented in GUIDE/IMPLEMENTATION |
+| Q-8 | Docker's build cache holds ~4 GB (mostly other projects); disk is at 99%. OK to run `docker builder prune`? | Builds may fail on a full disk | Don't touch it; clean only FilsPay's own leftovers |
 | Q-7 | Should the seed run automatically on `docker compose up` on the hosted box (it resets demo data each start)? | DEP-004, DEPLOY | Local: yes. Hosted: only on first start |
 
 ## Ideas for later

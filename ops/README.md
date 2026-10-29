@@ -23,7 +23,7 @@ each package), not services with their own database connection.
 |---|---|
 | `docker-compose.yml` | the stack |
 | `.env.docker` | shared service settings, loaded by compose for every service |
-| `Dockerfile.node` | image for api, reporting, migrate and seed (`node:20`, full install) |
+| `Dockerfile.node` | image for api, reporting, migrate, seed, web, admin (`node:22` LTS: its test runner expands `src/**/*.test.ts`; see DEP-005) |
 | `Dockerfile.go` | multi-stage build of `apps/settlement` |
 
 > **AM (July):** the two Dockerfiles aren't in the repo for me. built my own
