@@ -12,13 +12,12 @@ import type { DashboardLoginResponse } from "../../types.js";
 import AnimatedContent from "@/components/ui/AnimatedContent";
 import BlurText from "@/components/ui/BlurText";
 import FadeContent from "@/components/ui/FadeContent";
-import GlareHover from "@/components/ui/GlareHover";
 import GradientText from "@/components/ui/GradientText";
 import Magnet from "@/components/ui/Magnet";
 import StarBorder from "@/components/ui/StarBorder";
 import { BatchPreview } from "@/components/dashboard/batch-preview";
 import { BotIcon } from "@/components/dashboard/bot-icon";
-import { ThemeCube } from "@/components/dashboard/theme-cube";
+import { CaseDossier } from "@/components/dashboard/case-dossier";
 import { ErrorAlert } from "@/components/dashboard/error-alert";
 import { BrandMark } from "@/components/dashboard/public-shell";
 import { ThemeToggle } from "@/components/dashboard/theme-toggle";
@@ -231,19 +230,6 @@ export function LoginPage() {
 
           <div className="flex flex-col gap-14 lg:sticky lg:top-24">
           <FadeContent trigger="mount" duration={0.7} delay={0.15}>
-            <GlareHover
-              background="transparent"
-              borderRadius="1.35rem"
-              borderColor="transparent"
-              glareColor="#ffffff"
-              glareOpacity={0.18}
-              glareSize={220}
-              variant="sheen"
-              mode="hover"
-              transitionDuration={900}
-              className="w-full"
-              style={{ width: "100%", height: "auto" }}
-            >
               <Card className="w-full rounded-2xl border-border/70 shadow-elegant">
                 <CardHeader>
                   <CardTitle className="font-heading text-2xl font-bold uppercase">{isOtp ? "Check your inbox" : "Sign in"}</CardTitle>
@@ -409,10 +395,9 @@ export function LoginPage() {
                   )}
                 </CardContent>
               </Card>
-            </GlareHover>
           </FadeContent>
             <FadeContent trigger="mount" duration={0.8} delay={0.35} className="hidden justify-center pt-6 md:flex">
-              <ThemeCube />
+              <CaseDossier />
             </FadeContent>
           </div>
         </section>
@@ -431,25 +416,11 @@ export function LoginPage() {
             {STEPS.map((s, i) => (
               <AnimatedContent key={s.title} distance={60} duration={0.7} delay={i * 0.12} threshold={0.15}>
                 <li className="h-full">
-                  <GlareHover
-                    background="transparent"
-                    borderRadius="1.35rem"
-                    borderColor="transparent"
-                    glareColor="#ffffff"
-                    glareOpacity={0.2}
-                    glareSize={240}
-                    variant="streak"
-                    mode="hover"
-                    transitionDuration={800}
-                    className="h-full w-full"
-                    style={{ width: "100%", height: "100%" }}
-                  >
                     <div className="flex h-full flex-col border border-[var(--card-border)] bg-card p-6">
                       <span className="case-numeral text-6xl">{String(i + 1).padStart(2, "0")}</span>
                       <h3 className="mt-5 text-lg font-bold">{s.title}</h3>
                       <p className="mt-2 text-sm leading-6 text-muted-foreground">{s.body}</p>
                     </div>
-                  </GlareHover>
                 </li>
               </AnimatedContent>
             ))}
