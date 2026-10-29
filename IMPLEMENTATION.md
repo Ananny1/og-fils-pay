@@ -145,7 +145,7 @@ Planned queue (from the audit, in fix order):
 | BUG-028 | Medium | Lifetime payout estimate stored as REAL (drift) | ⬜ |
 | BUG-029 | Medium | Adjustment import has no double-submit guard | ⬜ |
 | BUG-030 | Medium | CSV export formula injection | ⬜ |
-| DEP-001 | Blocker | Missing `ops/Dockerfile.node` / `Dockerfile.go` | ⬜ |
+| DEP-001 | Blocker | Missing `ops/Dockerfile.node` / `Dockerfile.go` | ✅ |
 | DEP-002 | Blocker | Migration 0054 fails on a fresh database | ⬜ |
 | DEP-003 | Blocker | Compose never loads service env (API boots in dev mode) | ⬜ |
 | FP-300 | Feature | Refunds end to end (fixes R1–R9 inside) | ⬜ |

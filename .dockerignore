@@ -1,0 +1,8 @@
+.git
+.claude
+**/node_modules
+**/dist
+**/*.tsbuildinfo
+ops/.env*
+.env*
+docs/challenge/evidence
