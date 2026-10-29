@@ -109,6 +109,7 @@ Each decision: **context → decision → why → consequences**. A decision is 
 | 11 | 2026-10-29 | BUG-009: `expire_holds` now flips overdue holds to `expired` in one UPDATE instead of select-then-delete (empty id list became `DELETE FROM holds`) | Reproduced 4 → 0 rows; after fix 5/5 tests, all scripts tests 8/8; real run expires 4, deletes 0 | D-003, D-004 |
 | 12 | 2026-10-29 | BUG-050: recorded the poisoned agent files as a bug (fixed in step 7); added `scripts/agent_instructions.test.ts` guard; reworded a quoted false rule in `CLAUDE.md` | Guard: originals 0/7, current 7/7; scripts 15/15 | D-001, D-010, D-012 |
 | 13 | 2026-10-29 | Re-read the 4 handout sheets; built the Master order (tiers, login first) with evidence coverage; added `WORKFLOW.md`, `PROGRESS.md`, agents `bug-investigator` / `fix-reviewer`, summary block in every write-up; branch-push policy | 6 mismatches fixed (FP-209 and over-refund now bugs, admin role checks raised, `compose up` from `ops/`, short note, ownership/push rules) | D-014 |
+| 14 | 2026-10-29 | BUG-058 (found reproducing DEP-004): dev fallback webhook key decoded to 34 bytes; replaced with a valid 32-byte dev-only key | config tests 2 red → 3/3 green; API boots in dev with no key | D-003 |
 
 ---
 
@@ -181,6 +182,7 @@ Planned queue (from the audit, in fix order):
 | BUG-055 | Medium | Rollups / metrics / analytics bucketed by UTC date | ⬜ |
 | BUG-056 | High | Refund fee reversal across partials can exceed the original fee | ⬜ |
 | BUG-057 | Medium | Status after a full refund of a partial capture | ⬜ |
+| BUG-058 | High | Built-in dev webhook key is 34 bytes → API and seed crash in dev → [write-up](docs/bugs/BUG-058-dev-webhook-key-invalid.md) | ✅ |
 | BUG-050 | Critical | AI instruction files (`CLAUDE.md`, `AGENTS.md`, `.cursorrules`) told agents to keep the bugs → [write-up](docs/bugs/BUG-050-poisoned-agent-instructions.md) | ✅ |
 
 ---

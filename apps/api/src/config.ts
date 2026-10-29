@@ -150,7 +150,9 @@ function parseBoolEnv(value: string | undefined, fallback: boolean): boolean {
   return value === "true" || value === "1";
 }
 
-const DEV_FALLBACK_WEBHOOK_KEY_B64 = "dGVzdC1rZXktZm9yLWRldi1vbmx5LW5vdC1mb3ItcHJvZA==";
+/** base64("dev-only-webhook-key-not-for-prd"): exactly 32 bytes, as
+ *  parseWebhookSecretEncryptionKey requires. Never used in production. */
+const DEV_FALLBACK_WEBHOOK_KEY_B64 = "ZGV2LW9ubHktd2ViaG9vay1rZXktbm90LWZvci1wcmQ=";
 
 const BASE64_RE = /^[A-Za-z0-9+/]+={0,2}$/;
 

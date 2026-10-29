@@ -7,13 +7,13 @@ Status of all tasks: `PLAN.md` → Master order. This file is the **detail of wh
 
 | Field | Value |
 |---|---|
-| Task | — |
-| Owner | — |
+| Task | DEP-004 — `docker compose up` from `ops/` must work (resumes after BUG-058) |
+| Owner | Ebrahim |
 | Branch | `ebrahim/track-b` |
-| Step | — (0-claimed · 1-understood · 2-planned · 3-test-red · 4-fixed · 5-verified · 6-documented · 7-pushed) |
+| Step | 1-understood (0-claimed · 1-understood · 2-planned · 3-test-red · 4-fixed · 5-verified · 6-documented · 7-pushed) |
 | Changed files (not committed yet) | — |
-| Root cause (one line) | — |
-| Chosen option | — |
+| Root cause (one line) | migrate/seed/services all start together (only `postgres: service_healthy`); settlement needs a token nobody sets without `ops/.env.docker` |
+| Chosen option | (planning) |
 
 ### Notes for the current task
 
@@ -23,8 +23,9 @@ Status of all tasks: `PLAN.md` → Master order. This file is the **detail of wh
 
 | Date | Task | Commit | Pushed to |
 |---|---|---|---|
-| 2026-10-29 | BUG-050 poisoned agent files (write-up + guard test) | `dd4f262` | `ebrahim/track-b` (pending) |
-| 2026-10-29 | BUG-009 expire_holds deletes all | `815b07a` | `ebrahim/track-b` (pending) |
+| 2026-10-29 | BUG-058 dev webhook key 34 bytes | (this commit) | `ebrahim/track-b` |
+| 2026-10-29 | BUG-050 poisoned agent files (write-up + guard test) | `dd4f262` | `ebrahim/track-b` ✅ |
+| 2026-10-29 | BUG-009 expire_holds deletes all | `815b07a` | `ebrahim/track-b` ✅ |
 | 2026-10-29 | F0 dashboard routes + error pages | `dfc5efb` | `main` |
 | 2026-10-29 | DEP-003 service settings | `02e2646` | `main` |
 | 2026-10-29 | DEP-002 fresh migrate | `15eecb7` | `main` |
