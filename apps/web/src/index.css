@@ -1,15 +1,15 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
-@import "@fontsource-variable/geist";
-@import "@fontsource-variable/geist-mono";
+@import "../../../packages/theme/case-file.css";
 
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  --font-heading: var(--font-sans);
-  --font-sans: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "Geist Mono Variable", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-heading: "Oswald", "Arial Narrow", sans-serif;
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-note: "Caveat", cursive;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -58,94 +58,94 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-/* Palette lifted from the Mazad design system: white surfaces, near-black
-   navy text, cool blue-grey muted tones and borders, one bold red accent.
-   Dark mode is the same system on a deep navy base. */
+/* "Confidential case file" theme. Raw palette and fonts come from
+   packages/theme/case-file.css; this maps them onto the shadcn tokens.
+   Square corners (--radius: 0) and no shadows, by design. */
 :root {
   color-scheme: light;
-  --background: hsl(220 20% 97.5%);
-  --foreground: hsl(213 31% 7%);
-  --card: hsl(0 0% 100%);
-  --card-foreground: hsl(213 31% 7%);
-  --popover: hsl(0 0% 100%);
-  --popover-foreground: hsl(213 31% 7%);
-  --primary: hsl(4 90% 55%);
-  --primary-foreground: hsl(0 0% 100%);
-  --secondary: hsl(220 15% 92%);
-  --secondary-foreground: hsl(220 60% 15%);
-  --muted: hsl(220 15% 94%);
-  --muted-foreground: hsl(220 25% 45%);
-  --accent: hsl(220 15% 94%);
-  --accent-foreground: hsl(213 31% 7%);
-  --destructive: hsl(355 70% 54%);
-  --success: hsl(142 72% 32%);
-  --warning: hsl(38 92% 45%);
-  --info: hsl(212 70% 45%);
-  --border: hsl(213 27% 88%);
-  --input: hsl(213 27% 86%);
-  --ring: hsl(4 90% 55%);
-  --navy: hsl(212 82% 15%);
-  --chart-1: hsl(4 90% 55%);
-  --chart-2: hsl(220 55% 35%);
-  --chart-3: hsl(212 70% 45%);
-  --chart-4: hsl(142 72% 32%);
-  --chart-5: hsl(38 92% 45%);
-  --radius: 0.75rem;
-  --sidebar: hsl(0 0% 100%);
-  --sidebar-foreground: hsl(220 20% 20%);
-  --sidebar-primary: hsl(4 90% 55%);
-  --sidebar-primary-foreground: hsl(0 0% 100%);
-  --sidebar-accent: hsl(4 90% 55% / 0.08);
-  --sidebar-accent-foreground: hsl(4 90% 45%);
-  --sidebar-border: hsl(220 13% 91%);
-  --sidebar-ring: hsl(4 90% 55%);
-  --shadow-soft: 0 2px 8px -2px hsl(212 82% 15% / 0.06);
-  --shadow-card: 0 4px 20px -4px hsl(212 82% 15% / 0.08);
-  --shadow-elegant: 0 10px 30px -10px hsl(212 82% 15% / 0.12);
-  --shadow-hover: 0 20px 40px -10px hsl(212 82% 15% / 0.15);
+  --background: var(--bg-paper);
+  --foreground: var(--text);
+  --card: var(--bg-sheet);
+  --card-foreground: var(--text);
+  --card-border: #2b2b2b;
+  --popover: var(--bg-sheet);
+  --popover-foreground: var(--text);
+  --primary: var(--case-red);
+  --primary-foreground: var(--on-dark);
+  --secondary: #ebe7dd;
+  --secondary-foreground: var(--text);
+  --muted: #ebe7dd;
+  --muted-foreground: var(--text-muted);
+  --accent: #ebe6da;
+  --accent-foreground: var(--text);
+  --destructive: #c8102e;
+  --success: #2f6b3a;
+  --warning: #8a5a00;
+  --info: #2b4a7a;
+  --border: var(--line);
+  --input: #b9b3a6;
+  --ring: #c8102e;
+  --navy: #2b2b2b;
+  --chart-1: #c8102e;
+  --chart-2: #2b2b2b;
+  --chart-3: #6b6b6b;
+  --chart-4: #2f6b3a;
+  --chart-5: #8a5a00;
+  --radius: 0rem;
+  --sidebar: #ece8df;
+  --sidebar-foreground: var(--text);
+  --sidebar-primary: #c8102e;
+  --sidebar-primary-foreground: var(--on-dark);
+  --sidebar-accent: #e2ddd1;
+  --sidebar-accent-foreground: #c8102e;
+  --sidebar-border: var(--line);
+  --sidebar-ring: #c8102e;
+  --shadow-soft: none;
+  --shadow-card: none;
+  --shadow-elegant: none;
+  --shadow-hover: none;
 }
 
+/* Night file: same system on the header charcoal. Also used on the top bar
+   itself (class="dark" on the header) so its contents read on dark. */
 .dark {
   color-scheme: dark;
-  --background: hsl(222 32% 7%);
-  --foreground: hsl(220 20% 94%);
-  --card: hsl(222 26% 10.5%);
-  --card-foreground: hsl(220 20% 94%);
-  --popover: hsl(222 28% 10%);
-  --popover-foreground: hsl(220 20% 94%);
-  --primary: hsl(4 90% 60%);
-  --primary-foreground: hsl(0 0% 100%);
-  --secondary: hsl(222 20% 16%);
-  --secondary-foreground: hsl(220 20% 94%);
-  --muted: hsl(222 20% 15%);
-  --muted-foreground: hsl(220 15% 64%);
-  --accent: hsl(222 20% 17%);
-  --accent-foreground: hsl(220 20% 96%);
-  --destructive: hsl(355 75% 62%);
-  --success: hsl(142 60% 48%);
-  --warning: hsl(38 92% 58%);
-  --info: hsl(212 80% 62%);
-  --border: hsl(220 20% 100% / 0.075);
-  --input: hsl(220 20% 100% / 0.12);
-  --ring: hsl(4 90% 60%);
-  --navy: hsl(212 60% 70%);
-  --chart-1: hsl(4 90% 60%);
-  --chart-2: hsl(220 70% 65%);
-  --chart-3: hsl(212 80% 62%);
-  --chart-4: hsl(142 60% 48%);
-  --chart-5: hsl(38 92% 58%);
-  --sidebar: hsl(222 32% 6%);
-  --sidebar-foreground: hsl(220 15% 85%);
-  --sidebar-primary: hsl(4 90% 60%);
-  --sidebar-primary-foreground: hsl(0 0% 100%);
-  --sidebar-accent: hsl(4 90% 60% / 0.12);
-  --sidebar-accent-foreground: hsl(4 90% 70%);
-  --sidebar-border: hsl(220 20% 100% / 0.08);
-  --sidebar-ring: hsl(4 90% 60%);
-  --shadow-soft: 0 2px 8px -2px hsl(0 0% 0% / 0.4);
-  --shadow-card: 0 4px 20px -4px hsl(0 0% 0% / 0.45);
-  --shadow-elegant: 0 10px 30px -10px hsl(0 0% 0% / 0.5);
-  --shadow-hover: 0 20px 40px -10px hsl(0 0% 0% / 0.6);
+  --background: #161616;
+  --foreground: var(--on-dark);
+  --card: var(--bg-header);
+  --card-foreground: var(--on-dark);
+  --card-border: #4a4a4a;
+  --popover: var(--bg-header);
+  --popover-foreground: var(--on-dark);
+  --primary: #e0263f;
+  --primary-foreground: #ffffff;
+  --secondary: #2a2a2a;
+  --secondary-foreground: var(--on-dark);
+  --muted: #2a2a2a;
+  --muted-foreground: #b5b0a6;
+  --accent: #2c2c2c;
+  --accent-foreground: var(--on-dark);
+  --destructive: #ff4d63;
+  --success: #7fc48b;
+  --warning: #e3b14e;
+  --info: #8fb1e6;
+  --border: #3a3a3a;
+  --input: #4a4a4a;
+  --ring: #e0263f;
+  --navy: var(--on-dark);
+  --chart-1: #e0263f;
+  --chart-2: #b5b0a6;
+  --chart-3: #8a8a8a;
+  --chart-4: #7fc48b;
+  --chart-5: #e3b14e;
+  --sidebar: #1b1b1b;
+  --sidebar-foreground: var(--on-dark);
+  --sidebar-primary: #e0263f;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #2a2a2a;
+  --sidebar-accent-foreground: #ff6b7d;
+  --sidebar-border: #333333;
+  --sidebar-ring: #e0263f;
 }
 
 @layer base {
@@ -169,9 +169,14 @@
     scrollbar-width: thin;
     scrollbar-color: color-mix(in oklch, var(--foreground) 18%, transparent) transparent;
   }
-  h1, h2, h3 {
-    letter-spacing: -0.025em;
+  h1, h2 {
+    font-family: var(--font-heading);
     font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: -0.005em;
+  }
+  h3 {
+    font-weight: 600;
   }
 }
 
@@ -181,9 +186,7 @@
   }
   /* Soft ambient glow behind the content, tinted with the accent. */
   .bg-ambient {
-    background-image:
-      radial-gradient(70rem 32rem at 90% -12%, color-mix(in oklch, var(--primary) 9%, transparent), transparent 62%),
-      radial-gradient(50rem 26rem at -15% 115%, color-mix(in oklch, var(--chart-2) 9%, transparent), transparent 62%);
+    background-image: none;
   }
   .glass {
     background: color-mix(in oklch, var(--background) 72%, transparent);
@@ -230,13 +233,21 @@
 
 /* Table polish shared by every data table. */
 [data-slot="table"] thead th {
-  @apply text-[11px] font-medium uppercase tracking-wider text-muted-foreground;
+  font-family: var(--font-mono);
+  @apply text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground;
 }
 [data-slot="table"] tbody tr {
   @apply transition-colors;
 }
 [data-slot="table"] tbody tr:hover {
-  background: color-mix(in oklch, var(--primary) 5%, transparent);
+  background: color-mix(in oklch, var(--primary) 4%, transparent);
+}
+/* Cards: off-white sheet, 1px dark border, square, no shadow. */
+[data-slot="card"] {
+  /* the kit draws its outline as a ring (a box-shadow); replace it with a
+     real 1px border so "no shadows" doesn't also remove the outline */
+  box-shadow: none !important;
+  border: 1px solid var(--card-border);
 }
 
 

@@ -52,20 +52,18 @@ const TONE_CLASSES: Record<Tone, string> = {
   muted: "bg-muted text-muted-foreground border-border",
 };
 
-/** One consistent pill for every status string the API returns. Unknown
- *  statuses fall back to the muted tone rather than breaking the page. */
+/** Every status as a rubber stamp: red ink for things that need attention
+ *  (open, pending, failed, voided), dark ink for settled ones (paid,
+ *  captured, succeeded), grey for inactive. Rotated -2deg like a real stamp. */
+const STAMP_INK: Record<Tone, string> = {
+  success: "case-stamp--ink",
+  info: "case-stamp--ink",
+  warning: "",
+  destructive: "",
+  muted: "case-stamp--muted",
+};
+
 export function StatusBadge({ status, className }: { status: string; className?: string }) {
   const tone = TONE_BY_STATUS[status] ?? "muted";
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium whitespace-nowrap capitalize",
-        TONE_CLASSES[tone],
-        className,
-      )}
-    >
-      <span className="size-1.5 rounded-full bg-current" aria-hidden />
-      {status.replaceAll("_", " ")}
-    </span>
-  );
+  return <span className={cn("case-stamp", STAMP_INK[tone], className)}>{status.replaceAll("_", " ")}</span>;
 }

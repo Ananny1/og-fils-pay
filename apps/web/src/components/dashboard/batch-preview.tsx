@@ -60,12 +60,7 @@ export function BatchPreview() {
             <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Tonight&apos;s batch</p>
             <p className="mt-0.5 text-sm font-semibold">Seef Kiosk Partners · 29 Oct</p>
           </div>
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-warning/30 bg-warning/10 px-2.5 py-0.5 text-xs font-medium text-warning">
-            <span className="relative flex size-1.5">
-              <span className="absolute inline-flex size-full animate-ping rounded-full bg-warning/70" />
-              <span className="relative inline-flex size-1.5 rounded-full bg-warning" />
-            </span>
-            Closes 00:00
+          <span className="case-stamp">Closes 00:00
           </span>
         </div>
 

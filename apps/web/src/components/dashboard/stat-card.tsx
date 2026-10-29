@@ -37,14 +37,14 @@ export function StatCard({
   if (fils !== undefined) {
     const bd = Number(formatBhd(toFils(Math.abs(fils))));
     body = (
-      <span className={cn("font-mono tabular-nums", fils < 0 && "text-destructive")}>
+      <span className={cn("case-numeral tabular-nums", fils < 0 && "text-destructive")}>
         {fils < 0 ? "−" : ""}
         <CountUp to={bd} duration={1.1} decimals={3} separator="," trigger="load" />
-        <span className="ml-1.5 align-baseline font-sans text-sm font-medium text-muted-foreground">BHD</span>
+        <span className="ml-1.5 align-baseline font-mono text-xs font-medium tracking-[0.12em] text-muted-foreground">BHD</span>
       </span>
     );
   } else if (count !== undefined) {
-    body = <CountUp to={count} duration={0.9} separator="," trigger="load" className="font-mono tabular-nums" />;
+    body = <CountUp to={count} duration={0.9} separator="," trigger="load" className="case-numeral tabular-nums" />;
   }
 
   function onMove(e: MouseEvent<HTMLDivElement>) {
@@ -57,34 +57,20 @@ export function StatCard({
     <div
       onMouseMove={onMove}
       className={cn(
-        "group relative overflow-hidden rounded-xl bg-card p-5 text-card-foreground ring-1 ring-border shadow-soft transition-[box-shadow,transform] duration-300 hover:-translate-y-0.5 hover:shadow-card dark:shadow-none dark:hover:ring-foreground/15",
+        "group relative overflow-hidden border border-[var(--card-border)] bg-card p-5 text-card-foreground",
         className,
       )}
     >
-      {/* pointer-following glow */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100"
-        style={{
-          background:
-            "radial-gradient(260px circle at var(--mx, 50%) var(--my, 0%), color-mix(in oklch, var(--primary) 9%, transparent), transparent 70%)",
-        }}
-      />
-      {/* hairline accent along the top edge */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-x-5 top-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100"
-      />
 
       <div className="relative flex items-start justify-between gap-3">
-        <p className="text-[13px] font-medium text-muted-foreground">{label}</p>
+        <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.15em] text-muted-foreground">{label}</p>
         {Icon ? (
-          <span className="flex size-8 items-center justify-center rounded-lg bg-primary/10 text-primary ring-1 ring-primary/15">
+          <span className="flex size-8 items-center justify-center border border-[var(--card-border)] text-foreground">
             <Icon className="size-4" />
           </span>
         ) : null}
       </div>
-      <div className="relative mt-2 text-[1.75rem] font-semibold leading-tight tracking-tight">
+      <div className="relative mt-3 text-[2.4rem] leading-none">
         {loading ? <Skeleton className="h-8 w-36" /> : body}
       </div>
       {(hint !== undefined || delta !== undefined) && (

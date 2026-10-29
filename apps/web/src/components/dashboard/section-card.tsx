@@ -21,8 +21,8 @@ export function SectionCard({
   return (
     <Card className={cn("rounded-xl", flush && "gap-0 py-0 overflow-hidden", className)}>
       {title || action ? (
-        <CardHeader className={cn(flush && "border-b bg-muted/20 py-4")}>
-          {title ? <CardTitle>{title}</CardTitle> : null}
+        <CardHeader className={cn(flush && "border-b border-[var(--card-border)]/30 py-4")}>
+          {title ? <CardTitle className="case-label">{title}</CardTitle> : null}
           {description ? <CardDescription>{description}</CardDescription> : null}
           {action ? <CardAction>{action}</CardAction> : null}
         </CardHeader>

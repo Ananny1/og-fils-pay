@@ -1,0 +1,112 @@
+/*
+ * FilsPay "confidential case file" theme — the single source of the palette,
+ * fonts and stamp/label primitives for apps/web and apps/admin.
+ *
+ * Contrast (WCAG AA, normal text needs 4.5:1):
+ *   --text       #2B2B2B on #F4F1EA  ≈ 12.9:1
+ *   --text-muted #6B6B6B on #F4F1EA  ≈  4.9:1
+ *   --accent     #C8102E on #F4F1EA  ≈  5.4:1   (red text is AA)
+ *   --on-dark    #F4F1EA on #C8102E  ≈  5.4:1   (banner / button text)
+ *   --on-dark    #F4F1EA on #1E1E1E  ≈ 15.0:1
+ */
+@import url("https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&family=Oswald:wght@500;600;700&display=swap");
+
+:root {
+  --bg-paper: #f4f1ea;
+  --bg-sheet: #faf8f3; /* a card a shade lighter than the page */
+  --bg-header: #1e1e1e;
+  --accent: #c8102e;
+  --accent-ink: #a50d26; /* hover / pressed */
+  /* The primitives below use --case-red, not --accent: UI kits (shadcn)
+     reuse the name --accent for hover colours and would override it. */
+  --case-red: #c8102e;
+  --text: #2b2b2b;
+  --text-muted: #6b6b6b;
+  --line: #cfcac0;
+  --on-dark: #f4f1ea;
+  --ink-ok: #2b2b2b; /* stamps for settled/positive states use plain ink */
+
+  --font-headline: "Oswald", "Arial Narrow", sans-serif;
+  --font-label: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-body: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-note: "Caveat", "Comic Sans MS", cursive;
+}
+
+/* On a dark surface crimson text drops below AA (≈3.1:1 on #1E1E1E);
+   a lighter red keeps stamps and labels readable (≈5.6:1). */
+.dark {
+  --case-red: #ff5a6e;
+  --ink-ok: #f4f1ea;
+}
+
+/* ---------- primitives both apps can use as plain classes ---------- */
+
+/* Uppercase mono section label in red, followed by a thin red rule. */
+.case-label {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-family: var(--font-label);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--case-red);
+}
+.case-label::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--case-red);
+  opacity: 0.55;
+}
+
+/* Rubber-stamp badge. Red ink by default; .case-stamp--ink for settled states. */
+.case-stamp {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35em;
+  padding: 0.1rem 0.45rem;
+  border: 2px solid var(--case-red);
+  color: var(--case-red);
+  background: transparent;
+  font-family: var(--font-label);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  line-height: 1.35;
+  white-space: nowrap;
+  transform: rotate(-2deg);
+}
+.case-stamp--ink {
+  border-color: var(--ink-ok);
+  color: var(--ink-ok);
+}
+.case-stamp--muted {
+  border-color: var(--text-muted);
+  color: var(--text-muted);
+}
+
+/* Handwritten margin note in red marker. */
+.case-note {
+  font-family: var(--font-note);
+  font-size: 1.15rem;
+  line-height: 1.2;
+  color: var(--case-red);
+}
+
+/* Big condensed red numerals for steps and key figures. */
+.case-numeral {
+  font-family: var(--font-headline);
+  font-weight: 700;
+  color: var(--case-red);
+  letter-spacing: -0.01em;
+  line-height: 1;
+}
+
+/* Full-width red banner for important alerts. */
+.case-banner {
+  background: #c8102e;
+  color: var(--on-dark);
+}

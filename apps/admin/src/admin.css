@@ -1,20 +1,121 @@
-/* No design system, no UI kit — the same "real but small" minimalism
-   apps/web's checkout page ships with. Just enough for dense operational
-   tables to be readable and for the impersonation banner to be impossible
-   to overlook. */
+@import "@filspay/theme/case-file.css";
+
+/* FilsPay admin — "confidential case file" skin.
+   Palette, fonts and stamp primitives come from @filspay/theme; this file
+   only maps them onto the console's existing class names. Dense operational
+   tables stay readable, and the impersonation banner stays impossible to
+   overlook. Never redefine --accent here (the theme owns it). */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
 
 body {
   margin: 0;
-  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-family: var(--font-body);
   font-size: 15px;
-  color: #1a1a1a;
-  background: #fafafa;
+  line-height: 1.5;
+  color: var(--text);
+  background: var(--bg-paper);
+  overflow-x: hidden;
 }
 
 code {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 0.9em;
+  font-family: var(--font-label);
+  font-size: 0.88em;
+  overflow-wrap: anywhere;
 }
+
+a {
+  color: var(--text);
+  text-decoration: underline;
+  text-decoration-color: var(--accent);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.18em;
+}
+
+a:hover {
+  color: var(--accent-ink);
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ---------- headings ---------- */
+
+h1,
+h2 {
+  font-family: var(--font-headline);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.005em;
+  line-height: 1.15;
+  color: var(--text);
+}
+
+h1 {
+  font-size: 2rem;
+  margin: 0.5rem 0 0.75rem;
+}
+
+h2 {
+  font-size: 1.3rem;
+  margin: 2.5rem 0 0.75rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--text);
+}
+
+/* Small headings read like a typed section label with a red rule. */
+h3 {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 1.75rem 0 0.5rem;
+  font-family: var(--font-label);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+h3::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--accent);
+  opacity: 0.55;
+}
+
+/* Decorative "CONFIDENTIAL" stamp beside every page title. */
+.admin-main h1::after,
+.admin-centered h1::after {
+  content: "Confidential";
+  content: "Confidential" / "";
+  display: inline-block;
+  margin-left: 0.85rem;
+  padding: 0.1rem 0.5rem;
+  border: 2px solid var(--accent);
+  color: var(--accent);
+  font-family: var(--font-label);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.15em;
+  line-height: 1.35;
+  vertical-align: 0.45em;
+  white-space: nowrap;
+  transform: rotate(-3deg);
+}
+
+/* ---------- shell / header ---------- */
 
 .admin-shell {
   min-height: 100vh;
@@ -24,205 +125,715 @@ code {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 1.5rem;
-  padding: 0.75rem 1.5rem;
-  background: #fff;
-  border-bottom: 1px solid #ddd;
+  gap: 0.5rem 1.75rem;
+  padding: 0.5rem 1.5rem;
+  background: var(--bg-header);
+  color: var(--on-dark);
+  border-bottom: 3px solid var(--accent);
 }
 
 .admin-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-height: 40px;
+  font-family: var(--font-headline);
+  font-size: 1.15rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* Logo: small solid red square with an "F". */
+.admin-brand::before {
+  content: "F";
+  content: "F" / "";
+  display: inline-grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  background: var(--accent);
+  color: var(--on-dark);
+  font-family: var(--font-headline);
+  font-size: 1.1rem;
   font-weight: 700;
+  line-height: 1;
 }
 
 .admin-nav {
   display: flex;
-  gap: 1rem;
+  flex-wrap: wrap;
+  gap: 0.25rem 1.25rem;
 }
 
-.admin-nav a {
-  color: #1a1a1a;
+.admin-header .admin-nav a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  color: var(--on-dark);
+  font-family: var(--font-label);
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
   text-decoration: none;
+  border-bottom: 2px solid transparent;
 }
 
-.admin-nav a.active {
-  font-weight: 700;
-  text-decoration: underline;
+.admin-header .admin-nav a:hover {
+  border-bottom-color: var(--on-dark);
+  color: var(--on-dark);
+}
+
+.admin-header .admin-nav a.active {
+  font-weight: 600;
+  border-bottom-color: var(--accent);
 }
 
 .admin-identity {
   margin-left: auto;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.5rem 0.9rem;
+  font-size: 0.875rem;
+  overflow-wrap: anywhere;
 }
 
+/* Role chip as a stamp in off-white ink (red ink fails contrast on the dark bar). */
 .admin-role-chip {
-  padding: 0.1rem 0.4rem;
-  border: 1px solid #999;
-  border-radius: 3px;
-  font-size: 0.8em;
+  display: inline-block;
+  margin-left: 0.4rem;
+  padding: 0.05rem 0.45rem;
+  border: 2px solid var(--on-dark);
+  color: var(--on-dark);
+  font-family: var(--font-label);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  line-height: 1.35;
+  text-transform: uppercase;
+  white-space: nowrap;
+  transform: rotate(-2deg);
+}
+
+.admin-header button {
+  background: transparent;
+  color: var(--on-dark);
+  border-color: var(--on-dark);
+}
+
+.admin-header button:hover:not(:disabled) {
+  background: var(--on-dark);
+  color: var(--bg-header);
+}
+
+.admin-header :focus-visible {
+  outline-color: var(--on-dark);
 }
 
 .admin-main {
-  max-width: 70rem;
+  max-width: 72rem;
   margin: 0 auto;
-  padding: 1.5rem;
+  padding: 1.75rem 1.5rem 3rem;
 }
 
+/* Login / session check: a single case-file card on the paper. */
 .admin-centered {
-  max-width: 26rem;
+  position: relative;
+  max-width: 28rem;
   margin: 4rem auto;
-  padding: 1.5rem;
+  padding: 2rem 1.75rem 1.75rem;
+  background: var(--bg-sheet);
+  border: 1px solid var(--text);
+  border-top: 6px solid var(--accent);
 }
+
+.admin-centered h1 {
+  margin-top: 0;
+}
+
+.admin-centered::after {
+  content: "eyes only";
+  content: "eyes only" / "";
+  position: absolute;
+  right: 1rem;
+  bottom: 0.4rem;
+  font-family: var(--font-note);
+  font-size: 1.2rem;
+  color: var(--accent);
+  transform: rotate(-4deg);
+  pointer-events: none;
+}
+
+/* ---------- forms ---------- */
 
 .admin-form {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 0.9rem;
   margin: 1rem 0;
   max-width: 40rem;
 }
 
+/* Stand-alone forms are filed as cards; inline toolbars and the login form are not. */
+.admin-main .admin-form:not(.admin-form-inline) {
+  padding: 1.25rem;
+  background: var(--bg-sheet);
+  border: 1px solid var(--text);
+}
+
 .admin-form-inline {
   flex-direction: row;
+  flex-wrap: wrap;
   align-items: flex-end;
 }
 
-.admin-form label {
+.admin-form-inline > label {
+  flex: 1 1 16rem;
+}
+
+.admin-form-inline > span {
+  align-self: center;
+  font-family: var(--font-label);
+  font-size: 0.8rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.admin-form label,
+.admin-confirm label {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 0.35rem;
+  font-family: var(--font-label);
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text);
 }
 
-.admin-form input,
-.admin-form select,
-.admin-form textarea {
-  padding: 0.4rem;
-  font: inherit;
-  border: 1px solid #bbb;
-  border-radius: 3px;
+/* Checkbox labels are sentences — keep them in body type. */
+.admin-form label:has(> input[type="checkbox"]),
+.admin-filters label {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 40px;
+  font-family: var(--font-body);
+  font-size: 0.9375rem;
+  font-weight: 400;
+  letter-spacing: normal;
+  text-transform: none;
 }
 
-/* MK: global button style, temporary until the design system (Nov 2025) */
-button {
-  padding: 0.4rem 0.8rem;
-  font: inherit;
-  cursor: pointer;
-  border: 1px solid #888;
-  border-radius: 3px;
+input,
+select,
+textarea {
+  font-family: var(--font-body);
+  font-size: 0.9375rem;
+  letter-spacing: normal;
+  text-transform: none;
+  color: var(--text);
+}
+
+input:not([type="checkbox"]):not([type="radio"]),
+select,
+textarea {
+  width: 100%;
+  min-height: 40px;
+  padding: 0.5rem 0.6rem;
+  background: var(--bg-sheet);
+  border: 1px solid var(--line);
+  border-radius: 0;
+}
+
+.admin-centered input:not([type="checkbox"]):not([type="radio"]),
+.admin-main .admin-form:not(.admin-form-inline) input:not([type="checkbox"]):not([type="radio"]),
+.admin-main .admin-form:not(.admin-form-inline) select,
+.admin-main .admin-form:not(.admin-form-inline) textarea {
   background: #fff;
 }
 
-button:disabled {
-  cursor: default;
-  opacity: 0.6;
+select {
+  -webkit-appearance: none;
+  appearance: none;
+  padding-right: 2rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%232B2B2B'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.7rem center;
 }
+
+textarea {
+  resize: vertical;
+}
+
+input:not([type="checkbox"]):not([type="radio"]):focus,
+select:focus,
+textarea:focus {
+  border-color: var(--text);
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+input[type="checkbox"],
+input[type="radio"] {
+  width: 1.1rem;
+  height: 1.1rem;
+  margin: 0;
+  accent-color: var(--accent);
+  flex-shrink: 0;
+}
+
+::placeholder {
+  color: var(--text-muted);
+  opacity: 1;
+}
+
+/* ---------- buttons ---------- */
+
+/* MK: global button style — now the case-file secondary button. */
+button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding: 0.5rem 1rem;
+  font-family: var(--font-label);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  line-height: 1.2;
+  color: var(--text);
+  background: transparent;
+  border: 1px solid var(--text);
+  border-radius: 0;
+  cursor: pointer;
+}
+
+button:hover:not(:disabled) {
+  background: var(--text);
+  color: var(--on-dark);
+}
+
+/* Primary: form submits and the "Yes, …" action in a confirm box. */
+button[type="submit"],
+.admin-confirm > button:first-of-type {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-dark);
+}
+
+button[type="submit"]:hover:not(:disabled),
+.admin-confirm > button:first-of-type:hover:not(:disabled) {
+  background: var(--accent-ink);
+  border-color: var(--accent-ink);
+  color: var(--on-dark);
+}
+
+button:disabled,
+button[type="submit"]:disabled,
+.admin-confirm > button:first-of-type:disabled {
+  cursor: not-allowed;
+  background: transparent;
+  color: var(--text-muted);
+  border: 1px dashed var(--text-muted);
+}
+
+/* Credits status tabs: the current tab is the disabled one — show it as selected. */
+.admin-main .admin-nav {
+  gap: 0;
+  margin: 1.25rem 0;
+}
+
+.admin-main .admin-nav button {
+  margin-right: -1px;
+}
+
+.admin-main .admin-nav button:disabled {
+  cursor: default;
+  background: var(--bg-header);
+  color: var(--on-dark);
+  border: 1px solid var(--bg-header);
+}
+
+/* ---------- filters / fieldsets ---------- */
 
 .admin-filters {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.75rem;
-  border: 1px solid #ddd;
-  padding: 0.5rem 0.75rem;
+  align-items: center;
+  gap: 0.25rem 1.25rem;
   margin: 1rem 0;
+  padding: 0.6rem 1rem 0.75rem;
+  background: var(--bg-sheet);
+  border: 1px solid var(--text);
+  min-width: 0;
 }
 
-.admin-filters label {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
+.admin-form .admin-filters {
+  margin: 0;
+  background: transparent;
+  border-color: var(--line);
 }
+
+.admin-filters legend {
+  padding: 0 0.4rem;
+  font-family: var(--font-label);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.admin-filters p {
+  flex-basis: 100%;
+  margin: 0.25rem 0 0;
+}
+
+/* ---------- tables ---------- */
 
 .admin-table {
   width: 100%;
   border-collapse: collapse;
   margin: 1rem 0;
-  background: #fff;
+  background: var(--bg-sheet);
+  border: 1px solid var(--text);
+  font-size: 0.9rem;
+}
+
+/* Row dividers live on the rows, so stamped cells can tilt freely. */
+.admin-table tr {
+  border-bottom: 1px solid var(--line);
+}
+
+.admin-table thead tr {
+  border-bottom: 2px solid var(--text);
+}
+
+.admin-table tbody tr:last-child {
+  border-bottom: 0;
+}
+
+.admin-table tbody tr:hover {
+  background: rgba(43, 43, 43, 0.035);
 }
 
 .admin-table th,
 .admin-table td {
-  border: 1px solid #e0e0e0;
-  padding: 0.4rem 0.6rem;
+  padding: 0.55rem 0.75rem;
   text-align: left;
   vertical-align: top;
 }
 
+.admin-table th {
+  font-family: var(--font-label);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--text);
+}
+
+.admin-table td button {
+  min-height: 36px;
+  padding: 0.35rem 0.75rem;
+}
+
+/* Money and counts: right-aligned, mono, tabular so the fils line up. */
+.admin-table .admin-num {
+  text-align: right;
+  font-family: var(--font-label);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.admin-notice .admin-table {
+  margin-bottom: 0.25rem;
+}
+
+/* ---------- status stamps ---------- */
+
+/* Red ink by default (pending, failed, rejected, open, under_review, …);
+   plain dark ink for settled / positive states. */
+.admin-status {
+  font-family: var(--font-label);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  line-height: 1.35;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--accent);
+}
+
+.admin-status--active,
+.admin-status--approved,
+.admin-status--paid,
+.admin-status--succeeded,
+.admin-status--closed,
+.admin-status--posted,
+.admin-status--passed {
+  color: var(--ink-ok);
+}
+
+/* In the profile list the dd itself becomes the stamp. */
+.admin-dl dd.admin-status {
+  justify-self: start;
+  align-self: start;
+  padding: 0.1rem 0.45rem;
+  border: 2px solid currentColor;
+  transform: rotate(-2deg);
+}
+
+/* In tables the cell keeps its table role; the stamp frame is drawn around the text. */
+.admin-table td.admin-status {
+  position: relative;
+  width: 1%;
+  padding: 0.6rem 1rem;
+  text-align: center;
+  transform: rotate(-2deg);
+}
+
+.admin-table td.admin-status::before {
+  content: "";
+  position: absolute;
+  left: 0.55rem;
+  right: 0.55rem;
+  top: 0.4rem;
+  height: calc(1.35em + 0.4rem);
+  border: 2px solid currentColor;
+  pointer-events: none;
+}
+
+/* ---------- definition list ---------- */
+
 .admin-dl {
   display: grid;
-  grid-template-columns: 12rem 1fr;
-  gap: 0.25rem 1rem;
+  grid-template-columns: 13rem 1fr;
+  gap: 0.6rem 1.25rem;
   margin: 1rem 0;
+  padding: 1.25rem;
+  background: var(--bg-sheet);
+  border: 1px solid var(--text);
 }
 
 .admin-dl dt {
-  font-weight: 600;
+  padding-top: 0.15rem;
+  font-family: var(--font-label);
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
 }
 
 .admin-dl dd {
   margin: 0;
+  overflow-wrap: anywhere;
 }
+
+/* ---------- messages ---------- */
 
 .admin-muted {
-  color: #666;
+  color: var(--text-muted);
 }
 
+/* Errors: full-width red banner. */
 .admin-error {
-  padding: 0.6rem 0.8rem;
-  border: 1px solid #b00020;
-  background: #fdeaea;
-  color: #7a0016;
+  margin: 1rem 0;
+  padding: 0.75rem 1rem;
+  background: var(--accent);
+  color: var(--on-dark);
+  border: 0;
+  font-weight: 500;
 }
 
+.admin-error a,
+.admin-error code {
+  color: var(--on-dark);
+}
+
+/* Info / success: paper slip with a dark frame and a red rule on the left. */
 .admin-notice {
-  padding: 0.6rem 0.8rem;
-  border: 1px solid #2a6f2a;
-  background: #eef7ee;
   margin: 1rem 0;
+  padding: 0.75rem 1rem;
+  background: var(--bg-sheet);
+  border: 1px solid var(--text);
+  border-left: 4px solid var(--accent);
 }
 
+.admin-notice > p:first-child {
+  margin-top: 0;
+}
+
+/* Confirmation slip before a money-adjacent action. */
 .admin-confirm {
-  padding: 0.8rem;
-  border: 2px solid #b06000;
-  background: #fff6e8;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem;
   margin: 1rem 0;
+  padding: 1rem 1.25rem 1.25rem;
   max-width: 40rem;
+  background: var(--bg-sheet);
+  border: 2px solid var(--accent);
+}
+
+.admin-confirm::before {
+  content: "check twice";
+  content: "check twice" / "";
+  flex-basis: 100%;
+  margin-bottom: -0.5rem;
+  font-family: var(--font-note);
+  font-size: 1.25rem;
+  line-height: 1;
+  color: var(--accent);
+  transform: rotate(-2deg);
+  transform-origin: left;
+}
+
+.admin-confirm > p,
+.admin-confirm > label {
+  flex-basis: 100%;
+  margin: 0;
 }
 
 .admin-id-list {
   max-height: 14rem;
   overflow-y: auto;
+  padding-left: 1.25rem;
+  font-family: var(--font-label);
+  font-size: 0.85rem;
 }
+
+/* ---------- impersonation banner ---------- */
 
 /* Deliberately loud: an active impersonation grant must never be something
    an operator can fail to notice. */
 .impersonation-banner {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 1rem;
-  padding: 0.75rem 1.5rem;
-  background: #7a0016;
-  color: #fff;
-  border-bottom: 4px solid #ffcc00;
+  gap: 0.75rem 1.25rem;
+  padding: 0.85rem 1.5rem;
+  background: var(--accent);
+  color: var(--on-dark);
+  border-bottom: 4px solid var(--bg-header);
   position: sticky;
   top: 0;
   z-index: 10;
 }
 
+.impersonation-banner > div {
+  flex: 1 1 20rem;
+  min-width: 0;
+}
+
+.impersonation-banner strong {
+  font-family: var(--font-headline);
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
 .impersonation-banner code {
-  color: #ffe;
+  color: var(--on-dark);
 }
 
 .impersonation-banner button {
   margin-left: auto;
-  background: #fff;
-  color: #7a0016;
-  font-weight: 700;
-  border-color: #fff;
+  background: var(--on-dark);
+  color: var(--bg-header);
+  border: 2px solid var(--on-dark);
   white-space: nowrap;
+}
+
+.impersonation-banner button:hover:not(:disabled) {
+  background: var(--bg-header);
+  color: var(--on-dark);
+  border-color: var(--bg-header);
+}
+
+.impersonation-banner button:disabled {
+  background: transparent;
+  color: var(--on-dark);
+  border: 2px dashed var(--on-dark);
+}
+
+.impersonation-banner :focus-visible {
+  outline-color: var(--on-dark);
 }
 
 .impersonation-banner-error {
   margin-top: 0.4rem;
   font-weight: 700;
+}
+
+/* ---------- small screens ---------- */
+
+@media (max-width: 720px) {
+  .admin-header {
+    padding: 0.5rem 1rem;
+    gap: 0.25rem 1rem;
+  }
+
+  .admin-header .admin-nav {
+    order: 3;
+    flex-basis: 100%;
+    gap: 0 1rem;
+  }
+
+  .admin-main {
+    padding: 1.25rem 1rem 2.5rem;
+  }
+
+  .admin-centered {
+    margin: 2rem 1rem;
+    padding: 1.5rem 1.25rem 1.75rem;
+  }
+
+  h1 {
+    font-size: 1.6rem;
+  }
+
+  .admin-dl {
+    grid-template-columns: 1fr;
+    gap: 0.2rem;
+  }
+
+  .admin-dl dd {
+    margin-bottom: 0.6rem;
+  }
+
+  /* Wide tables scroll inside themselves, never the page. */
+  .admin-table {
+    display: block;
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .impersonation-banner {
+    padding: 0.75rem 1rem;
+  }
+
+  .impersonation-banner button {
+    margin-left: 0;
+  }
+}
+
+/* Checkboxes: square, red when ticked, with breathing room before the label. */
+input[type="checkbox"] {
+  accent-color: var(--accent);
+  width: 1rem;
+  height: 1rem;
+  margin: 0 0.45rem 0 0;
+  vertical-align: -0.15em;
 }

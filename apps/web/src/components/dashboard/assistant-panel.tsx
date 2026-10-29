@@ -116,14 +116,13 @@ export function AssistantPanel() {
             <Button
               size="lg"
               aria-label="Open the FilsPay assistant chat"
-              className="group h-12 gap-2.5 rounded-full pr-5 pl-2 shadow-hover"
+              className="group h-12 gap-2.5 border-2 border-[var(--card-border)] pr-2 pl-2 sm:pr-5"
               onClick={() => setOpen(true)}
             >
-              <span className="relative flex size-9 items-center justify-center rounded-full bg-primary-foreground/15">
-                <span className="absolute inset-0 animate-ping rounded-full bg-primary-foreground/10 [animation-duration:2.4s]" />
+              <span className="relative flex size-9 items-center justify-center bg-primary-foreground/15">
                 <BotIcon className="size-[22px]" />
               </span>
-              Ask FilsPay
+              <span className="hidden sm:inline">Ask FilsPay</span>
               <Kbd className="ml-1 hidden bg-primary-foreground/15 text-primary-foreground sm:inline-flex">⌘J</Kbd>
             </Button>
           </motion.div>

@@ -23,7 +23,7 @@ export function PageHeader({
           animateBy="words"
           direction="top"
           delay={60}
-          className="text-2xl font-semibold tracking-tight md:text-3xl"
+          className="font-heading text-3xl font-bold uppercase tracking-tight md:text-4xl"
         />
         {description ? <p className="text-sm text-muted-foreground">{description}</p> : null}
       </div>

@@ -255,11 +255,15 @@ export function MerchantDetailPage() {
       <h2>Profile</h2>
       <dl className="admin-dl">
         <dt>Status</dt>
-        <dd>{merchant.status}</dd>
+        <dd className={`admin-status admin-status--${merchant.status}`}>{merchant.status}</dd>
         <dt>Onboarding status</dt>
-        <dd>{merchant.onboardingStatus}</dd>
+        <dd className={`admin-status admin-status--${merchant.onboardingStatus}`}>
+          {merchant.onboardingStatus}
+        </dd>
         <dt>KYC</dt>
-        <dd>{merchant.kycPassed ? "passed" : "not passed"}</dd>
+        <dd className={`admin-status admin-status--${merchant.kycPassed ? "passed" : "not_passed"}`}>
+          {merchant.kycPassed ? "passed" : "not passed"}
+        </dd>
         <dt>MDR</dt>
         <dd>
           {(merchant.mdrBps / 100).toFixed(2)}% ({merchant.mdrBps} bps)
@@ -461,7 +465,7 @@ export function MerchantDetailPage() {
           <tbody>
             {kycReviews.map((review) => (
               <tr key={review.id}>
-                <td>{review.outcome}</td>
+                <td className={`admin-status admin-status--${review.outcome}`}>{review.outcome}</td>
                 <td>{review.reviewerIdentifier}</td>
                 <td>{review.notes ?? "-"}</td>
                 <td>{new Date(review.reviewedAt).toLocaleString()}</td>
@@ -580,7 +584,7 @@ export function MerchantDetailPage() {
             {webhookEndpoints.map((endpoint) => (
               <tr key={endpoint.id}>
                 <td>{endpoint.url}</td>
-                <td>{endpoint.status}</td>
+                <td className={`admin-status admin-status--${endpoint.status}`}>{endpoint.status}</td>
                 <td>
                   <code>{endpoint.secretPrefix}</code>
                 </td>
@@ -603,19 +607,19 @@ export function MerchantDetailPage() {
             <tr>
               <th>Date</th>
               <th>Status</th>
-              <th>Gross</th>
-              <th>Fee</th>
-              <th>Net payout</th>
+              <th className="admin-num">Gross</th>
+              <th className="admin-num">Fee</th>
+              <th className="admin-num">Net payout</th>
             </tr>
           </thead>
           <tbody>
             {batches.map((batch) => (
               <tr key={batch.id}>
                 <td>{batch.batchDate}</td>
-                <td>{batch.status}</td>
-                <td>{bhd(batch.grossFils)}</td>
-                <td>{bhd(batch.feeFils)}</td>
-                <td>{bhd(batch.netPayoutFils)}</td>
+                <td className={`admin-status admin-status--${batch.status}`}>{batch.status}</td>
+                <td className="admin-num">{bhd(batch.grossFils)}</td>
+                <td className="admin-num">{bhd(batch.feeFils)}</td>
+                <td className="admin-num">{bhd(batch.netPayoutFils)}</td>
               </tr>
             ))}
           </tbody>

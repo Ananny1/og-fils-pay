@@ -138,9 +138,9 @@ export function CreditsPage() {
               <th>Requested by</th>
               <th>Merchant</th>
               <th>Reason</th>
-              <th>Base</th>
-              <th>Fee reversal</th>
-              <th>Posted total</th>
+              <th className="admin-num">Base</th>
+              <th className="admin-num">Fee reversal</th>
+              <th className="admin-num">Posted total</th>
               <th>Effective date</th>
               <th>Approved by</th>
               <th />
@@ -159,14 +159,20 @@ export function CreditsPage() {
                   {item.reasonCode}
                   {item.memo ? <div className="admin-muted">{item.memo}</div> : null}
                 </td>
-                <td>{bhd(item.baseAmountFils)}</td>
-                <td>{item.feeReversalFils > 0 ? bhd(item.feeReversalFils) : "-"}</td>
-                <td>
+                <td className="admin-num">{bhd(item.baseAmountFils)}</td>
+                <td className="admin-num">{item.feeReversalFils > 0 ? bhd(item.feeReversalFils) : "-"}</td>
+                <td className="admin-num">
                   <strong>{bhd(item.postedAmountFils)}</strong>
                 </td>
                 <td>{item.effectiveDate}</td>
                 <td>{item.approvedByDisplayName ?? "-"}</td>
-                <td>
+                <td
+                  className={
+                    item.status === "pending_approval"
+                      ? undefined
+                      : `admin-status admin-status--${item.status}`
+                  }
+                >
                   {item.status === "pending_approval" ? (
                     <RequireRole
                       allow={["finance", "super_admin"]}

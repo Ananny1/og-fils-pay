@@ -159,7 +159,7 @@ export function LoginPage() {
 
   return (
     <div className="min-h-svh bg-card text-foreground">
-      <header className="sticky top-0 z-20 border-b border-border/60 bg-card/80 backdrop-blur">
+      <header className="dark sticky top-0 z-20 border-b-2 border-b-[#c8102e] bg-[var(--bg-header)] text-[var(--on-dark)]">
         <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-4 md:px-6">
           <BrandMark />
           <div className="flex items-center gap-2">
@@ -179,16 +179,13 @@ export function LoginPage() {
         <section className="grid items-start gap-10 py-10 md:py-16 lg:grid-cols-[1.1fr_minmax(22rem,26rem)] lg:gap-16">
           <div className="space-y-7">
             <FadeContent trigger="mount" duration={0.5}>
-              <span className="inline-flex items-center gap-2 rounded-full border border-primary/25 bg-primary/10 px-4 py-1.5 text-sm font-medium text-primary">
-                <span className="relative flex size-1.5">
-                  <span className="absolute inline-flex size-full animate-ping rounded-full bg-primary/60" />
-                  <span className="relative inline-flex size-1.5 rounded-full bg-primary" />
-                </span>
-                AI-powered merchant dashboard
+              <span className="flex flex-wrap items-center gap-3">
+                <span className="case-stamp text-[11px]">Confidential</span>
+                <span className="case-label min-w-48 flex-1">AI-powered merchant dashboard</span>
               </span>
             </FadeContent>
 
-            <h1 className="text-4xl font-bold leading-[1.05] tracking-[-0.03em] md:text-6xl">
+            <h1 className="font-heading text-5xl font-bold uppercase leading-[0.98] tracking-[-0.01em] md:text-7xl">
               <BlurText
                 text="Card payments for Bahrain,"
                 trigger="load"
@@ -198,7 +195,7 @@ export function LoginPage() {
                 className="block"
               />
               <GradientText
-                colors={["hsl(4 90% 55%)", "hsl(220 55% 35%)", "hsl(4 90% 55%)"]}
+                colors={["#c8102e", "#8f0b21", "#c8102e"]}
                 animationSpeed={6}
                 className="inline-block"
               >
@@ -219,7 +216,7 @@ export function LoginPage() {
                 {FACTS.map((f) => (
                   <li
                     key={f}
-                    className="rounded-full border border-border/70 bg-background px-3 py-1 font-mono text-[12.5px] text-muted-foreground"
+                    className="border border-[var(--card-border)] bg-transparent px-3 py-1 font-mono text-[12px] uppercase tracking-[0.1em] text-foreground"
                   >
                     {f}
                   </li>
@@ -249,7 +246,7 @@ export function LoginPage() {
             >
               <Card className="w-full rounded-2xl border-border/70 shadow-elegant">
                 <CardHeader>
-                  <CardTitle className="text-xl font-bold">{isOtp ? "Check your inbox" : "Sign in"}</CardTitle>
+                  <CardTitle className="font-heading text-2xl font-bold uppercase">{isOtp ? "Check your inbox" : "Sign in"}</CardTitle>
                   <CardDescription>
                     {isOtp ? (
                       <>
@@ -261,7 +258,10 @@ export function LoginPage() {
                         .
                       </>
                     ) : (
-                      "Merchant ID, email and password. A one-time code finishes it."
+                      <>
+                        Merchant ID, email and password. A one-time code finishes it.
+                        <span className="case-note mt-1 block -rotate-1">for authorised merchants only</span>
+                      </>
                     )}
                   </CardDescription>
                 </CardHeader>
@@ -444,10 +444,8 @@ export function LoginPage() {
                     className="h-full w-full"
                     style={{ width: "100%", height: "100%" }}
                   >
-                    <div className="flex h-full flex-col rounded-2xl border border-border/70 bg-card p-6 shadow-card transition-transform duration-300 hover:-translate-y-1">
-                      <span className="flex size-10 items-center justify-center rounded-full bg-primary/10 font-mono text-sm font-semibold text-primary ring-1 ring-primary/15">
-                        {i + 1}
-                      </span>
+                    <div className="flex h-full flex-col border border-[var(--card-border)] bg-card p-6">
+                      <span className="case-numeral text-6xl">{String(i + 1).padStart(2, "0")}</span>
                       <h3 className="mt-5 text-lg font-bold">{s.title}</h3>
                       <p className="mt-2 text-sm leading-6 text-muted-foreground">{s.body}</p>
                     </div>
@@ -463,10 +461,7 @@ export function LoginPage() {
           <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-16">
             <AnimatedContent distance={40} duration={0.7} threshold={0.2}>
               <div className="space-y-5">
-                <span className="inline-flex items-center gap-2 rounded-full border border-primary/25 bg-primary/10 px-4 py-1.5 text-sm font-medium text-primary">
-                  <BotIcon className="size-4" />
-                  Ask FilsPay
-                </span>
+                <span className="case-label">Exhibit B · Ask FilsPay</span>
                 <h2 className="text-3xl font-bold tracking-tight md:text-4xl">Your numbers, explained by AI</h2>
                 <p className="text-lg leading-8 text-muted-foreground">
                   Ask in your own words and get an answer from your live data in seconds. The assistant reads

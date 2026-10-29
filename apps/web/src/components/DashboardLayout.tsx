@@ -48,7 +48,7 @@ export function DashboardLayout() {
     <SidebarProvider>
       <AppSidebar />
       <SidebarInset className="bg-ambient">
-        <header className="glass sticky top-0 z-20 flex h-14 shrink-0 items-center gap-2 border-b px-4">
+        <header className="dark sticky top-0 z-20 flex h-14 shrink-0 items-center gap-2 border-b-2 border-b-[#c8102e] bg-[var(--bg-header)] px-4 text-[var(--on-dark)]">
           <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="mr-2 data-[orientation=vertical]:h-4" />
           <Breadcrumb>
