@@ -1,5 +1,6 @@
 .git
-.claude
+.claude/*
+!.claude/settings.json
 **/node_modules
 **/dist
 **/*.tsbuildinfo

@@ -1,4 +1,4 @@
-# DEP-005 — `npm test` never ran the API and reporting suites (380 tests)
+# DEP-005 — `npm test` never ran the API and reporting suites (376 tests)
 
 | | |
 |---|---|

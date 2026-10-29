@@ -112,6 +112,7 @@ Each decision: **context → decision → why → consequences**. A decision is 
 | 14 | 2026-10-29 | BUG-058 (found reproducing DEP-004): dev fallback webhook key decoded to 34 bytes; replaced with a valid 32-byte dev-only key | config tests 2 red → 3/3 green; API boots in dev with no key | D-003 |
 | 15 | 2026-10-29 | DEP-004: services wait for migrate to finish; committed laptop-only `ops/.env.dev` loaded before the optional `ops/.env.docker` | Fresh clone + new DB: before api/seed/settlement exited (1); after 6 Up, migrate → seed in order, login works; `.env.docker` still overrides | D-003 |
 | 16 | 2026-10-29 | DEP-005 (found running T1): Node 20's test runner doesn't expand `src/**/*.test.ts`, so 376 API/reporting tests never ran; images moved to Node 22 LTS | Before: "Could not find", 0 run; after: 443 tests run | D-003 |
+| 17 | 2026-10-29 | BUG-050 follow-up: `.dockerignore` kept `.claude/` out of the image, so the guard test failed in Docker; ship `.claude/settings.json` (only). Corrected DEP-005 title (376 tests, not 380) | guard 7/7 inside Docker | D-010 |
 
 ---
 
