@@ -67,24 +67,39 @@ website: a 404 there is normal. Every page URL is listed in `PLAN.md` → Phase 
 | Shop dashboard (5173) | Merchant ID + email from the table below | `FilsPaySeed!2026` |
 | Staff console (5174) | `support@filspay.test` · `finance@filspay.test` · `superadmin@filspay.test` | `FilsPayAdminSeed!2026` |
 
-**Shop login needs the Merchant ID** (stays the same after every re-seed):
+**Shop login needs the Merchant ID.** All 15 logins below were tested end to end (password → OTP →
+logged in). Password for all: `FilsPaySeed!2026`. Merchant IDs stay the same after every re-seed.
 
-| Shop | Merchant ID | Users |
-|---|---|---|
-| Alpha Retail Co | `9972daab-2c86-459f-9d78-3fe1be4e3280` | owner@, finance@alpharetail.example |
-| Beta Digital Services | `3a1a204a-4b91-4739-b955-45e95e2e2e34` | owner@, finance@, support@betadigital.example · **also owner@alpharetail.example** (same email in two shops: bug A2) |
-| Coral Bay Traders | `fb338e02-053f-4915-85c5-846b9a76ba79` | owner@coralbaytraders.example |
-| Delta Marketplace Bahrain | `eebd4250-3e67-4999-9ce9-f31e75486733` | owner@, finance@deltamarketplace.example (split payouts) |
-| Delta Wholesale Traders | `ce668d19-d805-469d-bc7e-d3b1741a6f16` | owner@, finance@deltawholesale.example |
-| Gamma Hospitality Group | `185f819d-f3e8-42cf-ac7c-fc7e9516ed26` | owner@, finance@gammahospitality.example (**test mode** shop) |
-| Palm Grove Retail | `4014ed64-01ca-44c9-ba4d-3c246260e656` | owner@palmgroveretail.example |
-| Seef Kiosk Partners | `49287abb-c45f-4c0f-a68a-d794ccd3853a` | owner@seefkiosk.example |
+| Shop | Merchant ID | Email | Role |
+|---|---|---|---|
+| Alpha Retail Co | `9972daab-2c86-459f-9d78-3fe1be4e3280` | owner@alpharetail.example | owner |
+| | | finance@alpharetail.example | finance |
+| Beta Digital Services | `3a1a204a-4b91-4739-b955-45e95e2e2e34` | owner@betadigital.example | owner |
+| | | finance@betadigital.example | finance |
+| | | support@betadigital.example | support |
+| | | owner@alpharetail.example ⚠️ | owner (lands in **Alpha**, bug A2) |
+| Coral Bay Traders | `fb338e02-053f-4915-85c5-846b9a76ba79` | owner@coralbaytraders.example | owner |
+| Delta Marketplace Bahrain | `eebd4250-3e67-4999-9ce9-f31e75486733` | owner@deltamarketplace.example | owner |
+| | | finance@deltamarketplace.example | finance |
+| Delta Wholesale Traders | `ce668d19-d805-469d-bc7e-d3b1741a6f16` | owner@deltawholesale.example | owner |
+| | | finance@deltawholesale.example | finance |
+| Gamma Hospitality Group (test mode) | `185f819d-f3e8-42cf-ac7c-fc7e9516ed26` | owner@gammahospitality.example | owner |
+| | | finance@gammahospitality.example | finance |
+| Palm Grove Retail | `4014ed64-01ca-44c9-ba4d-3c246260e656` | owner@palmgroveretail.example | owner |
+| Seef Kiosk Partners | `49287abb-c45f-4c0f-a68a-d794ccd3853a` | owner@seefkiosk.example | owner |
+
+Staff console logins (all tested): `support@filspay.test` (support), `finance@filspay.test` (finance),
+`superadmin@filspay.test` (super_admin). Password: `FilsPayAdminSeed!2026`.
+
+**Bug A2 live demo:** log in with Beta's Merchant ID + `owner@alpharetail.example`. After the OTP
+you are inside **Alpha Retail**, not Beta (`GET /v1/auth/me` shows `"displayName":"Alpha Retail Co"`).
 
 **OTP code:** in local dev mode it is shown on the login page ("Development code: …") and in the
 login reply in DevTools → Network. That is bug **A5**. Once A5 is fixed, it will appear in the API logs
 (`dc logs -f api`) or in a local mail inbox instead.
 
-**API keys:** `dc run --rm seed` prints one per shop. Use: `curl -H "Authorization: Bearer <key>" localhost:3000/v1/transactions?limit=2`
+**API keys:** `dc run --rm seed` prints one per shop. **They change on every re-seed** (only the
+Merchant IDs stay fixed), so copy them from your latest seed output. Use: `curl -H "Authorization: Bearer <key>" localhost:3000/v1/transactions?limit=2`
 
 ## 5. Daily use
 
