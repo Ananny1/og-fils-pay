@@ -47,12 +47,38 @@ curl localhost:3000/readyz              # {"status":"ready"}
 | settlement | internal only (8091) | Go: nightly close, payouts, scheme file |
 | reporting | internal only | Worker that builds report tables |
 
-## 3. Logins (seed data)
+## 3. Correct URLs
+
+| What | URL |
+|---|---|
+| Shop dashboard (start here) | **http://localhost:5173/dashboard** → login page, then transactions |
+| Shop login directly | http://localhost:5173/dashboard/login |
+| Customer checkout for a payment link | http://localhost:5173/pay/`<token>` (create a link in the dashboard first) |
+| Staff console | **http://localhost:5174** → login, then `/merchants` |
+| API health | http://localhost:3000/healthz · http://localhost:3000/readyz |
+
+`http://localhost:3000/` is the API, not a
+website: a 404 there is normal. Every page URL is listed in `PLAN.md` → Phase F → Page checklist.
+
+## 4. Logins (seed data)
 
 | Where | User | Password |
 |---|---|---|
-| Shop dashboard (5173) | `owner@alpharetail.example`, `owner@betadigital.example`, `finance@<shop>.example`, … | `FilsPaySeed!2026` |
+| Shop dashboard (5173) | Merchant ID + email from the table below | `FilsPaySeed!2026` |
 | Staff console (5174) | `support@filspay.test` · `finance@filspay.test` · `superadmin@filspay.test` | `FilsPayAdminSeed!2026` |
+
+**Shop login needs the Merchant ID** (stays the same after every re-seed):
+
+| Shop | Merchant ID | Users |
+|---|---|---|
+| Alpha Retail Co | `9972daab-2c86-459f-9d78-3fe1be4e3280` | owner@, finance@alpharetail.example |
+| Beta Digital Services | `3a1a204a-4b91-4739-b955-45e95e2e2e34` | owner@, finance@, support@betadigital.example · **also owner@alpharetail.example** (same email in two shops: bug A2) |
+| Coral Bay Traders | `fb338e02-053f-4915-85c5-846b9a76ba79` | owner@coralbaytraders.example |
+| Delta Marketplace Bahrain | `eebd4250-3e67-4999-9ce9-f31e75486733` | owner@, finance@deltamarketplace.example (split payouts) |
+| Delta Wholesale Traders | `ce668d19-d805-469d-bc7e-d3b1741a6f16` | owner@, finance@deltawholesale.example |
+| Gamma Hospitality Group | `185f819d-f3e8-42cf-ac7c-fc7e9516ed26` | owner@, finance@gammahospitality.example (**test mode** shop) |
+| Palm Grove Retail | `4014ed64-01ca-44c9-ba4d-3c246260e656` | owner@palmgroveretail.example |
+| Seef Kiosk Partners | `49287abb-c45f-4c0f-a68a-d794ccd3853a` | owner@seefkiosk.example |
 
 **OTP code:** in local dev mode it is shown on the login page ("Development code: …") and in the
 login reply in DevTools → Network. That is bug **A5**. Once A5 is fixed, it will appear in the API logs
@@ -60,7 +86,7 @@ login reply in DevTools → Network. That is bug **A5**. Once A5 is fixed, it wi
 
 **API keys:** `dc run --rm seed` prints one per shop. Use: `curl -H "Authorization: Bearer <key>" localhost:3000/v1/transactions?limit=2`
 
-## 4. Daily use
+## 5. Daily use
 
 ```bash
 git pull --rebase origin main     # before starting each bug
@@ -75,7 +101,7 @@ dc down                           # stop everything (data is kept)
 dc down -v                        # stop and DELETE the database (then migrate + seed again)
 ```
 
-## 5. Tests
+## 6. Tests
 
 Inside Docker (no local install needed). The tests use the database, so run them one at a time
 and re-seed afterwards:
@@ -93,7 +119,7 @@ Go tests on the host (needs Go 1.22+):
 cd apps/settlement && go test ./...
 ```
 
-## 6. Problems we already hit
+## 7. Problems we already hit
 
 | Symptom | Cause | Fix |
 |---|---|---|
@@ -101,6 +127,7 @@ cd apps/settlement && go test ./...
 | `migrate` fails at 0054 or 0055 | Old checkout (before DEP-002) | `git pull`, `dc build migrate` |
 | Port 5432 already in use | You have a local Postgres | We use **5433**; change with `FILSPAY_PG_PORT=5440 dc up -d postgres` |
 | Browser on 5173/5174: "refused to connect" | web/admin not started | `dc up -d web admin` |
+| `localhost:3000` shows "Route GET:/ not found" | That's the API, not a website | Use 5173 / 5174 |
 | Dashboard calls fail with CORS errors | Running Vite outside Docker without the proxy | Set `VITE_API_BASE_URL=` (empty) before `npm run dev`; the Vite proxy sends `/v1` to `localhost:3000` |
 | `npm ci` fails on `argon2` / python | Building without the compile stage | Use `ops/Dockerfile.node` as committed |
 | A code change doesn't show (api/settlement) | Code is copied into the image | `dc up -d --build <service>` |
