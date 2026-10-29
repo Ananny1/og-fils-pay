@@ -27,3 +27,25 @@ test("production still refuses to boot without a real key", () => {
     /WEBHOOK_SECRET_ENCRYPTION_KEY environment variable is not set/,
   );
 });
+
+test("the OTP is never exposed unless OTP_DEV_EXPOSE is set explicitly", () => {
+  for (const NODE_ENV of [undefined, "development", "test"]) {
+    assert.equal(loadConfig({ DATABASE_URL, NODE_ENV }).otpDevExpose, false, `NODE_ENV=${NODE_ENV}`);
+  }
+  assert.equal(loadConfig({ DATABASE_URL, NODE_ENV: "development", OTP_DEV_EXPOSE: "true" }).otpDevExpose, true);
+});
+
+test("production refuses to boot with OTP_DEV_EXPOSE turned on", () => {
+  assert.throws(
+    () =>
+      loadConfig({
+        DATABASE_URL,
+        NODE_ENV: "production",
+        OTP_DEV_EXPOSE: "true",
+        SETTLEMENT_INTERNAL_TOKEN: "t",
+        ACQUIRER_CALLBACK_SIGNING_SECRET: "s",
+        WEBHOOK_SECRET_ENCRYPTION_KEY: "Y1ZTGTcYbe30GZJebys9w7T3OYZNKewuOH3SUCEdRQk=",
+      }),
+    /OTP_DEV_EXPOSE/,
+  );
+});

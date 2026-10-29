@@ -38,7 +38,7 @@ the screens (Tier 7) and hand-in (Tier 8).
 | 1.2 | BUG-002 | OTP binds to another shop's user with the same email | ★★★ | S4 "OTP changed" | 1.1 | ✅ |
 | 1.25 | BUG-037 | Public signup accepts an existing user's email → with BUG-002 an attacker lands in the victim's shop. **Reclassified → ENH-008** after BUG-002: the takeover needed the email-based identity switch, which is gone; shared emails across shops are legitimate (seed data); what remains is unverified email ownership, a missing feature | ★ | investigation | 1.2 | ⏭ |
 | 1.3 | BUG-011 | OTP guessable: parallel attempts bypass the limit; codes from `Math.random` | ★★ | S4 "OTP … still safe?" | 1.1 | ⬜ |
-| 1.4 | BUG-031 | OTP returned in the login reply and logged (`otpDevExpose` defaults on) | ★★★ | S4 "OTP … still safe?" | 1.1 | ⬜ |
+| 1.4 | BUG-031 | OTP returned in the login reply and logged (`otpDevExpose` defaults on) | ★★★ | S4 "OTP … still safe?" | 1.1 | ✅ |
 | 1.5 | BUG-032 | Admin session not rotated after OTP (fixation) | ★ | — | 1.1 | ⬜ |
 | **Tier 2** | | **Who can do what** | | | | |
 | 2.1 | BUG-010 | "View as merchant" gives super_admin **owner** powers, and can write | ★★★ | HANDOVER | Tier 1 | ⬜ |

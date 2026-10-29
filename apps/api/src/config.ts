@@ -186,6 +186,13 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
 
   const nodeEnv = parseNodeEnv(env.NODE_ENV);
 
+  // Off unless explicitly enabled: an unset NODE_ENV counts as development,
+  // so defaulting on would leak codes on any box that forgets it (BUG-031).
+  const otpDevExpose = parseBoolEnv(env.OTP_DEV_EXPOSE, false);
+  if (nodeEnv === "production" && otpDevExpose) {
+    throw new Error("loadConfig: OTP_DEV_EXPOSE must not be enabled when NODE_ENV=production");
+  }
+
   const settlementInternalToken = env.SETTLEMENT_INTERNAL_TOKEN ?? "";
   if (nodeEnv === "production" && settlementInternalToken === "") {
     throw new Error("loadConfig: SETTLEMENT_INTERNAL_TOKEN is required when NODE_ENV=production");
@@ -211,7 +218,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     otpTtlMinutes: parseIntEnv(env.OTP_TTL_MINUTES, 5),
     otpCodeLength: parseIntEnv(env.OTP_CODE_LENGTH, 6),
     otpMaxAttempts: parseIntEnv(env.OTP_MAX_ATTEMPTS, 5),
-    otpDevExpose: parseBoolEnv(env.OTP_DEV_EXPOSE, nodeEnv !== "production"),
+    otpDevExpose,
 
     argon2MemoryKib: parseIntEnv(env.ARGON2_MEMORY_KIB, 19_456),
     argon2TimeCost: parseIntEnv(env.ARGON2_TIME_COST, 2),

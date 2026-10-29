@@ -124,6 +124,7 @@ Each decision: **context → decision → why → consequences**. A decision is 
 | 20 | 2026-10-29 | Ran `bug-investigator` on BUG-002/011/031 (`docs/challenge/investigations/TIER1-login.md`); new BUG-037 (public signup + existing email) | 3 live repros incl. 12 OTP guesses vs limit 5 | D-014 |
 | 21 | 2026-10-29 | BUG-002: login binds the OTP and session to the password-checked user, not the first row with that email | Alpha login: /me Beta → Alpha; new tests 2 red → green; API 356/368 (= baseline 12) | D-003 |
 | 22 | 2026-10-29 | BUG-037 re-assessed after BUG-002: takeover path closed; reclassified as ENH-008 | — | D-015 |
+| 23 | 2026-10-29 | BUG-031: OTP exposure off by default, refused in production, one switch for reply and log; laptop `.env.dev` opts in; hosted example opts out | Forgotten setting: code in reply+log → none; prod+expose refuses to boot; 5 new tests; API 361/373 (= baseline 12) | D-003 |
 
 ---
 
@@ -184,7 +185,7 @@ Planned queue (from the audit, in fix order):
 | FP-300 | Feature | Refunds end to end (fixes R1–R9 inside) | ⬜ |
 | DEP-005 | High | `npm test` never ran the API/reporting suites on Node 20 (glob not expanded) → [write-up](docs/bugs/DEP-005-tests-never-ran-on-node20.md) | ✅ |
 | DEP-004 | High | `docker compose up` from `ops/` (the brief's instruction) fails on a fresh clone → [write-up](docs/bugs/DEP-004-compose-up-from-ops.md) | ✅ |
-| BUG-031 | Critical | OTP code returned in the login reply and logged (`otpDevExpose` defaults on) | ⬜ |
+| BUG-031 | Critical | OTP code returned in the login reply and logged (`otpDevExpose` defaults on) → [write-up](docs/bugs/BUG-031-otp-exposed-in-reply-and-logs.md) | ✅ |
 | BUG-032 | Medium | Admin session token not rotated after OTP (fixation) | ⬜ |
 | BUG-033 | High | Admin actions missing role checks (audit every `/v1/admin` route) | ⬜ |
 | BUG-034 | Critical | Two refunds at once both succeed (FP-209) | ⬜ |
