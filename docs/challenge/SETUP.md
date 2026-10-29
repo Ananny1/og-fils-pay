@@ -13,28 +13,24 @@ alias dc='docker compose -f ops/docker-compose.yml'
 
 ## 1. First time
 
-```bash
-git clone https://github.com/Ananny1/fils-pay.git && cd fils-pay
-
-# Settings file (git-ignored). Then fill in the 3 secrets:
-cp ops/.env.docker.example ops/.env.docker
-#   SETTLEMENT_INTERNAL_TOKEN=<any long random string>      e.g. openssl rand -hex 24
-#   WEBHOOK_SECRET_ENCRYPTION_KEY=<openssl rand -base64 32>
-#   ACQUIRER_CALLBACK_SIGNING_SECRET=<any long random string>
-
-dc build                      # builds all images (first time: a few minutes)
-dc up -d postgres             # database
-dc run --rm migrate           # creates all tables → "66 migration(s) applied"
-dc run --rm seed              # test data → "all REAL assertions passed" + one API key per shop
-dc up -d                      # api, settlement, reporting, web, admin
-```
-
-Check it works:
+The organisers' way works as-is (DEP-004): from a fresh clone, **no settings file needed**:
 
 ```bash
-dc ps                                   # 6 services "Up"
-curl localhost:3000/readyz              # {"status":"ready"}
+git clone https://github.com/Ananny1/fils-pay.git && cd fils-pay/ops
+docker compose up -d          # builds, starts postgres → runs migrate → then seed, api, settlement, reporting, web, admin
+docker compose ps             # migrate + seed "Exited (0)", the other 6 "Up"
+curl localhost:3000/readyz    # {"status":"ready"}
 ```
+
+Laptop defaults come from the committed `ops/.env.dev`. To use your own secrets, copy
+`ops/.env.docker.example` to `ops/.env.docker` (git-ignored); every value there **overrides**
+`.env.dev`. A hosted box **must** have `ops/.env.docker` with `NODE_ENV=production`,
+`OTP_DEV_EXPOSE=false` and real secrets.
+
+From the repo root instead of `ops/`, use the alias: `dc up -d`.
+
+**Note:** `up` re-runs the seed, which **resets the demo data**. To restart without re-seeding:
+`dc up -d api settlement reporting web admin`.
 
 ## 2. What runs where
 
@@ -140,6 +136,8 @@ cd apps/settlement && go test ./...
 |---|---|---|
 | `Dockerfile.node: no such file` | Old checkout (before DEP-001) | `git pull` |
 | `migrate` fails at 0054 or 0055 | Old checkout (before DEP-002) | `git pull`, `dc build migrate` |
+| api / seed: "WEBHOOK_SECRET_ENCRYPTION_KEY must base64-decode to exactly 32 bytes, got 34" | Old checkout (before BUG-058) | `git pull`, `dc up -d --build` |
+| settlement: "SETTLEMENT_INTERNAL_TOKEN environment variable is not set" / seed fails on missing tables | Old checkout (before DEP-004) | `git pull`; `ops/.env.dev` provides laptop defaults and migrate now runs first |
 | Port 5432 already in use | You have a local Postgres | We use **5433**; change with `FILSPAY_PG_PORT=5440 dc up -d postgres` |
 | Browser on 5173/5174: "refused to connect" | web/admin not started | `dc up -d web admin` |
 | `localhost:5173` shows "Unexpected Application Error! 404" | Old checkout (before F0) | `git pull`; or open `/dashboard` |

@@ -30,7 +30,7 @@ the screens (Tier 7) and hand-in (Tier 8).
 | 0.5 | F0 | Dashboard home URL, not-found / error pages | ★ | found running it | — | ✅ |
 | 0.6 | BUG-009 | `expire_holds` deletes every hold | ★★★ | HANDOVER | — | ✅ |
 | 0.65 | BUG-058 | Built-in dev webhook key invalid (34 bytes) → API and seed crash without a key | ★★ | S1 | — | ✅ |
-| 0.7 | DEP-004 | `docker compose up` **from `ops/`** (the brief's own instruction) must work: migrate before seed before services, no settings file required for local | ★★ | S1 | — | ⬜ |
+| 0.7 | DEP-004 | `docker compose up` **from `ops/`** (the brief's own instruction) must work: migrate before seed before services, no settings file required for local | ★★ | S1 | — | ✅ |
 | 0.8 | T1 | Test baseline: run `npm test` + `go test ./...`, record what already fails | — | — | 0.7 | ⬜ |
 | **Tier 1** | | **Login (the entry point)** | | | | |
 | 1.1 | BUG-001 | Login works without the OTP | ★★★ | S3 group chat | — | ⬜ |

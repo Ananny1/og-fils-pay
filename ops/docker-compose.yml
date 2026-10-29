@@ -6,9 +6,13 @@
 #
 #
 # The hosted demo box runs this same file. Service settings that aren't
-# listed under each service's `environment:` come from ops/.env.docker
-# (copy ops/.env.docker.example). Compose does NOT pick that file up on its
-# own for containers; each service lists it under `env_file:`.
+# listed under each service's `environment:` come from ops/.env.dev
+# (committed laptop defaults) and then ops/.env.docker (git-ignored; copy
+# ops/.env.docker.example), which overrides it. Compose does NOT pick these
+# files up on its own for containers; each service lists them under `env_file:`.
+#
+# Start order: postgres (healthy) -> migrate (must finish) -> seed + api +
+# settlement + reporting -> web + admin.
 #
 # — M?: Dockerfile.node / Dockerfile.go live next to this file. if they're
 # missing for you, pull main again.
@@ -44,6 +48,7 @@ services:
       dockerfile: ops/Dockerfile.node
     command: ["npm", "run", "migrate"]
     env_file:
+      - path: .env.dev
       - path: .env.docker
         required: false
     environment:
@@ -66,13 +71,14 @@ services:
       dockerfile: ops/Dockerfile.node
     command: ["npm", "run", "seed"]
     env_file:
+      - path: .env.dev
       - path: .env.docker
         required: false
     environment:
       DATABASE_URL: postgres://filspay:filspay_dev_password@postgres:5432/filspay?sslmode=disable
     depends_on:
-      postgres:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
 
   api:
     build:
@@ -84,6 +90,7 @@ services:
     ports:
       - "3000:3000"
     env_file:
+      - path: .env.dev
       - path: .env.docker
         required: false
     environment:
@@ -96,8 +103,8 @@ services:
       # TODO(YA, Jan): give the api its own role before anything is hosted.
       SETTLEMENT_INTERNAL_URL: http://settlement:8091
     depends_on:
-      postgres:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
 
   settlement:
     build:
@@ -108,6 +115,7 @@ services:
     # FH: it exits at boot without the token for me. set it.
     command: ["./settlement", "daemon"]
     env_file:
+      - path: .env.dev
       - path: .env.docker
         required: false
     environment:
@@ -118,8 +126,8 @@ services:
       # settlement-v2 sharding work. safe to leave.
       PGCONN_SETTLEMENT: postgres://filspay:filspay_dev_password@postgres:5432/filspay?sslmode=disable
     depends_on:
-      postgres:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
 
   reporting:
     build:
@@ -128,13 +136,14 @@ services:
     # No subcommand = `worker`. (MK)
     command: ["npx", "tsx", "apps/reporting/src/index.ts"]
     env_file:
+      - path: .env.dev
       - path: .env.docker
         required: false
     environment:
       DATABASE_URL: postgres://filspay:filspay_dev_password@postgres:5432/filspay?sslmode=disable
     depends_on:
-      postgres:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
 
   # Shop dashboard + checkout (apps/web) and staff console (apps/admin):
   # Vite dev servers with live reload. Source is mounted, so edits show at

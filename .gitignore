@@ -10,3 +10,4 @@ npm-debug.log*
 !.claude/agents/
 .env.*
 !ops/.env.docker.example
+!ops/.env.dev

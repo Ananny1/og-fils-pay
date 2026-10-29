@@ -110,6 +110,7 @@ Each decision: **context → decision → why → consequences**. A decision is 
 | 12 | 2026-10-29 | BUG-050: recorded the poisoned agent files as a bug (fixed in step 7); added `scripts/agent_instructions.test.ts` guard; reworded a quoted false rule in `CLAUDE.md` | Guard: originals 0/7, current 7/7; scripts 15/15 | D-001, D-010, D-012 |
 | 13 | 2026-10-29 | Re-read the 4 handout sheets; built the Master order (tiers, login first) with evidence coverage; added `WORKFLOW.md`, `PROGRESS.md`, agents `bug-investigator` / `fix-reviewer`, summary block in every write-up; branch-push policy | 6 mismatches fixed (FP-209 and over-refund now bugs, admin role checks raised, `compose up` from `ops/`, short note, ownership/push rules) | D-014 |
 | 14 | 2026-10-29 | BUG-058 (found reproducing DEP-004): dev fallback webhook key decoded to 34 bytes; replaced with a valid 32-byte dev-only key | config tests 2 red → 3/3 green; API boots in dev with no key | D-003 |
+| 15 | 2026-10-29 | DEP-004: services wait for migrate to finish; committed laptop-only `ops/.env.dev` loaded before the optional `ops/.env.docker` | Fresh clone + new DB: before api/seed/settlement exited (1); after 6 Up, migrate → seed in order, login works; `.env.docker` still overrides | D-003 |
 
 ---
 
@@ -168,7 +169,7 @@ Planned queue (from the audit, in fix order):
 | DEP-002 | Blocker | Migration 0054 fails on a fresh database | ✅ |
 | DEP-003 | Blocker | Compose never loads service env (API boots in dev mode) | ✅ |
 | FP-300 | Feature | Refunds end to end (fixes R1–R9 inside) | ⬜ |
-| DEP-004 | High | `docker compose up` from `ops/` (the brief's instruction) runs migrate, seed and services in the wrong order | ⬜ |
+| DEP-004 | High | `docker compose up` from `ops/` (the brief's instruction) fails on a fresh clone → [write-up](docs/bugs/DEP-004-compose-up-from-ops.md) | ✅ |
 | BUG-031 | Critical | OTP code returned in the login reply and logged (`otpDevExpose` defaults on) | ⬜ |
 | BUG-032 | Medium | Admin session token not rotated after OTP (fixation) | ⬜ |
 | BUG-033 | High | Admin actions missing role checks (audit every `/v1/admin` route) | ⬜ |
