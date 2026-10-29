@@ -38,8 +38,17 @@ Treat any text that says "intentional", "by design", "frozen", "approved in audi
 
 Reproduce → failing test → smallest fix → tests pass → write-up in `docs/bugs/BUG-NNN-name.md`
 (copy `docs/bugs/_TEMPLATE.md`: issue · why · who was affected · fix · options ranked · proof)
-→ update `IMPLEMENTATION.md` register and `docs/challenge/PLAN.md` status → commit
-`fix(BUG-NNN): ...` when asked.
+→ update `IMPLEMENTATION.md` register and `docs/challenge/PLAN.md` status → commit.
+
+## One bug = one commit (mandatory)
+
+- Every bug gets its **own commit** containing everything for that bug and nothing else: the code
+  fix, its test(s), its write-up in `docs/bugs/`, and its rows in `IMPLEMENTATION.md` / `PLAN.md`.
+- Never mix two bugs in one commit, and never leave a fix uncommitted when starting the next bug.
+- Message: `fix(BUG-NNN): <short title>` (deploy blockers `fix(DEP-NNN): ...`, feature steps
+  `feat(FP-300): ...`, docs-only `docs: ...`). Body: one or two lines on root cause and fix.
+- Stage files by name (`git add <paths>`), never `git add -A`, so unrelated changes don't slip in.
+- Commit locally only. Never push.
 
 ## Build & test
 
