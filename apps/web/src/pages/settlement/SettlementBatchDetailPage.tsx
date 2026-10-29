@@ -10,6 +10,7 @@ import { EmptyState } from "@/components/dashboard/empty-state";
 import { ErrorAlert } from "@/components/dashboard/error-alert";
 import { Money } from "@/components/dashboard/money";
 import { PageHeader } from "@/components/dashboard/page-header";
+import { PayoutExplanation } from "@/components/dashboard/payout-explanation";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { StatCard } from "@/components/dashboard/stat-card";
 import { StatusBadge } from "@/components/dashboard/status-badge";
@@ -97,7 +98,7 @@ export function SettlementBatchDetailPage() {
   if (state.kind === "loading") {
     return (
       <>
-        <PageHeader title="Settlement batch" description={<Skeleton className="h-4 w-48" />} actions={<BackButton />} />
+        <PageHeader title="Payout day" description={<Skeleton className="h-4 w-48" />} actions={<BackButton />} />
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <StatCard label="Gross" loading />
           <StatCard label="Fee" loading />
@@ -111,7 +112,7 @@ export function SettlementBatchDetailPage() {
             <Skeleton className="h-4 w-1/3" />
           </div>
         </SectionCard>
-        <SectionCard flush title="Included transactions">
+        <SectionCard flush title="Payments in this day">
           <Table>
             <TableSkeleton rows={5} cols={LINE_COLUMNS} />
           </Table>
@@ -123,11 +124,11 @@ export function SettlementBatchDetailPage() {
   if (state.kind === "not_found") {
     return (
       <>
-        <PageHeader title="Settlement batch not found" actions={<BackButton />} />
+        <PageHeader title="Day not found" actions={<BackButton />} />
         <EmptyState
           icon={FileSearch}
-          title="No batch with this id"
-          description="No settlement batch with this id exists on your account."
+          title="Day not found"
+          description="We couldn't find this day on your account."
           action={
             <Button variant="outline" render={<Link to="/dashboard/settlement" />}>
               <ArrowLeft />
@@ -142,7 +143,7 @@ export function SettlementBatchDetailPage() {
   if (state.kind === "error") {
     return (
       <>
-        <PageHeader title="Settlement batch" actions={<BackButton />} />
+        <PageHeader title="Payout day" actions={<BackButton />} />
         <ErrorAlert message={state.message} title="Could not load this batch" />
       </>
     );
@@ -166,9 +167,9 @@ export function SettlementBatchDetailPage() {
 
       <FadeContent trigger="mount" duration={0.5} delay={0.05}>
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <StatCard label="Gross" fils={batch.grossFils} icon={Wallet} hint="Sum of captured amounts in the window" />
-          <StatCard label="Fee" fils={batch.feeFils} icon={Percent} hint="Acquirer fee for this batch" />
-          <StatCard label="Net payout" fils={batch.netPayoutFils} icon={Banknote} hint="Gross minus fee" />
+          <StatCard label="Gross" fils={batch.grossFils} icon={Wallet} hint="Everything customers paid" />
+          <StatCard label="Fee" fils={batch.feeFils} icon={Percent} hint="What FilsPay kept" />
+          <StatCard label="Net payout" fils={batch.netPayoutFils} icon={Banknote} hint="Sales minus the fee" />
           <StatCard
             label="Transactions"
             count={batch.includedTransactionCount}
@@ -178,8 +179,12 @@ export function SettlementBatchDetailPage() {
         </div>
       </FadeContent>
 
+      <FadeContent trigger="mount" duration={0.5} delay={0.08}>
+        <PayoutExplanation batchId={batch.id} />
+      </FadeContent>
+
       <FadeContent trigger="mount" duration={0.5} delay={0.12}>
-        <SectionCard title="Details" description="Identifiers and lifecycle timestamps for this batch.">
+        <SectionCard title="Details" description="Reference numbers and when this day was closed and paid.">
           <dl className="divide-y">
             <DetailRow label="Batch id">
               <span className="inline-flex items-center gap-1">
@@ -195,10 +200,10 @@ export function SettlementBatchDetailPage() {
             </DetailRow>
             <DetailRow label="Closed at">{dateTime(batch.closedAt)}</DetailRow>
             <DetailRow label="Paid at">{dateTime(batch.paidAt)}</DetailRow>
-            <DetailRow label="Included transactions">
+            <DetailRow label="Payments in this day">
               <span className="font-mono tabular-nums">{batch.includedTransactionCount.toLocaleString()}</span>
             </DetailRow>
-            <DetailRow label="Capture events in this batch">
+            <DetailRow label="Card payments in this day">
               <span className="font-mono tabular-nums">{batch.includedEventCount.toLocaleString()}</span>
               {countsDiffer ? (
                 <p className="mt-1 text-xs text-muted-foreground">
@@ -214,14 +219,14 @@ export function SettlementBatchDetailPage() {
       <FadeContent trigger="mount" duration={0.5} delay={0.2}>
         <SectionCard
           flush
-          title="Included transactions"
-          description="The scheme amount is the card-network export figure, quantized to two decimal places at that boundary — it can be up to 9 fils below the captured amount by design."
+          title="Payments in this day"
+          description="Card networks only handle two decimals, so the amount they see can be up to 9 fils lower than what you took. The difference isn't lost."
         >
           {lines.length === 0 ? (
             <div className="p-4">
               <EmptyState
-                title="No scheme export lines"
-                description="This batch has no scheme export lines yet."
+                title="Nothing sent yet"
+                description="Nothing has been sent to the card networks for this day yet."
               />
             </div>
           ) : (
@@ -246,7 +251,7 @@ export function SettlementBatchDetailPage() {
                     <TableCell>
                       <Link
                         to={`/dashboard/transactions/${line.transactionId}`}
-                        className="font-mono text-xs text-primary underline-offset-4 hover:underline"
+                        className="font-mono text-xs text-foreground underline-offset-4 transition-colors hover:text-primary hover:underline"
                       >
                         {line.transactionId}
                       </Link>

@@ -3,6 +3,7 @@ import { Link, Outlet, useLocation } from "react-router-dom";
 import { AnimatePresence, motion } from "motion/react";
 import ClickSpark from "@/components/ui/ClickSpark";
 import { AppSidebar } from "@/components/dashboard/app-sidebar";
+import { AssistantPanel } from "@/components/dashboard/assistant-panel";
 import { CommandMenu } from "@/components/dashboard/command-menu";
 import { ThemeToggle } from "@/components/dashboard/theme-toggle";
 import {
@@ -21,7 +22,7 @@ const SECTION_LABELS: Record<string, string> = {
   transactions: "Transactions",
   "payment-links": "Payment links",
   webhooks: "Webhooks",
-  settlement: "Settlement",
+  settlement: "Payouts",
   reconciliation: "Reconciliation",
 };
 
@@ -86,6 +87,7 @@ export function DashboardLayout() {
           </AnimatePresence>
         </ClickSpark>
       </SidebarInset>
+      <AssistantPanel />
     </SidebarProvider>
   );
 }

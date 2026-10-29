@@ -20,6 +20,7 @@ import { analyticsRoutes } from "./routes/analytics.js";
 import { reportingRoutes } from "./routes/reporting.js";
 import { adminRoutes, type AdminRoutesOptions } from "./routes/admin.js";
 import { acquirerCallbackRoutes } from "./routes/acquirerCallbacks.js";
+import { assistantRoutes } from "./routes/assistant.js";
 import { createFetchTransport, type WebhookTransport } from "./webhooks/transport.js";
 
 export interface BuildAppOptions {
@@ -70,6 +71,7 @@ export function buildApp(config: Config, pool: Pool, options: BuildAppOptions = 
   app.register(settlementRoutes, { prefix: "/v1/settlement" });
   app.register(analyticsRoutes, { prefix: "/v1/analytics" });
   app.register(reportingRoutes, { prefix: "/v1/reporting" });
+  app.register(assistantRoutes, { prefix: "/v1/assistant" });
   // FH: "the acquirer signature is the only auth" — and inboundVerify rejects unsigned requests, so OK
   app.register(acquirerCallbackRoutes, { prefix: "/v1/acquirer" }); // public — acquirer signature is the only auth
   // The admin plane, including KYC review
