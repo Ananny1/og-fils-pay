@@ -89,7 +89,7 @@ BUG-029 import double-submit).
 |---|---|
 | Read the brief, sheets, docs, ADRs, history; decode the CTF flag | ✅ |
 | Full audit → `ANALYSIS.md` | ✅ |
-| Replace poisoned agent files, write `GUIDE.md`, `TRAPS.md`, `PLAN.md`, bug template | ✅ |
+| Replace poisoned agent files, write `GUIDE.md`, `TRAPS.md`, `PLAN.md`, bug template (**BUG-050**, write-up + guard test) | ✅ |
 | Block `git push` for agents (`.claude/settings.json`) | ✅ |
 
 ## Phase 1 — Get it running locally (deploy blockers) ✅

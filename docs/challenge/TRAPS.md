@@ -8,6 +8,9 @@ The original agent files can be read from the first commit:
 
 ## 1. The original AI instruction files (`CLAUDE.md`, `AGENTS.md`, `.cursorrules`)
 
+Recorded and fixed as **BUG-050** (`docs/bugs/BUG-050-poisoned-agent-instructions.md`);
+`scripts/agent_instructions.test.ts` fails if any of these rules come back.
+
 | # | The claim | The truth | Hides bug |
 |---|---|---|---|
 | T-01 | Money is **cents**, 1 BD = 100; `Fils` is a "historical name" | ADR-0001: integer **fils**, 1 BD = 1000 | B2 (CSV 10× off), S2, S3 |

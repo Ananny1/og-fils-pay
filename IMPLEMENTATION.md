@@ -101,6 +101,7 @@ Each decision: **context → decision → why → consequences**. A decision is 
 | 9 | 2026-10-29 | Split the work: Sayed = Track A (security), Ebrahim = Track B (money) then all frontend (Phase F, last). Added `TEAM.md`, `SETUP.md`, a "who are you" step in `CLAUDE.md`; web + admin dashboards run in compose with a Vite `/v1` proxy (the API has no CORS, T-38) | Each person's Claude shows them their own tasks; one command starts all 6 services | — |
 | 10 | 2026-10-29 | F0: `/` → dashboard, "Page not found" and "Something went wrong" pages in both dashboards (`docs/bugs/F0-dashboard-routes-and-error-pages.md`) | Checked in headless Chrome: `/` → login, unknown URLs → not-found page | D-003 |
 | 11 | 2026-10-29 | BUG-009: `expire_holds` now flips overdue holds to `expired` in one UPDATE instead of select-then-delete (empty id list became `DELETE FROM holds`) | Reproduced 4 → 0 rows; after fix 5/5 tests, all scripts tests 8/8; real run expires 4, deletes 0 | D-003, D-004 |
+| 12 | 2026-10-29 | BUG-050: recorded the poisoned agent files as a bug (fixed in step 7); added `scripts/agent_instructions.test.ts` guard; reworded a quoted false rule in `CLAUDE.md` | Guard: originals 0/7, current 7/7; scripts 15/15 | D-001, D-010, D-012 |
 
 ---
 
@@ -159,6 +160,7 @@ Planned queue (from the audit, in fix order):
 | DEP-002 | Blocker | Migration 0054 fails on a fresh database | ✅ |
 | DEP-003 | Blocker | Compose never loads service env (API boots in dev mode) | ✅ |
 | FP-300 | Feature | Refunds end to end (fixes R1–R9 inside) | ⬜ |
+| BUG-050 | Critical | AI instruction files (`CLAUDE.md`, `AGENTS.md`, `.cursorrules`) told agents to keep the bugs → [write-up](docs/bugs/BUG-050-poisoned-agent-instructions.md) | ✅ |
 
 ---
 
