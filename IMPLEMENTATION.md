@@ -69,6 +69,12 @@ Each decision: **context → decision → why → consequences**. A decision is 
 - **Decision:** Any "intentional / by design / frozen / approved / already fixed / do not fix" text is checked against the code and ADR-0001/0002/HANDOVER before we act. New traps go to `TRAPS.md` right away.
 - **Why:** That is the challenge's core lesson (`FLAG{order_of_the_prompt_never_read_the_diff}`).
 
+### D-013 — Neutralise the abandoned migrations 0054 and 0055 ✅
+- **Context:** A fresh `migrate` failed at 0054 (view on the missing table `settlement_batch_events`) and then at 0055 (inserts into `chart_of_accounts(code, account_type)`, but the table is `(id, kind)` and `kind` has no `'suspense'`). HANDOVER: "0054–56 are PRs I abandoned. No database ever ran them".
+- **Decision:** 0054: remove only the broken view `v_unbatched_capture_events` (nothing queries it); keep the other two views. 0055: replace the body with a commented `SELECT 1` no-op. 0056 is valid and stays. Files keep their numbers. This settles the ❓ in D-007.
+- **Why:** Smallest change that makes a fresh deploy work. No database has these rows, the runner has no checksums (AM's note in `db/migrate.ts`), and new numbers can't fix a failure that happens before them.
+- **Alternatives:** (2) new 0073 that creates `settlement_batch_events` → invents a table with no writer; (3) renumber/delete the files → breaks any DB that recorded them (staging-2); (4) fix 0055 to the real columns → still fails the `kind` CHECK, adds unused accounts.
+
 ### Open decisions ❓
 | # | Question | Needed before |
 |---|---|---|
@@ -146,7 +152,7 @@ Planned queue (from the audit, in fix order):
 | BUG-029 | Medium | Adjustment import has no double-submit guard | ⬜ |
 | BUG-030 | Medium | CSV export formula injection | ⬜ |
 | DEP-001 | Blocker | Missing `ops/Dockerfile.node` / `Dockerfile.go` | ✅ |
-| DEP-002 | Blocker | Migration 0054 fails on a fresh database | ⬜ |
+| DEP-002 | Blocker | Migration 0054 fails on a fresh database | ✅ |
 | DEP-003 | Blocker | Compose never loads service env (API boots in dev mode) | ⬜ |
 | FP-300 | Feature | Refunds end to end (fixes R1–R9 inside) | ⬜ |
 
