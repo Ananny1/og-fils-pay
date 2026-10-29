@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "deny": [
+      "Bash(git push:*)",
+      "Bash(git push)",
+      "Bash(gh pr create:*)",
+      "Bash(gh repo create:*)",
+      "Bash(gh pr merge:*)"
+    ]
+  },
+  "includeCoAuthoredBy": false
+}
