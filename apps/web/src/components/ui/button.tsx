@@ -1,3 +1,4 @@
+import * as React from "react"
 import { Button as ButtonPrimitive } from "@base-ui/react/button"
 import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "cn"
@@ -39,14 +40,16 @@ const buttonVariants = cva(
   }
 )
 
-function Button({
-  className,
-  variant = "default",
-  size = "default",
-  ...props
-}: ButtonPrimitive.Props & VariantProps<typeof buttonVariants>) {
+// forwardRef: this app is on React 18, where function components don't get
+// refs as props. Base UI triggers (dropdowns, dialogs, popovers) rendered
+// through `<Button>` need the ref to reach the DOM node to open and anchor.
+const Button = React.forwardRef<
+  HTMLElement,
+  ButtonPrimitive.Props & VariantProps<typeof buttonVariants>
+>(function Button({ className, variant = "default", size = "default", ...props }, ref) {
   return (
     <ButtonPrimitive
+      ref={ref}
       data-slot="button"
       className={cn(buttonVariants({ variant, size, className }))}
       // A Button rendered as a link (`render={<Link />}`) is not a native
@@ -55,6 +58,6 @@ function Button({
       {...props}
     />
   )
-}
+})
 
 export { Button, buttonVariants }

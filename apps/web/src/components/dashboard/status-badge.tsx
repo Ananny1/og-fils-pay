@@ -31,6 +31,19 @@ const TONE_BY_STATUS: Record<string, Tone> = {
   enabled: "success",
 };
 
+/** Dot colour for a status, shared by the badge and the status filter. */
+export const DOT_CLASSES: Record<Tone, string> = {
+  success: "bg-success",
+  warning: "bg-warning",
+  destructive: "bg-destructive",
+  info: "bg-info",
+  muted: "bg-muted-foreground/50",
+};
+
+export function statusTone(status: string): Tone {
+  return TONE_BY_STATUS[status] ?? "muted";
+}
+
 const TONE_CLASSES: Record<Tone, string> = {
   success: "bg-success/10 text-success border-success/25",
   warning: "bg-warning/10 text-warning border-warning/30",

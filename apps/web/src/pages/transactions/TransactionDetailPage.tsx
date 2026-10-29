@@ -216,11 +216,11 @@ export function TransactionDetailPage() {
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <StatCard label="Authorized" loading />
           <StatCard label="Captured" loading />
-          <StatCard label="Remaining to capture" loading />
+          <StatCard label="Not taken yet" loading />
           <StatCard label="Events" loading />
         </div>
         <div className="grid gap-6 lg:grid-cols-3">
-          <SectionCard title="Event timeline" className="lg:col-span-2">
+          <SectionCard title="History" className="lg:col-span-2">
             <div className="flex flex-col gap-4">
               {Array.from({ length: 3 }).map((_, i) => (
                 <div key={i} className="flex gap-4">
@@ -251,7 +251,7 @@ export function TransactionDetailPage() {
         <EmptyState
           icon={SearchX}
           title="No transaction with this id"
-          description="No transaction with this id exists on your account."
+          description="We couldn't find this payment on your account."
           action={<BackButton />}
         />
       </>
@@ -318,23 +318,23 @@ export function TransactionDetailPage() {
         <StatCard label="Authorized" fils={txn.amountFils} icon={ShieldCheck} hint={`Occurred ${dateTime(txn.occurredAt)}`} />
         <StatCard label="Captured" fils={txn.capturedFils} icon={Banknote} hint={`Status: ${txn.status.replaceAll("_", " ")}`} />
         <StatCard
-          label="Remaining to capture"
+          label="Not taken yet"
           fils={remainingFils}
           icon={Hourglass}
           hint={capturable ? "Authorized minus captured" : "Nothing outstanding"}
         />
-        <StatCard label="Events" count={events.length} icon={ListOrdered} hint="Recorded on the timeline" />
+        <StatCard label="Events" count={events.length} icon={ListOrdered} hint="Steps in this payment's history" />
       </div>
 
       <FadeContent trigger="mount" duration={0.5} initialOpacity={0}>
         <div className="grid gap-6 lg:grid-cols-3">
           <SectionCard
-            title="Event timeline"
-            description="Oldest first, exactly as the API recorded it."
+            title="History"
+            description="What happened to this payment, in order."
             className="lg:col-span-2"
           >
             {events.length === 0 ? (
-              <EmptyState icon={Activity} title="No events recorded" />
+              <EmptyState icon={Activity} title="Nothing recorded yet" />
             ) : (
               <ol className="flex flex-col">
                 {/* Already ordered oldest-first by the endpoint — never re-sorted
@@ -393,8 +393,8 @@ export function TransactionDetailPage() {
               <DetailRow label="Transaction id">
                 <MonoWithCopy value={txn.id} label="Copy transaction id" />
               </DetailRow>
-              <DetailRow label="Acquirer reference">
-                <MonoWithCopy value={txn.acquirerReference} label="Copy acquirer reference" truncate={28} />
+              <DetailRow label="Card network reference">
+                <MonoWithCopy value={txn.acquirerReference} label="Copy card network reference" truncate={28} />
               </DetailRow>
               <DetailRow label="Merchant id">
                 <MonoWithCopy value={txn.merchantId} label="Copy merchant id" />
@@ -438,7 +438,7 @@ export function TransactionDetailPage() {
                 min={1}
                 step={1}
                 inputMode="numeric"
-                placeholder="Everything outstanding"
+                placeholder="The full remaining amount"
                 className="font-mono tabular-nums"
                 value={captureAmount}
                 onChange={(e) => setCaptureAmount(e.target.value)}

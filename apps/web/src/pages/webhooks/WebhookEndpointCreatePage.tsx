@@ -73,7 +73,7 @@ export function WebhookEndpointCreatePage() {
     <>
       <PageHeader
         title="New webhook endpoint"
-        description="We POST a signed JSON body to this URL for every event."
+        description="We'll send a signed message to this address each time a payment or payout happens."
         actions={
           <Button variant="ghost" render={<Link to="/dashboard/webhooks" />}>
             <ArrowLeft data-icon="inline-start" />

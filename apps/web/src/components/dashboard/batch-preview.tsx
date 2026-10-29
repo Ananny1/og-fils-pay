@@ -2,6 +2,7 @@ import { motion, useMotionValue, useSpring, useTransform } from "motion/react";
 import type { MouseEvent } from "react";
 import CountUp from "@/components/ui/CountUp";
 import { StatusBadge } from "@/components/dashboard/status-badge";
+import { applyRateFils, toFils } from "@filspay/money";
 import { formatMoney } from "@/components/dashboard/money";
 
 /* Illustrative rows for the sign-in page. Amounts are integer fils and are
@@ -13,7 +14,8 @@ const ROWS: Array<{ ref: string; time: string; fils: number; status: string }> =
   { ref: "seef-kiosk-0415", time: "23:47", fils: 150031, status: "captured" },
 ];
 const GROSS = ROWS.reduce((sum, r) => sum + r.fils, 0);
-const FEE = 3937; // 2.25% of gross, banker's-rounded, as the fee engine would post it
+// 2.25% of gross with the same integer, banker's-rounded helper the fee engine uses.
+const FEE = applyRateFils(toFils(GROSS), 225);
 const NET = GROSS - FEE;
 
 function bd(fils: number): number {

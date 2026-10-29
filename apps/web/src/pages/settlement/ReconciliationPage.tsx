@@ -110,7 +110,7 @@ export function ReconciliationPage() {
     <>
       <PageHeader
         title="Reconciliation"
-        description="Compares the ledger's merchant payable against settled net payouts and the pending queue for a period."
+        description="Checks that everything you earned was either paid out or is still on its way."
       />
 
       <FadeContent trigger="mount" duration={0.5} delay={0.05}>
@@ -148,10 +148,10 @@ export function ReconciliationPage() {
             {reconciled ? (
               <Alert className="border-success/40 bg-success/5 text-success *:data-[slot=alert-description]:text-success/90">
                 <CheckCircle2 />
-                <AlertTitle>Reconciled — no gap</AlertTitle>
+                <AlertTitle>Everything adds up</AlertTitle>
                 <AlertDescription>
-                  Every captured fil between {report.periodFrom} and {report.periodTo} (exclusive) is accounted
-                  for in either a settled batch or the pending queue.
+                  From {report.periodFrom} up to {report.periodTo}, every fil you earned was either paid to
+                  your bank or is on its way.
                 </AlertDescription>
               </Alert>
             ) : (
@@ -160,12 +160,12 @@ export function ReconciliationPage() {
                 <AlertTitle>
                   {report.gapFils !== 0
                     ? `Gap: ${formatMoney(report.gapFils)} BHD`
-                    : "Reconciliation incomplete"}
+                    : "Not ready to check yet"}
                 </AlertTitle>
                 <AlertDescription>
                   {report.gapFils !== 0
-                    ? `The ledger and settlement figures for ${report.periodFrom} to ${report.periodTo} (exclusive) do not agree. The gap is shown exactly as reported — never rounded away or hidden behind a tolerance.`
-                    : `The period ${report.periodFrom} to ${report.periodTo} (exclusive) could not be fully explained yet — a settlement run may be in progress. Run the report again shortly.`}
+                    ? `Between ${report.periodFrom} and ${report.periodTo}, what you earned and what was paid out don't match. The difference above is exact, to the fil. Contact FilsPay support with these dates.`
+                    : `We can't check ${report.periodFrom} to ${report.periodTo} yet, probably because a payout is being worked out right now. Try again in a few minutes.`}
                 </AlertDescription>
               </Alert>
             )}
@@ -174,46 +174,46 @@ export function ReconciliationPage() {
           <FadeContent trigger="mount" duration={0.5} delay={0.18}>
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               <StatCard
-                label="Ledger merchant payable"
+                label="You earned"
                 fils={report.ledgerMerchantPayableNetFils}
                 icon={BookOpen}
-                hint="Net, from the ledger"
+                hint="What you earned in this period"
               />
               <StatCard
-                label="Settlement net payout"
+                label="Paid to your bank"
                 fils={report.settlementNetPayoutFils}
                 icon={Wallet}
-                hint="Across settled batches in the period"
+                hint="Already sent to your bank"
               />
               <StatCard
-                label="Pending, not yet batched"
+                label="Still on its way"
                 fils={report.pendingUnbatchedFils}
                 icon={Hourglass}
-                hint="Captured but awaiting a batch"
+                hint="Taken, waiting for tonight's payout"
               />
               <StatCard
-                label="Gap"
+                label="Difference"
                 fils={report.gapFils}
                 icon={Scale}
-                hint={reconciled ? "Fully reconciled" : "Unexplained difference"}
+                hint={reconciled ? "Nothing missing" : "Doesn't add up"}
                 className={reconciled ? undefined : "border-destructive/40"}
               />
             </div>
           </FadeContent>
 
           <p className="text-xs text-muted-foreground">
-            Gap = ledger merchant payable − settlement net payout − pending unbatched. A zero gap means every
-            captured fil is accounted for in either a settled batch or the pending queue.
+            How it works: what you earned, minus what was paid to your bank, minus what&apos;s still on its way.
+            If that comes to zero, nothing is missing.
           </p>
         </>
       ) : null}
 
       {loading && !report ? (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <StatCard label="Ledger merchant payable" loading />
-          <StatCard label="Settlement net payout" loading />
-          <StatCard label="Pending, not yet batched" loading />
-          <StatCard label="Gap" loading />
+          <StatCard label="You earned" loading />
+          <StatCard label="Paid to your bank" loading />
+          <StatCard label="Still on its way" loading />
+          <StatCard label="Difference" loading />
         </div>
       ) : null}
     </>

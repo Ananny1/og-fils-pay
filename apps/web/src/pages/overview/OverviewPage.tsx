@@ -47,7 +47,7 @@ interface VolumeRow {
 }
 
 const VOLUME_CHART_CONFIG = {
-  bd: { label: "Captured gross", color: "var(--color-chart-1)" },
+  bd: { label: "Sales", color: "var(--color-chart-1)" },
 } satisfies ChartConfig;
 
 function shortDate(date: string): string {
@@ -145,7 +145,7 @@ export function OverviewPage() {
     <>
       <PageHeader
         title="Overview"
-        description="Captured volume, payouts and best-performing payment links for the selected window. Leave the dates blank for the last 30 Bahrain days."
+        description="Sales, payouts and your best links. Leave the dates empty to see the last 30 days."
       />
 
       <FadeContent trigger="mount" duration={0.5} delay={0.05}>
@@ -192,18 +192,18 @@ export function OverviewPage() {
             count={summary.capturedCount}
             icon={ArrowLeftRight}
             loading={statsLoading}
-            hint="Capture events in the window"
+            hint="Card payments taken"
           />
           <StatCard
-            label="Captured gross"
+            label="Sales"
             fils={summary.capturedGrossFils}
             icon={Wallet}
             loading={statsLoading}
-            hint="Before acquirer fees"
+            hint="Before fees"
           />
-          <StatCard label="Voided" count={summary.voidedCount} icon={Ban} loading={statsLoading} hint="Authorizations released" />
+          <StatCard label="Voided" count={summary.voidedCount} icon={Ban} loading={statsLoading} hint="Cancelled before money was taken" />
           <StatCard
-            label="Settled batches"
+            label="Payout days"
             count={summary.batchCount}
             icon={BarChart3}
             loading={loading && !payouts}
@@ -215,8 +215,8 @@ export function OverviewPage() {
       <div className="grid gap-6 lg:grid-cols-2">
         <FadeContent trigger="mount" duration={0.5} delay={0.2} className="min-w-0">
           <SectionCard
-            title="Captured volume"
-            description="Daily captured gross, in BD."
+            title="Sales by day"
+            description="Sales per day, in BD."
             action={volumes ? <StalenessBadge readModelAsOf={volumes.readModelAsOf} live={volumes.live} /> : null}
             className="h-full"
           >
@@ -225,8 +225,8 @@ export function OverviewPage() {
             ) : volumes && volumes.points.length === 0 ? (
               <EmptyState
                 icon={BarChart3}
-                title="No captured volume"
-                description="No captured volume in this window."
+                title="No sales yet"
+                description="No sales in these dates."
               />
             ) : (
               <Tabs defaultValue="chart">
@@ -316,14 +316,14 @@ export function OverviewPage() {
         <FadeContent trigger="mount" duration={0.5} delay={0.28} className="min-w-0">
           <SectionCard
             flush
-            title="Payout trends"
-            description="Settlement batches in the window."
+            title="Recent payouts"
+            description="Your recent payout days."
             action={payouts ? <StalenessBadge readModelAsOf={payouts.readModelAsOf} live={payouts.live} /> : null}
             className="h-full"
           >
             {!initialLoading && payouts && payouts.points.length === 0 ? (
               <div className="p-4">
-                <EmptyState icon={Wallet} title="No settled batches" description="No settled batches in this window." />
+                <EmptyState icon={Wallet} title="No payouts yet" description="No payouts in these dates yet." />
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -347,7 +347,7 @@ export function OverviewPage() {
                           <TableCell>
                             <Link
                               to={`/dashboard/settlement/${point.settlementBatchId}`}
-                              className="font-mono font-medium text-primary underline-offset-4 hover:underline"
+                              className="font-medium text-foreground underline-offset-4 transition-colors hover:text-primary hover:underline"
                             >
                               {point.batchDate}
                             </Link>
@@ -378,13 +378,13 @@ export function OverviewPage() {
         <FadeContent trigger="mount" duration={0.5} delay={0.36} className="min-w-0 lg:col-span-2">
           <SectionCard
             flush
-            title="Top paid links"
+            title="Best links"
             description={`The ${clampedLimit} highest-value paid payment links in the window.`}
             action={topLinks ? <StalenessBadge readModelAsOf={topLinks.readModelAsOf} live={topLinks.live} /> : null}
           >
             {!initialLoading && topLinks && topLinks.links.length === 0 ? (
               <div className="p-4">
-                <EmptyState icon={Link2} title="No paid links" description="No paid payment links in this window." />
+                <EmptyState icon={Link2} title="No paid links yet" description="None of your links were paid in these dates." />
               </div>
             ) : (
               <div className="overflow-x-auto">

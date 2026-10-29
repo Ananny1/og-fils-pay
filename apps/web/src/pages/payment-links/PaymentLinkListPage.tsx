@@ -9,7 +9,7 @@ import FadeContent from "@/components/ui/FadeContent";
 import { EmptyState } from "@/components/dashboard/empty-state";
 import { ErrorAlert } from "@/components/dashboard/error-alert";
 import { FilterChips } from "@/components/dashboard/filter-chips";
-import { LoadMoreButton } from "@/components/dashboard/load-more";
+import { Pager, useCursorPages } from "@/components/dashboard/pager";
 import { Money } from "@/components/dashboard/money";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { SectionCard } from "@/components/dashboard/section-card";
@@ -26,7 +26,6 @@ import type { PaymentLinkDto, PaymentLinkStatus } from "../../types.js";
  *  mid-payment-attempt. */
 const STATUSES: PaymentLinkStatus[] = ["active", "reserved", "paid", "canceled"];
 
-const PAGE_SIZE = 25;
 
 const COLUMNS = 7;
 
@@ -45,20 +44,22 @@ export function PaymentLinkListPage() {
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(
-    async (cursor: string | null) => {
-      if (!merchantId) return;
+    async (cursor: string | null, limit: number = 15): Promise<string | null> => {
+      if (!merchantId) return null;
       setLoading(true);
       setError(null);
       try {
         const result = await listPaymentLinks(merchantId, {
           status: statuses.length > 0 ? statuses : undefined,
-          limit: PAGE_SIZE,
+          limit,
           cursor: cursor ?? undefined,
         });
-        setLinks((previous) => (cursor ? [...previous, ...result.paymentLinks] : result.paymentLinks));
+        setLinks(result.paymentLinks);
         setNextCursor(result.nextCursor);
+        return result.nextCursor;
       } catch (err) {
         setError(describeError(err));
+        return null;
       } finally {
         setLoading(false);
       }
@@ -66,9 +67,7 @@ export function PaymentLinkListPage() {
     [merchantId, statuses],
   );
 
-  useEffect(() => {
-    void load(null);
-  }, [load]);
+  const pager = useCursorPages(load);
 
   function toggleStatus(status: PaymentLinkStatus): void {
     setStatuses((previous) =>
@@ -92,7 +91,7 @@ export function PaymentLinkListPage() {
     <>
       <PageHeader
         title="Payment links"
-        description="Shareable checkout links, newest first."
+        description="Links you've sent to customers, and whether they've paid."
         actions={newLinkButton}
       />
 
@@ -153,7 +152,7 @@ export function PaymentLinkListPage() {
                       <TableCell className="font-medium">
                         <Link
                           to={`/dashboard/payment-links/${link.id}`}
-                          className="font-mono text-primary underline-offset-4 hover:underline"
+                          className="font-mono text-foreground underline-offset-4 transition-colors hover:text-primary hover:underline"
                         >
                           {dash(link.reference)}
                         </Link>
@@ -181,10 +180,9 @@ export function PaymentLinkListPage() {
                 </TableBody>
               )}
             </Table>
+            <Pager pager={pager} loading={loading} rowCount={links.length} noun="payment links" className="bg-muted/30" />
           </SectionCard>
         )}
-
-        <LoadMoreButton nextCursor={nextCursor} loading={loading} onLoadMore={() => void load(nextCursor)} />
       </FadeContent>
     </>
   );

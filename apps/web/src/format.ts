@@ -18,9 +18,28 @@ export function dash(value: string | number | null | undefined): string {
   return value === null || value === undefined || value === "" ? "—" : String(value);
 }
 
-/** Browser-local rendering, not Asia/Bahrain. */
+const BAHRAIN_DATE_TIME = new Intl.DateTimeFormat("en-GB", {
+  timeZone: "Asia/Bahrain",
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23",
+});
+
+/** An instant in Bahrain time, e.g. "31 Aug 2026, 15:00" — the merchant's
+ *  own clock, the same one business days and batches are cut on. */
 export function dateTime(iso: string | null | undefined): string {
-  return iso ? new Date(iso).toLocaleString() : "—";
+  return iso ? BAHRAIN_DATE_TIME.format(new Date(iso)) : "—";
+}
+
+/** A business date (YYYY-MM-DD) as "Mon, 31 Aug 2026". No timezone shift:
+ *  the date already is a Bahrain business day. */
+export function businessDate(ymd: string): string {
+  const d = new Date(`${ymd}T12:00:00Z`);
+  if (Number.isNaN(d.getTime())) return ymd;
+  return d.toLocaleDateString("en-GB", { timeZone: "UTC", weekday: "short", day: "numeric", month: "short", year: "numeric" });
 }
 
 /**

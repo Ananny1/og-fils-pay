@@ -90,7 +90,7 @@ export function PaymentLinkCreatePage() {
     <>
       <PageHeader
         title="New payment link"
-        description="A single-use checkout link for a fixed amount."
+        description="One link, one amount, one customer. It stops working once it's paid."
         actions={
           <Button variant="ghost" render={<Link to="/dashboard/payment-links" />}>
             <ArrowLeft data-icon="inline-start" />

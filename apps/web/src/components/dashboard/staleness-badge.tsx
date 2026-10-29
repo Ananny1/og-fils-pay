@@ -31,7 +31,7 @@ export function StalenessBadge({
       <Badge
         variant="outline"
         className={cn("gap-1.5 border-success/30 bg-success/10 text-success", className)}
-        title="Computed just now from the live ledger"
+        title="Worked out just now from your live records"
       >
         <span className="relative flex size-1.5" aria-hidden>
           <span className="absolute inline-flex size-full animate-ping rounded-full bg-success opacity-75" />
@@ -46,7 +46,7 @@ export function StalenessBadge({
       <Badge
         variant="outline"
         className={cn("gap-1 border-warning/30 bg-warning/10 text-warning", className)}
-        title="The reporting worker has not completed a pass yet"
+        title="These numbers are still being prepared"
       >
         <Radio />
         No data yet

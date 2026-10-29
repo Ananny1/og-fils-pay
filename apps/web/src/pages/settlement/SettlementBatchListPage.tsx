@@ -7,8 +7,9 @@ import FadeContent from "@/components/ui/FadeContent";
 import { DateRangeFilter } from "@/components/dashboard/date-range-filter";
 import { EmptyState } from "@/components/dashboard/empty-state";
 import { ErrorAlert } from "@/components/dashboard/error-alert";
-import { LoadMoreButton } from "@/components/dashboard/load-more";
+import { Pager, useCursorPages } from "@/components/dashboard/pager";
 import { Money } from "@/components/dashboard/money";
+import { FilterChips } from "@/components/dashboard/filter-chips";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { StatCard } from "@/components/dashboard/stat-card";
@@ -19,11 +20,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
-import { dateTime } from "../../format.js";
+import { dateTime, businessDate } from "../../format.js";
 import type { SettlementBatchDto, SettlementBatchStatus } from "../../types.js";
 
 const STATUSES: SettlementBatchStatus[] = ["open", "closed", "paid"];
-const PAGE_SIZE = 25;
 
 /**
  * `GET /v1/settlement/batches` — `requireMerchantAuth` with no role
@@ -45,7 +45,7 @@ export function SettlementBatchListPage() {
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(
-    async (cursor: string | null) => {
+    async (cursor: string | null, limit: number = 15): Promise<string | null> => {
       setLoading(true);
       setError(null);
       try {
@@ -53,13 +53,15 @@ export function SettlementBatchListPage() {
           from: from || undefined,
           to: to || undefined,
           status: statuses.length > 0 ? statuses : undefined,
-          limit: PAGE_SIZE,
+          limit,
           cursor: cursor ?? undefined,
         });
-        setBatches((previous) => (cursor ? [...previous, ...result.batches] : result.batches));
+        setBatches(result.batches);
         setNextCursor(result.nextCursor);
+        return result.nextCursor;
       } catch (err) {
         setError(describeError(err));
+        return null;
       } finally {
         setLoading(false);
       }
@@ -67,9 +69,7 @@ export function SettlementBatchListPage() {
     [from, to, statuses],
   );
 
-  useEffect(() => {
-    void load(null);
-  }, [load]);
+  const pager = useCursorPages(load);
 
   function toggleStatus(status: SettlementBatchStatus): void {
     setStatuses((previous) =>
@@ -93,40 +93,25 @@ export function SettlementBatchListPage() {
 
   const hasFilters = from !== "" || to !== "" || statuses.length > 0;
   const initialLoading = loading && batches.length === 0;
-  const loadedHint = `${batches.length} ${batches.length === 1 ? "batch" : "batches"} loaded`;
+  const loadedHint = `Across the ${batches.length} ${batches.length === 1 ? "batch" : "batches"} on this page`;
 
   return (
     <>
       <PageHeader
-        title="Settlement batches"
-        description="Daily batches of captured transactions keyed on the Bahrain business date. Net payout is always gross minus the acquirer fee."
+        title="Payouts"
+        description="One row per day. What you sold, what we kept, and what goes to your bank."
       />
 
       <FadeContent trigger="mount" duration={0.5} delay={0.05}>
         <Card>
           <CardContent className="flex flex-wrap items-end gap-x-6 gap-y-4">
             <DateRangeFilter from={from} to={to} onFromChange={setFrom} onToChange={setTo} />
-            <div className="grid gap-1.5">
-              <Label className="text-xs text-muted-foreground">Status</Label>
-              <div className="flex flex-wrap gap-1.5" role="group" aria-label="Filter by status">
-                {STATUSES.map((status) => {
-                  const active = statuses.includes(status);
-                  return (
-                    <Button
-                      key={status}
-                      type="button"
-                      size="sm"
-                      variant={active ? "default" : "outline"}
-                      aria-pressed={active}
-                      className={cn("capitalize", !active && "text-muted-foreground")}
-                      onClick={() => toggleStatus(status)}
-                    >
-                      {status}
-                    </Button>
-                  );
-                })}
-              </div>
-            </div>
+            <FilterChips
+              options={STATUSES}
+              selected={statuses}
+              onToggle={toggleStatus}
+              onClear={() => setStatuses([])}
+            />
             {hasFilters ? (
               <Button
                 type="button"
@@ -151,7 +136,7 @@ export function SettlementBatchListPage() {
         <div className="grid gap-4 sm:grid-cols-3">
           <StatCard label="Total gross" fils={totals.gross} icon={Wallet} loading={initialLoading} hint={loadedHint} />
           <StatCard label="Total fees" fils={totals.fee} icon={Percent} loading={initialLoading} hint={loadedHint} />
-          <StatCard label="Total net payout" fils={totals.net} icon={Banknote} loading={initialLoading} hint={loadedHint} />
+          <StatCard label="To your bank" fils={totals.net} icon={Banknote} loading={initialLoading} hint={loadedHint} />
         </div>
       </FadeContent>
 
@@ -167,7 +152,7 @@ export function SettlementBatchListPage() {
             <div className="p-4">
               <EmptyState
                 icon={Wallet}
-                title="No settlement batches"
+                title="No payout days yet"
                 description={
                   hasFilters
                     ? "No batches match these filters. Try widening the date range or clearing the status filter."
@@ -212,9 +197,9 @@ export function SettlementBatchListPage() {
                       <TableCell>
                         <Link
                           to={`/dashboard/settlement/${batch.id}`}
-                          className="font-mono font-medium text-primary underline-offset-4 hover:underline"
+                          className="font-medium text-foreground underline-offset-4 transition-colors hover:text-primary hover:underline"
                         >
-                          {batch.batchDate}
+                          {businessDate(batch.batchDate)}
                         </Link>
                       </TableCell>
                       <TableCell>
@@ -237,10 +222,9 @@ export function SettlementBatchListPage() {
               )}
             </Table>
           )}
+          <Pager pager={pager} loading={loading} rowCount={batches.length} noun="batches" className="bg-muted/30" />
         </SectionCard>
       </FadeContent>
-
-      <LoadMoreButton nextCursor={nextCursor} loading={loading} onLoadMore={() => void load(nextCursor)} />
     </>
   );
 }

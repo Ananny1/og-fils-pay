@@ -26,7 +26,7 @@ export function DateRangeFilter({
       </div>
       <div className="grid gap-1.5">
         <Label htmlFor="date-to" className="text-xs text-muted-foreground">
-          To (exclusive)
+          Before
         </Label>
         <Input id="date-to" type="date" value={to} onChange={(e) => onToChange(e.target.value)} className="w-[10.5rem]" />
       </div>

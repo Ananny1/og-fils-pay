@@ -62,6 +62,7 @@
    navy text, cool blue-grey muted tones and borders, one bold red accent.
    Dark mode is the same system on a deep navy base. */
 :root {
+  color-scheme: light;
   --background: hsl(220 20% 97.5%);
   --foreground: hsl(213 31% 7%);
   --card: hsl(0 0% 100%);
@@ -105,9 +106,10 @@
 }
 
 .dark {
+  color-scheme: dark;
   --background: hsl(222 32% 7%);
   --foreground: hsl(220 20% 94%);
-  --card: hsl(222 28% 10%);
+  --card: hsl(222 26% 10.5%);
   --card-foreground: hsl(220 20% 94%);
   --popover: hsl(222 28% 10%);
   --popover-foreground: hsl(220 20% 94%);
@@ -123,8 +125,8 @@
   --success: hsl(142 60% 48%);
   --warning: hsl(38 92% 58%);
   --info: hsl(212 80% 62%);
-  --border: hsl(220 20% 100% / 0.09);
-  --input: hsl(220 20% 100% / 0.13);
+  --border: hsl(220 20% 100% / 0.075);
+  --input: hsl(220 20% 100% / 0.12);
   --ring: hsl(4 90% 60%);
   --navy: hsl(212 60% 70%);
   --chart-1: hsl(4 90% 60%);
@@ -237,3 +239,30 @@
   background: color-mix(in oklch, var(--primary) 5%, transparent);
 }
 
+
+/* Markdown inside assistant answers. */
+.prose-chat > * + * { margin-top: 0.6em; }
+.prose-chat strong { font-weight: 600; }
+.prose-chat ul { list-style: disc; padding-left: 1.2em; }
+.prose-chat ol { list-style: decimal; padding-left: 1.2em; }
+.prose-chat code { font-family: var(--font-mono); font-size: 0.85em; background: var(--muted); padding: 0.1em 0.35em; border-radius: 0.35em; }
+.prose-chat table { width: 100%; border-collapse: collapse; font-size: 0.85em; font-variant-numeric: tabular-nums; }
+.prose-chat th { text-align: left; font-weight: 500; color: var(--muted-foreground); border-bottom: 1px solid var(--border); padding: 0.35em 0.5em; }
+.prose-chat td { border-bottom: 1px solid color-mix(in oklch, var(--border) 60%, transparent); padding: 0.35em 0.5em; }
+.prose-chat h1, .prose-chat h2, .prose-chat h3 { font-weight: 600; font-size: 1em; }
+
+/* Native date pickers: themed icon, no default chrome. */
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.55;
+  transition: opacity 150ms ease;
+}
+input[type="date"]:hover::-webkit-calendar-picker-indicator,
+input[type="datetime-local"]:hover::-webkit-calendar-picker-indicator {
+  opacity: 0.9;
+}
+input[type="date"]:invalid,
+input[type="date"]:not(:focus):placeholder-shown {
+  color: var(--muted-foreground);
+}

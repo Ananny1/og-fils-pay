@@ -73,7 +73,7 @@ export const router = createBrowserRouter([
           {
             path: "/dashboard/webhooks",
             element: (
-              <RoleGatedPage allow={["owner", "finance"]} title="Webhook endpoints">
+              <RoleGatedPage allow={["owner", "finance"]} title="Webhooks">
                 <WebhookEndpointListPage />
               </RoleGatedPage>
             ),

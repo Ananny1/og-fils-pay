@@ -86,13 +86,13 @@ export function CheckoutPage() {
         } else if (statusCode === 502) {
           setPayState({ kind: "declined", message: "The acquirer is temporarily unavailable. Please try again.", retryable: true });
         } else if (statusCode === 409 && body.error === "payment_link_already_paid") {
-          setPayState({ kind: "terminal", message: "This invoice has already been paid." });
+          setPayState({ kind: "terminal", message: "This has already been paid. Nothing more to do." });
         } else if (statusCode === 409 && body.error === "payment_link_canceled") {
-          setPayState({ kind: "terminal", message: "This payment link is no longer available." });
+          setPayState({ kind: "terminal", message: "This link isn't available any more." });
         } else if (statusCode === 409) {
           setPayState({ kind: "declined", message: "A payment is already being processed for this link. Please try again shortly.", retryable: true });
         } else if (statusCode === 410) {
-          setPayState({ kind: "terminal", message: "This payment link has expired." });
+          setPayState({ kind: "terminal", message: "This link has expired. Ask the shop to send a new one." });
         } else {
           setPayState({ kind: "declined", message: body.message ?? "Something went wrong. Please try again.", retryable: true });
         }
@@ -130,7 +130,7 @@ export function CheckoutPage() {
         <EmptyState
           icon={SearchX}
           title="Payment link not found"
-          description="This payment link does not exist."
+          description="This link doesn't exist. Check you have the full address."
         />
       </CheckoutShell>
     );
@@ -186,21 +186,21 @@ export function CheckoutPage() {
   if (link.status === "paid") {
     return (
       <CheckoutShell>
-        <EmptyState icon={CheckCircle2} title="Already paid" description="This invoice has already been paid." />
+        <EmptyState icon={CheckCircle2} title="Already paid" description="This has already been paid. Nothing more to do." />
       </CheckoutShell>
     );
   }
   if (link.status === "expired") {
     return (
       <CheckoutShell>
-        <EmptyState icon={Clock} title="Link expired" description="This payment link has expired." />
+        <EmptyState icon={Clock} title="Link expired" description="This link has expired. Ask the shop to send a new one." />
       </CheckoutShell>
     );
   }
   if (link.status === "canceled") {
     return (
       <CheckoutShell>
-        <EmptyState icon={Ban} title="No longer available" description="This payment link is no longer available." />
+        <EmptyState icon={Ban} title="No longer available" description="This link isn't available any more." />
       </CheckoutShell>
     );
   }
@@ -210,7 +210,7 @@ export function CheckoutPage() {
         <EmptyState
           icon={Hourglass}
           title="Payment processing"
-          description="A payment is being processed for this link — please wait a moment and refresh."
+          description="Someone is paying this link right now. Wait a moment, then refresh."
         />
       </CheckoutShell>
     );

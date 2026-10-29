@@ -9,6 +9,8 @@ import { DateRangeFilter } from "@/components/dashboard/date-range-filter";
 import { EmptyState } from "@/components/dashboard/empty-state";
 import { ErrorAlert } from "@/components/dashboard/error-alert";
 import { Money } from "@/components/dashboard/money";
+import { FilterChips } from "@/components/dashboard/filter-chips";
+import { Pager, useCursorPages } from "@/components/dashboard/pager";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { StatusBadge } from "@/components/dashboard/status-badge";
@@ -34,36 +36,7 @@ const STATUSES: TransactionStatus[] = [
   "chargeback",
 ];
 
-const PAGE_SIZE = 25;
 const SEARCH_DEBOUNCE_MS = 300;
-
-/** One segment of the status filter. `aria-pressed` carries the toggle
- *  state so the segmented look is also announced as a toggle. */
-function StatusChip({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      aria-pressed={active}
-      onClick={onClick}
-      className={cn(
-        "rounded-md px-2.5 py-1 text-xs font-medium capitalize whitespace-nowrap transition-colors outline-none select-none focus-visible:ring-3 focus-visible:ring-ring/50",
-        active
-          ? "bg-background text-foreground shadow-xs ring-1 ring-foreground/10"
-          : "text-muted-foreground hover:text-foreground",
-      )}
-    >
-      {children}
-    </button>
-  );
-}
 
 /**
  * `GET /v1/transactions`. Every control here is a real server-side
@@ -90,8 +63,9 @@ export function TransactionListPage() {
     return () => window.clearTimeout(timer);
   }, [searchInput]);
 
-  const load = useCallback(
-    async (cursor: string | null) => {
+  // Loads exactly one page and returns its cursor for the next one.
+  const fetchPage = useCallback(
+    async (cursor: string | null, limit: number): Promise<string | null> => {
       setLoading(true);
       setError(null);
       try {
@@ -100,25 +74,22 @@ export function TransactionListPage() {
           from: dayStartIso(from),
           to: dayStartIso(to),
           search: search || undefined,
-          limit: PAGE_SIZE,
+          limit,
           cursor: cursor ?? undefined,
         });
-        setTransactions((previous) =>
-          cursor ? [...previous, ...result.transactions] : result.transactions,
-        );
+        setTransactions(result.transactions);
         setNextCursor(result.nextCursor);
+        return result.nextCursor;
       } catch (err) {
         setError(describeError(err));
+        return null;
       } finally {
         setLoading(false);
       }
     },
     [statuses, from, to, search],
   );
-
-  useEffect(() => {
-    void load(null);
-  }, [load]);
+  const pager = useCursorPages(fetchPage);
 
   function toggleStatus(status: TransactionStatus): void {
     setStatuses((previous) =>
@@ -140,36 +111,19 @@ export function TransactionListPage() {
 
   const countLine = initialLoading
     ? "Loading…"
-    : `${pluralize(transactions.length, "transaction")} loaded${nextCursor ? " · more available" : ""}`;
+    : `Page ${pager.page + 1} · ${pluralize(transactions.length, "transaction")}${nextCursor ? "" : " · last page"}`;
 
   return (
     <>
       <PageHeader
         title="Transactions"
-        description="Every authorization, capture, void and refund on your account, newest first."
+        description="Every card payment, newest first. Open one to see what happened to it."
       />
 
       <Card>
         <CardContent className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1.5">
-            <span className="text-xs text-muted-foreground">Status</span>
-            <div
-              role="group"
-              aria-label="Filter by status"
-              className="inline-flex w-fit max-w-full flex-wrap gap-1 rounded-lg bg-muted p-1"
-            >
-              <StatusChip active={statuses.length === 0} onClick={() => setStatuses([])}>
-                All
-              </StatusChip>
-              {STATUSES.map((status) => (
-                <StatusChip key={status} active={statuses.includes(status)} onClick={() => toggleStatus(status)}>
-                  {status.replaceAll("_", " ")}
-                </StatusChip>
-              ))}
-            </div>
-          </div>
-
           <div className="flex flex-wrap items-end gap-3">
+            <FilterChips options={STATUSES} selected={statuses} onToggle={toggleStatus} onClear={() => setStatuses([])} />
             {/* "To" is exclusive, because the endpoint's own predicate is
                 `occurred_at < to` — labelled rather than quietly shifted by a
                 day here, which would make this page and the API disagree about
@@ -189,7 +143,7 @@ export function TransactionListPage() {
                   id="txn-search"
                   type="search"
                   className="pl-8"
-                  placeholder="Reference, acquirer reference, or transaction id"
+                  placeholder="Search by reference or payment ID"
                   value={searchInput}
                   onChange={(e) => setSearchInput(e.target.value)}
                 />
@@ -214,7 +168,7 @@ export function TransactionListPage() {
             <div className="p-6">
               <EmptyState
                 icon={SearchX}
-                title="No transactions match these filters"
+                title="Nothing matches these filters"
                 description={
                   hasFilters
                     ? "Try widening the date range or clearing a status."
@@ -272,7 +226,7 @@ export function TransactionListPage() {
                           <span className="font-mono text-xs" title={txn.acquirerReference}>
                             {truncateMiddle(txn.acquirerReference, 20)}
                           </span>
-                          <CopyButton value={txn.acquirerReference} label="Copy acquirer reference" />
+                          <CopyButton value={txn.acquirerReference} label="Copy card network reference" />
                         </span>
                       </TableCell>
                     </TableRow>
@@ -282,17 +236,7 @@ export function TransactionListPage() {
             </Table>
           )}
 
-          {/* `nextCursor` is an opaque server-issued token, passed straight
-              back on the next request and never inspected here. The footer
-              disappears once the server says there is no next page. */}
-          {nextCursor ? (
-            <div className="flex items-center justify-center border-t bg-muted/50 px-4 py-3">
-              <Button variant="outline" disabled={loading} onClick={() => void load(nextCursor)}>
-                {loading ? <Spinner /> : null}
-                {loading ? "Loading…" : "Load more"}
-              </Button>
-            </div>
-          ) : null}
+          <Pager pager={pager} loading={loading} rowCount={transactions.length} noun="transactions" className="bg-muted/30" />
         </SectionCard>
       </FadeContent>
     </>

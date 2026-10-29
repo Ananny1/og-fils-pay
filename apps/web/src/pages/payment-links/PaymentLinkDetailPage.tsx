@@ -254,7 +254,7 @@ export function PaymentLinkDetailPage() {
                 {link.transactionId ? (
                   <Link
                     to={`/dashboard/transactions/${link.transactionId}`}
-                    className="font-mono text-primary underline-offset-4 hover:underline"
+                    className="font-mono text-foreground underline-offset-4 transition-colors hover:text-primary hover:underline"
                   >
                     {link.transactionId}
                   </Link>

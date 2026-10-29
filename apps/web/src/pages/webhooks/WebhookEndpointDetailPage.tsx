@@ -16,7 +16,7 @@ import { CopyButton } from "@/components/dashboard/copy-button";
 import { EmptyState } from "@/components/dashboard/empty-state";
 import { ErrorAlert } from "@/components/dashboard/error-alert";
 import { FilterChips } from "@/components/dashboard/filter-chips";
-import { LoadMoreButton } from "@/components/dashboard/load-more";
+import { Pager, useCursorPages } from "@/components/dashboard/pager";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { StatusBadge } from "@/components/dashboard/status-badge";
@@ -52,7 +52,6 @@ import type { WebhookDeliveryDto, WebhookDeliveryStatus, WebhookEndpointDto } fr
  *  the column, not the dispatcher's current habits. */
 const DELIVERY_STATUSES: WebhookDeliveryStatus[] = ["pending", "succeeded", "failed", "exhausted"];
 
-const PAGE_SIZE = 25;
 
 const COLUMNS = 9;
 
@@ -78,7 +77,7 @@ export function WebhookEndpointDetailPage() {
   // not hundreds, so finding the row in the list is exact in practice here —
   // unlike the payment-link case, where it can genuinely miss.
   const loadEndpoint = useCallback(async () => {
-    if (!merchantId || !id) return;
+    if (!merchantId || !id) return null;
     setError(null);
     try {
       const all = await listWebhookEndpoints(merchantId);
@@ -91,22 +90,22 @@ export function WebhookEndpointDetailPage() {
   }, [merchantId, id]);
 
   const loadDeliveries = useCallback(
-    async (cursor: string | null) => {
-      if (!merchantId || !id) return;
+    async (cursor: string | null, limit: number = 15): Promise<string | null> => {
+      if (!merchantId || !id) return null;
       setLoading(true);
       setError(null);
       try {
         const result = await listDeliveries(merchantId, id, {
           status: statuses.length > 0 ? statuses : undefined,
-          limit: PAGE_SIZE,
+          limit,
           cursor: cursor ?? undefined,
         });
-        setDeliveries((previous) =>
-          cursor ? [...previous, ...result.deliveries] : result.deliveries,
-        );
+        setDeliveries(result.deliveries);
         setNextCursor(result.nextCursor);
+        return result.nextCursor;
       } catch (err) {
         setError(describeError(err));
+        return null;
       } finally {
         setLoading(false);
       }
@@ -118,9 +117,7 @@ export function WebhookEndpointDetailPage() {
     void loadEndpoint();
   }, [loadEndpoint]);
 
-  useEffect(() => {
-    void loadDeliveries(null);
-  }, [loadDeliveries]);
+  const pager = useCursorPages(loadDeliveries);
 
   function toggleStatus(status: WebhookDeliveryStatus): void {
     setStatuses((previous) =>
@@ -139,7 +136,9 @@ export function WebhookEndpointDetailPage() {
       toast.success("Replay queued");
       // The replay is a brand-new `pending` row, newest-first, so refetch from
       // the top rather than appending to what's on screen.
-      await loadDeliveries(null);
+      // Back to page 1 by re-running the current page fetch from the top.
+      pager.goTo(0);
+      await loadDeliveries(null, pager.pageSize);
     } catch (err) {
       // `409 endpoint_disabled` is a real race: someone disabled the endpoint
       // between this page loading and the click.
@@ -203,7 +202,7 @@ export function WebhookEndpointDetailPage() {
         <EmptyState
           icon={Webhook}
           title="Endpoint not found"
-          description="No webhook endpoint with this id exists on your account."
+          description="We couldn't find this address on your account."
           action={
             <Button variant="outline" render={<Link to="/dashboard/webhooks" />}>
               Back to endpoints
@@ -373,11 +372,7 @@ export function WebhookEndpointDetailPage() {
               </SectionCard>
             )}
 
-            <LoadMoreButton
-              nextCursor={nextCursor}
-              loading={loading}
-              onLoadMore={() => void loadDeliveries(nextCursor)}
-            />
+            <Pager pager={pager} loading={loading} rowCount={deliveries.length} noun="deliveries" className="rounded-xl border bg-card" />
           </FadeContent>
         </TabsContent>
 

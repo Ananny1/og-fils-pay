@@ -19,9 +19,9 @@ export function SectionCard({
   className?: string;
 }) {
   return (
-    <Card className={cn("rounded-2xl border-border/70 shadow-card", flush && "gap-0 py-0 overflow-hidden", className)}>
+    <Card className={cn("rounded-xl", flush && "gap-0 py-0 overflow-hidden", className)}>
       {title || action ? (
-        <CardHeader className={cn(flush && "border-b bg-muted/30 py-4")}>
+        <CardHeader className={cn(flush && "border-b bg-muted/20 py-4")}>
           {title ? <CardTitle>{title}</CardTitle> : null}
           {description ? <CardDescription>{description}</CardDescription> : null}
           {action ? <CardAction>{action}</CardAction> : null}

@@ -17,6 +17,8 @@ import GradientText from "@/components/ui/GradientText";
 import Magnet from "@/components/ui/Magnet";
 import StarBorder from "@/components/ui/StarBorder";
 import { BatchPreview } from "@/components/dashboard/batch-preview";
+import { BotIcon } from "@/components/dashboard/bot-icon";
+import { ThemeCube } from "@/components/dashboard/theme-cube";
 import { ErrorAlert } from "@/components/dashboard/error-alert";
 import { BrandMark } from "@/components/dashboard/public-shell";
 import { ThemeToggle } from "@/components/dashboard/theme-toggle";
@@ -29,7 +31,7 @@ import { Spinner } from "@/components/ui/spinner";
 
 type Step = { kind: "credentials" } | { kind: "otp"; challenge: DashboardLoginResponse };
 
-const FACTS = ["1 BD = 1000 fils", "Closes 00:00 Bahrain", "Visa · Mastercard", "Signed webhooks"];
+const FACTS = ["AI assistant built in", "1 BD = 1000 fils", "Closes 00:00 Bahrain", "Visa · Mastercard"];
 
 const STEPS = [
   {
@@ -182,7 +184,7 @@ export function LoginPage() {
                   <span className="absolute inline-flex size-full animate-ping rounded-full bg-primary/60" />
                   <span className="relative inline-flex size-1.5 rounded-full bg-primary" />
                 </span>
-                Merchant dashboard
+                AI-powered merchant dashboard
               </span>
             </FadeContent>
 
@@ -206,8 +208,9 @@ export function LoginPage() {
 
             <FadeContent trigger="mount" duration={0.6} delay={0.25}>
               <p className="max-w-xl text-lg leading-8 text-muted-foreground">
-                Your captures, your fees and tonight&apos;s payout, all in one place. The books close at
-                midnight Bahrain time and what you see here is what reaches your bank.
+                Your captures, your fees and tonight&apos;s payout, all in one place, with an AI assistant
+                that reads your numbers and explains them in plain words. The books close at midnight
+                Bahrain time and what you see here is what reaches your bank.
               </p>
             </FadeContent>
 
@@ -229,6 +232,7 @@ export function LoginPage() {
             </FadeContent>
           </div>
 
+          <div className="flex flex-col gap-14 lg:sticky lg:top-24">
           <FadeContent trigger="mount" duration={0.7} delay={0.15}>
             <GlareHover
               background="transparent"
@@ -407,6 +411,10 @@ export function LoginPage() {
               </Card>
             </GlareHover>
           </FadeContent>
+            <FadeContent trigger="mount" duration={0.8} delay={0.35} className="hidden justify-center pt-6 md:flex">
+              <ThemeCube />
+            </FadeContent>
+          </div>
         </section>
 
         {/* How it works */}
@@ -448,6 +456,80 @@ export function LoginPage() {
               </AnimatedContent>
             ))}
           </ol>
+        </section>
+
+        {/* AI assistant */}
+        <section className="border-t border-border/60 py-14 md:py-20">
+          <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-16">
+            <AnimatedContent distance={40} duration={0.7} threshold={0.2}>
+              <div className="space-y-5">
+                <span className="inline-flex items-center gap-2 rounded-full border border-primary/25 bg-primary/10 px-4 py-1.5 text-sm font-medium text-primary">
+                  <BotIcon className="size-4" />
+                  Ask FilsPay
+                </span>
+                <h2 className="text-3xl font-bold tracking-tight md:text-4xl">Your numbers, explained by AI</h2>
+                <p className="text-lg leading-8 text-muted-foreground">
+                  Ask in your own words and get an answer from your live data in seconds. The assistant reads
+                  your account only. It can&apos;t move money, and the figures it quotes are the same ones the
+                  books use, to the fil.
+                </p>
+                <ul className="space-y-3 text-[15px]">
+                  {[
+                    ["Ask anything", "“How much did I sell last week?” “Which payments are only partly taken?”"],
+                    ["Every payout explained", "Each daily batch gets a short note: what you sold, the fee, and when it reaches your bank."],
+                    ["Books that add up", "Owners and finance can ask whether a month reconciles and see where any gap is."],
+                  ].map(([title, body]) => (
+                    <li key={title} className="flex gap-3">
+                      <span className="mt-1 flex size-6 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                        <BotIcon className="size-4" animated={false} />
+                      </span>
+                      <span>
+                        <span className="font-semibold">{title}.</span>{" "}
+                        <span className="text-muted-foreground">{body}</span>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </AnimatedContent>
+
+            <AnimatedContent distance={60} duration={0.8} delay={0.1} threshold={0.2}>
+              <div className="rounded-2xl border border-border/70 bg-card p-5 shadow-elegant">
+                <div className="flex items-center gap-2.5 border-b pb-3">
+                  <span className="flex size-9 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+                    <BotIcon className="size-6" />
+                  </span>
+                  <div>
+                    <p className="text-sm font-semibold">Ask FilsPay</p>
+                    <p className="text-xs text-muted-foreground">Reads your account · can&apos;t change anything</p>
+                  </div>
+                </div>
+                <div className="space-y-4 pt-4 text-sm">
+                  <div className="flex justify-end">
+                    <p className="max-w-[80%] rounded-2xl rounded-br-md bg-primary px-3.5 py-2 text-primary-foreground">
+                      What will tonight&apos;s payout be?
+                    </p>
+                  </div>
+                  <div className="flex gap-2.5">
+                    <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                      <BotIcon className="size-[18px]" animated={false} />
+                    </span>
+                    <div className="space-y-2">
+                      <span className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-muted/60 px-2.5 py-0.5 text-xs text-muted-foreground">
+                        <span className="size-1.5 rounded-full bg-success" />
+                        Checking settlement batches
+                      </span>
+                      <p className="leading-6">
+                        Today you&apos;ve sold <span className="font-mono">175.134 BHD</span> across 4 payments. After
+                        the 2.25% fee of <span className="font-mono">3.941 BHD</span>, about{" "}
+                        <span className="font-mono font-semibold">171.193 BHD</span> goes to your bank after midnight.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </AnimatedContent>
+          </div>
         </section>
 
         {/* Closing */}

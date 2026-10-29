@@ -62,7 +62,7 @@ const NAV: Array<{ label: string; items: NavItem[] }> = [
   {
     label: "Money",
     items: [
-      { to: "/dashboard/settlement", label: "Settlement", icon: Wallet },
+      { to: "/dashboard/settlement", label: "Payouts", icon: Wallet },
       { to: "/dashboard/reconciliation", label: "Reconciliation", icon: Scale, roles: ["owner", "finance"] },
     ],
   },

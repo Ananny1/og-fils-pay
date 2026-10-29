@@ -56,7 +56,7 @@ export function CommandMenu() {
         <Search />
       </Button>
       <CommandDialog open={open} onOpenChange={setOpen} title="Command menu" description="Jump anywhere">
-        <CommandInput placeholder="Type a page or an action…" />
+        <CommandInput placeholder="Where do you want to go?" />
         <CommandList>
           <CommandEmpty>Nothing matches.</CommandEmpty>
           <CommandGroup heading="Go to">
@@ -70,7 +70,7 @@ export function CommandMenu() {
               <Link2 /> Payment links <CommandShortcut>G L</CommandShortcut>
             </CommandItem>
             <CommandItem onSelect={() => go("/dashboard/settlement")}>
-              <Wallet /> Settlement <CommandShortcut>G S</CommandShortcut>
+              <Wallet /> Payouts <CommandShortcut>G S</CommandShortcut>
             </CommandItem>
             {canWrite ? (
               <>

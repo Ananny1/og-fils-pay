@@ -129,8 +129,8 @@ export function WebhookEndpointListPage() {
   return (
     <>
       <PageHeader
-        title="Webhook endpoints"
-        description="HTTPS URLs we POST signed event notifications to."
+        title="Webhooks"
+        description="Where we send a message when something happens on your account."
         actions={newEndpointButton}
       />
 
@@ -140,8 +140,8 @@ export function WebhookEndpointListPage() {
         {isEmpty ? (
           <EmptyState
             icon={Webhook}
-            title="No webhook endpoints"
-            description="Webhooks push payment and settlement events to your server as they happen, so you don't have to poll. Each delivery is signed with a per-endpoint secret you can verify."
+            title="No addresses yet"
+            description="Add an address on your server and we'll tell it about every payment and payout the moment it happens. Each message is signed so you can check it came from us."
             action={newEndpointButton}
           />
         ) : (
@@ -170,7 +170,7 @@ export function WebhookEndpointListPage() {
                           <Link
                             to={`/dashboard/webhooks/${endpoint.id}`}
                             title={endpoint.url}
-                            className="block truncate font-mono text-xs text-primary underline-offset-4 hover:underline"
+                            className="block truncate font-mono text-xs text-foreground underline-offset-4 transition-colors hover:text-primary hover:underline"
                           >
                             {endpoint.url}
                           </Link>
