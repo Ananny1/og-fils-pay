@@ -144,25 +144,39 @@ export async function adminAuthRoutes(app: FastifyInstance): Promise<void> {
       throw new GoneError("otp_expired");
     }
 
-    // admin path doesn't have the merchant race, the challenge row is read FOR UPDATE — MK
-    if (challenge.attempt_count >= challenge.max_attempts) {
+    // Reserve one attempt before comparing, in one statement, so parallel
+    // guesses can't all read the same count and each get a free try (BUG-011).
+    const reserved = await app.db.query(
+      `UPDATE admin_otp_challenges SET attempt_count = attempt_count + 1
+        WHERE id = $1 AND consumed_at IS NULL AND attempt_count < max_attempts
+        RETURNING id`,
+      [challenge.id],
+    );
+    if (reserved.rowCount === 0) {
+      const now = await app.db.query<{ consumed_at: Date | null }>(
+        `SELECT consumed_at FROM admin_otp_challenges WHERE id = $1`,
+        [challenge.id],
+      );
+      if (now.rows[0]?.consumed_at) {
+        throw new GoneError("otp_expired");
+      }
       await revokeAdminSession(app.db, pending.adminSessionId);
       throw new TooManyRequestsError("too_many_attempts");
     }
 
     const matches = verifyOtpCode(code, challenge.code_salt, challenge.code_hash);
     if (!matches) {
-      await app.db.query(
-        `UPDATE admin_otp_challenges SET attempt_count = attempt_count + 1 WHERE id = $1`,
-        [challenge.id],
-      );
       throw new UnauthorizedError("invalid_code");
     }
 
     const adminUser = await withTransaction(app.db, async (client) => {
-      await client.query(`UPDATE admin_otp_challenges SET consumed_at = now() WHERE id = $1`, [
-        challenge.id,
-      ]);
+      const consumed = await client.query(
+        `UPDATE admin_otp_challenges SET consumed_at = now() WHERE id = $1 AND consumed_at IS NULL RETURNING id`,
+        [challenge.id],
+      );
+      if (consumed.rowCount === 0) {
+        throw new GoneError("otp_expired"); // a parallel request already used this code
+      }
       await promoteAdminSession(client, pending.adminSessionId, app.config.adminSessionTtlHours);
       const result = await client.query<{ role: AdminRole }>(
         `SELECT role FROM admin_users WHERE id = $1`,

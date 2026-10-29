@@ -125,6 +125,7 @@ Each decision: **context → decision → why → consequences**. A decision is 
 | 21 | 2026-10-29 | BUG-002: login binds the OTP and session to the password-checked user, not the first row with that email | Alpha login: /me Beta → Alpha; new tests 2 red → green; API 356/368 (= baseline 12) | D-003 |
 | 22 | 2026-10-29 | BUG-037 re-assessed after BUG-002: takeover path closed; reclassified as ENH-008 | — | D-015 |
 | 23 | 2026-10-29 | BUG-031: OTP exposure off by default, refused in production, one switch for reply and log; laptop `.env.dev` opts in; hosted example opts out | Forgotten setting: code in reply+log → none; prod+expose refuses to boot; 5 new tests; API 361/373 (= baseline 12) | D-003 |
+| 24 | 2026-10-29 | BUG-011: atomic attempt reservation before comparing, single-winner consume, resend carries the count, `crypto.randomInt` (also payment-link tokens / invite codes); merchant + admin | Live 40 parallel guesses: attempt_count 12/5 → 5/5; 6 new tests red → green; API 367/379 (= baseline 12) | D-003 |
 
 ---
 
@@ -159,7 +160,7 @@ Planned queue (from the audit, in fix order):
 | BUG-008 | Critical | Duplicate `settlement.paid` + disbursements (incident 2026-08-21) | ⬜ |
 | BUG-009 | Critical | `expire_holds` deletes every hold when nothing expired → [write-up](docs/bugs/BUG-009-expire-holds-deletes-all.md) | ✅ |
 | BUG-010 | Critical | Impersonation maps super_admin → owner (must be read-only support) | ⬜ |
-| BUG-011 | High | OTP attempt limit bypassable in parallel; OTP from `Math.random` | ⬜ |
+| BUG-011 | High | OTP attempt limit bypassable in parallel; resend resets it; OTP from `Math.random` (merchant + admin) → [write-up](docs/bugs/BUG-011-otp-guessable.md) | ✅ |
 | BUG-012 | High | API key rotation leaves the old key valid | ⬜ |
 | BUG-013 | High | Credit two-person check compares display names | ⬜ |
 | BUG-014 | High | CSV adjustment import parses 2 decimals (4.75 BD → 0.475) | ⬜ |

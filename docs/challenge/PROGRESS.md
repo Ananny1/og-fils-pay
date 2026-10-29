@@ -7,7 +7,7 @@ Status of all tasks: `PLAN.md` → Master order. This file is the **detail of wh
 
 | Field | Value |
 |---|---|
-| Task | BUG-011 — OTP guessable: parallel attempts, resend resets budget, Math.random (next) |
+| Task | BUG-032 — admin session not rotated after OTP (next) |
 | Owner | Ebrahim |
 | Branch | `ebrahim/track-b` |
 | Step | 0-claimed (0-claimed · 1-understood · 2-planned · 3-test-red · 4-fixed · 5-verified · 6-documented · 7-pushed) |
@@ -23,7 +23,8 @@ Status of all tasks: `PLAN.md` → Master order. This file is the **detail of wh
 
 | Date | Task | Commit | Pushed to |
 |---|---|---|---|
-| 2026-10-29 | BUG-031 OTP in reply and logs | (this commit) | `ebrahim/track-b` |
+| 2026-10-29 | BUG-011 OTP guessable (merchant + admin) | (this commit) | `ebrahim/track-b` |
+| 2026-10-29 | BUG-031 OTP in reply and logs | `cc456c7` | `ebrahim/track-b` |
 | 2026-10-29 | BUG-037 reclassified → ENH-008 (D-015) | `eba1a78` | `ebrahim/track-b` |
 | 2026-10-29 | BUG-002 OTP lands in another shop | `d9c7afd` | `ebrahim/track-b` |
 | 2026-10-29 | BUG-001 login without OTP | `c409a21` | `ebrahim/track-b` |
