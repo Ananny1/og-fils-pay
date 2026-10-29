@@ -34,7 +34,7 @@ the screens (Tier 7) and hand-in (Tier 8).
 | 0.75 | DEP-005 | `npm test` never ran the API/reporting suites (Node 20 doesn't expand the test glob) | ★★ | — | — | ✅ |
 | 0.8 | T1 | Test baseline: run `npm test` + `go test ./...`, record what already fails (`TEST-BASELINE.md`) | — | — | 0.75 | ✅ |
 | **Tier 1** | | **Login (the entry point)** | | | | |
-| 1.1 | BUG-001 | Login works without the OTP | ★★★ | S3 group chat | — | ⬜ |
+| 1.1 | BUG-001 | Login works without the OTP | ★★★ | S3 group chat | — | ✅ |
 | 1.2 | BUG-002 | OTP binds to another shop's user with the same email | ★★★ | S4 "OTP changed" | 1.1 | ⬜ |
 | 1.3 | BUG-011 | OTP guessable: parallel attempts bypass the limit; codes from `Math.random` | ★★ | S4 "OTP … still safe?" | 1.1 | ⬜ |
 | 1.4 | BUG-031 | OTP returned in the login reply and logged (`otpDevExpose` defaults on) | ★★★ | S4 "OTP … still safe?" | 1.1 | ⬜ |

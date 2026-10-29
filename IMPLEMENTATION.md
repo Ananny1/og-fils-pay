@@ -114,6 +114,7 @@ Each decision: **context → decision → why → consequences**. A decision is 
 | 16 | 2026-10-29 | DEP-005 (found running T1): Node 20's test runner doesn't expand `src/**/*.test.ts`, so 376 API/reporting tests never ran; images moved to Node 22 LTS | Before: "Could not find", 0 run; after: 443 tests run | D-003 |
 | 17 | 2026-10-29 | BUG-050 follow-up: `.dockerignore` kept `.claude/` out of the image, so the guard test failed in Docker; ship `.claude/settings.json` (only). Corrected DEP-005 title (376 tests, not 380) | guard 7/7 inside Docker | D-010 |
 | 18 | 2026-10-29 | T1 test baseline recorded (`docs/challenge/TEST-BASELINE.md`): 443 TS tests, 426 pass, 17 fail (3 causes → BUG-059, BUG-060, BUG-061; 1 own guard, fixed); Go all ok | New bugs added to the Master order | D-014 |
+| 19 | 2026-10-29 | BUG-001: `lookupSession` now requires `authenticated = true` (the view only filtered revoked/expired) | Pre-OTP cookie: /me and /v1/transactions 200 → 401; OTP login still 200; session tests 5/5; API suite 354/366 (= baseline 12) | D-003 |
 
 ---
 
@@ -138,7 +139,7 @@ Planned queue (from the audit, in fix order):
 
 | ID | Sev | Title | Status |
 |---|---|---|---|
-| BUG-001 | Critical | Login without OTP (`live_sessions` lookup ignores `authenticated`) | ⬜ |
+| BUG-001 | Critical | Login without OTP (`live_sessions` lookup ignores `authenticated`) → [write-up](docs/bugs/BUG-001-login-without-otp.md) | ✅ |
 | BUG-002 | Critical | OTP challenge bound to another merchant's user (lookup by email) | ⬜ |
 | BUG-003 | Critical | Merchant A can cancel merchant B's payment link (IDOR) | ⬜ |
 | BUG-004 | Critical | Expired link payable via client-supplied `submittedAt` (FP-187) | ⬜ |
