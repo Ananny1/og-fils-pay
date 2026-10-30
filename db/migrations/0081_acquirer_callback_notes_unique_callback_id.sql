@@ -19,5 +19,5 @@ DELETE FROM acquirer_callback_notes n
  WHERE n.callback_id = keep.callback_id
    AND (keep.created_at, keep.id) < (n.created_at, n.id);
 
-CREATE UNIQUE INDEX uq_acquirer_callback_notes_callback_id
+CREATE UNIQUE INDEX IF NOT EXISTS uq_acquirer_callback_notes_callback_id
     ON acquirer_callback_notes (callback_id);
