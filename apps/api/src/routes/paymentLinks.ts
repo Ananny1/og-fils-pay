@@ -12,6 +12,7 @@ import { listPaymentLinks } from "../paymentLinks/query.js";
 import { BadRequestError, ConflictError, ForbiddenError, NotFoundError } from "../lib/errors.js";
 import type { SimulatedCardInput } from "../acquirer/types.js";
 import { checkCard } from "../acquirer/cardCheck.js";
+import { UUID_RE } from "../admin/merchants.js";
 
 interface MerchantIdParams {
   merchantId: string;
@@ -103,6 +104,11 @@ export async function paymentLinkMerchantRoutes(app: FastifyInstance): Promise<v
     { preHandler: [requireMerchantAuth, requireMerchantRole("owner", "finance")] },
     async (request, reply) => {
       assertOwnMerchant(request);
+      // BUG-092: a non-UUID id can't name a link; without this the uuid cast
+      // in cancel.ts throws and the caller gets a 500.
+      if (!UUID_RE.test(request.params.id)) {
+        throw new NotFoundError("payment_link_not_found");
+      }
       const result = await cancelPaymentLink(app.db, {
         id: request.params.id,
         merchantId: request.params.merchantId,

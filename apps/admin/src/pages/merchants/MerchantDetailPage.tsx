@@ -1,25 +1,19 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { parseBhdToFils } from "@filspay/money";
 import { getMerchant, recomputeTransactionStatuses, submitKycReview } from "../../api/merchants.js";
 import { adjustBalance } from "../../api/balanceAdjustments.js";
 import { issueCredit } from "../../api/credits.js";
+import { keyForNextAttempt } from "../../api/idempotency.js";
 import { rotateApiKey } from "../../api/apiKeys.js";
 import { startImpersonation } from "../../api/impersonation.js";
-import { describeError, WEB_BASE_URL } from "../../api/client.js";
+import { ApiError, describeError, WEB_BASE_URL } from "../../api/client.js";
 import { useAdminAuth } from "../../auth/AdminAuthContext.js";
 import { RequireRole } from "../../auth/RequireRole.js";
-import { bhd, businessDate, date, dateTime } from "../../format.js";
+import { bahrainToday, bhd, businessDate, date, dateTime } from "../../format.js";
 import type { AdminMerchantDetail, CreditReasonCode, RotatedApiKey } from "../../types.js";
 import { CheckedForm } from "../../components/CheckedForm.js";
-
-// browser local date not bahrain, fine for bahrain staff — am
-function todayIso(): string {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(
-    now.getDate(),
-  ).padStart(2, "0")}`;
-}
+import { parseWholeFils } from "../../filsInput.js";
 
 export function MerchantDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -32,6 +26,10 @@ export function MerchantDetailPage() {
 
   const [kycNotes, setKycNotes] = useState("");
   const [busy, setBusy] = useState(false);
+  // BUG-109: one Idempotency-Key per intended money action, kept across a
+  // retry with no answer, cleared once the server has answered.
+  const adjustKeyRef = useRef<string | null>(null);
+  const creditKeyRef = useRef<string | null>(null);
 
   /** Which key the operator has asked to rotate and not yet confirmed. */
   const [pendingRotation, setPendingRotation] = useState<string | null>(null);
@@ -45,7 +43,7 @@ export function MerchantDetailPage() {
   const [creditReason, setCreditReason] = useState<CreditReasonCode>("goodwill");
   const [creditMemo, setCreditMemo] = useState("");
   const [creditReverseFee, setCreditReverseFee] = useState(false);
-  const [creditEffectiveDate, setCreditEffectiveDate] = useState(todayIso());
+  const [creditEffectiveDate, setCreditEffectiveDate] = useState(bahrainToday);
 
   const [adjustDeltaFils, setAdjustDeltaFils] = useState("");
   const [adjustReason, setAdjustReason] = useState("");
@@ -113,16 +111,18 @@ export function MerchantDetailPage() {
   // MK: it's the journaled one since Sep
   async function handleAdjustBalance(): Promise<void> {
     if (!id) return;
-    const deltaFils = Number(adjustDeltaFils.trim());
-    if (!Number.isInteger(deltaFils) || deltaFils === 0) {
-      setActionError("Enter a non-zero whole number of fils.");
+    const deltaFils = parseWholeFils(adjustDeltaFils);
+    if (deltaFils === null) {
+      setActionError("Enter a non-zero whole number of fils, digits only (50000 fils = 50.000 BD).");
       return;
     }
     setBusy(true);
     setActionError(null);
     setNotice(null);
+    const adjustKey = (adjustKeyRef.current ??= crypto.randomUUID());
     try {
-      const result = await adjustBalance(id, { deltaFils, reason: adjustReason.trim() });
+      const result = await adjustBalance(id, { deltaFils, reason: adjustReason.trim() }, adjustKey);
+      adjustKeyRef.current = keyForNextAttempt(adjustKey, true);
       setNotice(
         `Balance adjusted by ${bhd(result.deltaFils)}: ${bhd(
           result.cachedPayableFilsBefore,
@@ -132,6 +132,7 @@ export function MerchantDetailPage() {
       setAdjustReason("");
       await load();
     } catch (err) {
+      if (adjustKeyRef.current === adjustKey) adjustKeyRef.current = keyForNextAttempt(adjustKey, err instanceof ApiError);
       setActionError(describeError(err));
     } finally {
       setBusy(false);
@@ -144,17 +145,23 @@ export function MerchantDetailPage() {
     setBusy(true);
     setActionError(null);
     setNotice(null);
+    const creditKey = (creditKeyRef.current ??= crypto.randomUUID());
     try {
       // BD in, integer fils out, via the platform's own string-based parser —
       // never parseFloat, which cannot represent the third decimal exactly.
       const baseAmountFils = parseBhdToFils(creditAmountBhd);
-      const record = await issueCredit(id, {
-        baseAmountFils,
-        reasonCode: creditReason,
-        effectiveDate: creditEffectiveDate,
-        reverseFee: creditReverseFee,
-        memo: creditMemo.trim() ? creditMemo.trim() : undefined,
-      });
+      const record = await issueCredit(
+        id,
+        {
+          baseAmountFils,
+          reasonCode: creditReason,
+          effectiveDate: creditEffectiveDate,
+          reverseFee: creditReverseFee,
+          memo: creditMemo.trim() ? creditMemo.trim() : undefined,
+        },
+        creditKey,
+      );
+      creditKeyRef.current = keyForNextAttempt(creditKey, true);
       setNotice(
         record.status === "posted"
           ? `Credit of ${bhd(record.postedAmountFils)} posted to the ledger (entry group ${
@@ -167,6 +174,7 @@ export function MerchantDetailPage() {
       setCreditReverseFee(false);
       await load();
     } catch (err) {
+      if (creditKeyRef.current === creditKey) creditKeyRef.current = keyForNextAttempt(creditKey, err instanceof ApiError);
       setActionError(err instanceof RangeError ? err.message : describeError(err));
     } finally {
       setBusy(false);

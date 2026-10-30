@@ -223,6 +223,117 @@ func CloseBatch(ctx context.Context, db *pgxpool.Pool, merchantID uuid.UUID, bus
 	}
 	netPayout := NetPayableFils(batchGross, batchFee)
 
+	// Step 8b (BUG-064): manual credits. postCreditToLedger (apps/api
+	// admin/credits.ts) credits merchant_payable and the balance cache when a
+	// credit is posted, so the merchant is owed it — but nothing else pays it
+	// out. Every posted credit up to the end of this business day that no
+	// batch has claimed yet is added to this payout, claimed by
+	// settlement_batch_id under FOR UPDATE so it is paid exactly once. Added
+	// before refunds so a refund can be netted against it.
+	var creditClaimed money.Fils
+	var claimedCreditIDs []uuid.UUID
+	creditRows, err := tx.Query(ctx, `
+		SELECT id, base_amount_fils + fee_reversal_fils
+		  FROM credit_requests
+		 WHERE merchant_id = $1
+		   AND status = 'posted'
+		   AND settlement_batch_id IS NULL
+		   AND posted_at < $2
+		 ORDER BY posted_at, id
+		 FOR UPDATE
+	`, merchantID, end)
+	if err != nil {
+		return BatchResult{}, fmt.Errorf("settlement: CloseBatch: select unbatched credits: %w", err)
+	}
+	for creditRows.Next() {
+		var id uuid.UUID
+		var amount int64
+		if err := creditRows.Scan(&id, &amount); err != nil {
+			creditRows.Close()
+			return BatchResult{}, fmt.Errorf("settlement: CloseBatch: scan credit: %w", err)
+		}
+		creditClaimed += money.Fils(amount)
+		claimedCreditIDs = append(claimedCreditIDs, id)
+	}
+	if err := creditRows.Err(); err != nil {
+		return BatchResult{}, fmt.Errorf("settlement: CloseBatch: iterate credits: %w", err)
+	}
+	creditRows.Close()
+	if len(claimedCreditIDs) > 0 {
+		netPayout += creditClaimed
+		_, err = tx.Exec(ctx, `
+			UPDATE credit_requests SET settlement_batch_id = $2 WHERE id = ANY($1)
+		`, claimedCreditIDs, batchID)
+		if err != nil {
+			return BatchResult{}, fmt.Errorf("settlement: CloseBatch: mark credits batched: %w", err)
+		}
+	}
+
+	// Step 8c (BUG-105): imported adjustments (apps/api admin/
+	// adjustmentImport.ts) are journaled to merchant_payable and the balance
+	// cache when imported, but nothing settled them. Every unbatched row up
+	// to the end of this business day is claimed: positives are added to
+	// the payout; negatives are deducted oldest first like refunds, and one
+	// that would push the payout below zero (and every negative after it)
+	// waits for a later batch. Claimed by settlement_batch_id under FOR
+	// UPDATE, so each row is settled exactly once.
+	var adjustmentNet money.Fils
+	var claimedAdjustmentIDs []uuid.UUID
+	adjRows, err := tx.Query(ctx, `
+		SELECT id, parsed_amount_fils
+		  FROM adjustment_import_rows
+		 WHERE merchant_id = $1
+		   AND settlement_batch_id IS NULL
+		   AND parsed_amount_fils <> 0
+		   AND created_at < $2
+		 ORDER BY created_at, id
+		 FOR UPDATE
+	`, merchantID, end)
+	if err != nil {
+		return BatchResult{}, fmt.Errorf("settlement: CloseBatch: select unbatched adjustments: %w", err)
+	}
+	type adjustment struct {
+		id     uuid.UUID
+		amount money.Fils
+	}
+	var negativeAdjustments []adjustment
+	for adjRows.Next() {
+		var a adjustment
+		var amount int64
+		if err := adjRows.Scan(&a.id, &amount); err != nil {
+			adjRows.Close()
+			return BatchResult{}, fmt.Errorf("settlement: CloseBatch: scan adjustment: %w", err)
+		}
+		a.amount = money.Fils(amount)
+		if a.amount > 0 {
+			adjustmentNet += a.amount
+			claimedAdjustmentIDs = append(claimedAdjustmentIDs, a.id)
+		} else {
+			negativeAdjustments = append(negativeAdjustments, a)
+		}
+	}
+	if err := adjRows.Err(); err != nil {
+		return BatchResult{}, fmt.Errorf("settlement: CloseBatch: iterate adjustments: %w", err)
+	}
+	adjRows.Close()
+	netPayout += adjustmentNet
+	for _, a := range negativeAdjustments {
+		if -a.amount > netPayout {
+			break
+		}
+		netPayout += a.amount
+		adjustmentNet += a.amount
+		claimedAdjustmentIDs = append(claimedAdjustmentIDs, a.id)
+	}
+	if len(claimedAdjustmentIDs) > 0 {
+		_, err = tx.Exec(ctx, `
+			UPDATE adjustment_import_rows SET settlement_batch_id = $2 WHERE id = ANY($1)
+		`, claimedAdjustmentIDs, batchID)
+		if err != nil {
+			return BatchResult{}, fmt.Errorf("settlement: CloseBatch: mark adjustments batched: %w", err)
+		}
+	}
+
 	// Step 9 (FP-300.3, decision Q-2): refunds are deducted from the
 	// merchant's next batch. Every succeeded refund up to the end of this
 	// business day that no batch has claimed yet is taken off the payout,
@@ -345,8 +456,12 @@ func CloseBatch(ctx context.Context, db *pgxpool.Pool, merchantID uuid.UUID, bus
 		return BatchResult{}, fmt.Errorf("settlement: CloseBatch: enqueue outbox event: %w", err)
 	}
 
-	// Step 14: incrementally update the merchant_balances cache.
-	if err := balances.ApplyBatchClose(ctx, tx, merchantID, batchID, netPayout); err != nil {
+	// Step 14: incrementally update the merchant_balances cache. Claimed
+	// credits were already added to the cache when they were posted
+	// (BUG-064), so only the rest of the payout is new here; the payout
+	// then takes the whole net, credits included, back off. The same holds
+	// for claimed imported adjustments (BUG-105), positive or negative.
+	if err := balances.ApplyBatchClose(ctx, tx, merchantID, batchID, netPayout-creditClaimed-adjustmentNet); err != nil {
 		return BatchResult{}, fmt.Errorf("settlement: CloseBatch: apply balance cache delta: %w", err)
 	}
 
@@ -502,8 +617,17 @@ func RunDailyBatch(ctx context.Context, db *pgxpool.Pool, businessDate time.Time
 
 	sort.Slice(merchantIDs, func(i, j int) bool { return merchantIDs[i].String() < merchantIDs[j].String() })
 
+	// BUG-067: one merchant's failure must not stop every merchant after it
+	// from being closed and paid for the day (the daemon only retries
+	// "yesterday"). Each merchant is its own transactions, so carry on,
+	// collect the failures, and report them all at the end.
 	report := DailyBatchReport{BusinessDate: businessDate}
+	var failures []error
 	for _, merchantID := range merchantIDs {
+		if ctx.Err() != nil {
+			failures = append(failures, ctx.Err())
+			break
+		}
 		closeResult, err := CloseBatch(ctx, db, merchantID, businessDate)
 		if err != nil {
 			if errors.Is(err, ErrMerchantNotEligible) {
@@ -512,7 +636,8 @@ func RunDailyBatch(ctx context.Context, db *pgxpool.Pool, businessDate time.Time
 				// merchant scan already would have.
 				continue
 			}
-			return report, fmt.Errorf("settlement: RunDailyBatch: CloseBatch(%s): %w", merchantID, err)
+			failures = append(failures, fmt.Errorf("settlement: RunDailyBatch: CloseBatch(%s): %w", merchantID, err))
+			continue
 		}
 
 		// A merchant with configured sub-merchant split children is paid
@@ -521,20 +646,23 @@ func RunDailyBatch(ctx context.Context, db *pgxpool.Pool, businessDate time.Time
 		// payout leg differs.
 		isSplitParent, err := splits.IsSplitParent(ctx, db, merchantID)
 		if err != nil {
-			return report, fmt.Errorf("settlement: RunDailyBatch: IsSplitParent(%s): %w", merchantID, err)
+			failures = append(failures, fmt.Errorf("settlement: RunDailyBatch: IsSplitParent(%s): %w", merchantID, err))
+			continue
 		}
 
 		var alreadyPaid bool
 		if isSplitParent {
 			splitResult, err := splits.PayoutSplitBatch(ctx, db, closeResult.BatchID)
 			if err != nil {
-				return report, fmt.Errorf("settlement: RunDailyBatch: PayoutSplitBatch(%s): %w", closeResult.BatchID, err)
+				failures = append(failures, fmt.Errorf("settlement: RunDailyBatch: PayoutSplitBatch(%s): %w", closeResult.BatchID, err))
+				continue
 			}
 			alreadyPaid = splitResult.AlreadyPaid
 		} else {
 			payoutResult, err := PayoutBatch(ctx, db, closeResult.BatchID)
 			if err != nil {
-				return report, fmt.Errorf("settlement: RunDailyBatch: PayoutBatch(%s): %w", closeResult.BatchID, err)
+				failures = append(failures, fmt.Errorf("settlement: RunDailyBatch: PayoutBatch(%s): %w", closeResult.BatchID, err))
+				continue
 			}
 			alreadyPaid = payoutResult.AlreadyPaid
 		}
@@ -550,5 +678,5 @@ func RunDailyBatch(ctx context.Context, db *pgxpool.Pool, businessDate time.Time
 		})
 	}
 
-	return report, nil
+	return report, errors.Join(failures...)
 }

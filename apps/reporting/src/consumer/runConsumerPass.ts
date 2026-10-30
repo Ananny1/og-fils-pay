@@ -44,27 +44,29 @@ export async function runConsumerPass(
   return withTransaction(pool, async (client) => {
     const cursor = await readCursor(client, CONSUMER_NAME);
 
-    // MK 2026-06: ids come from a sequence, they're monotonic. fine for now.
-    const eventsResult = await client.query<OutboxEventRow>(
-      `SELECT id, event_type, aggregate_id, payload, created_at
+    // BUG-096: ids are assigned at INSERT, not at COMMIT, so walking by id
+    // alone skips a slow transaction's lower id forever. Walk in
+    // (txid, id) order instead, and only over rows whose writer finished
+    // before the oldest still-running transaction: those rows are final and
+    // nothing can later appear before them.
+    const eventsResult = await client.query<OutboxEventRow & { txid: string }>(
+      `SELECT id, event_type, aggregate_id, payload, created_at, txid::text AS txid
          FROM outbox_events
-        WHERE id > $1
-          AND event_type = ANY($2::text[])
-        ORDER BY id ASC
-        LIMIT $3`,
-      [cursor.lastProcessedId.toString(), REPORTING_EVENT_TYPES, config.consumerBatchLimit],
+        WHERE (txid, id) > ($1::xid8, $2::bigint)
+          AND txid < pg_snapshot_xmin(pg_current_snapshot())
+          AND event_type = ANY($3::text[])
+        ORDER BY txid ASC, id ASC
+        LIMIT $4`,
+      [cursor.lastProcessedTxid, cursor.lastProcessedId.toString(), REPORTING_EVENT_TYPES, config.consumerBatchLimit],
     );
 
-    // FH: redundant with ORDER BY id ASC (last row is max). harmless
-    let maxId = cursor.lastProcessedId;
     for (const row of eventsResult.rows) {
       await applyEvent(client, row);
-      const rowId = BigInt(row.id);
-      if (rowId > maxId) maxId = rowId;
     }
 
-    if (eventsResult.rows.length > 0) {
-      await advanceCursor(client, CONSUMER_NAME, maxId);
+    const last = eventsResult.rows[eventsResult.rows.length - 1];
+    if (last) {
+      await advanceCursor(client, CONSUMER_NAME, BigInt(last.id), last.txid);
     }
 
     return { processedCount: eventsResult.rows.length };

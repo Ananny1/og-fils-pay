@@ -215,13 +215,15 @@ export interface ReplayResponse {
 // --- settlement / reconciliation ---
 export type SettlementBatchStatus = "open" | "closed" | "paid";
 
-/** @property netPayoutFils Always exactly grossFils - feeFils. */
+/** @property netPayoutFils grossFils - feeFils - refundsFils (refunds since FP-300). */
 export interface SettlementBatchDto {
   id: string;
   batchDate: string;
   status: SettlementBatchStatus;
   grossFils: number;
   feeFils: number;
+  /** Refund cost the batch took off the payout (refund − fee given back). */
+  refundsFils: number;
   netPayoutFils: number;
   closedAt: string | null;
   paidAt: string | null;

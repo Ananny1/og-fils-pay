@@ -4,6 +4,7 @@ import { rebuildAnalytics, rebuildBalances, runBatch } from "../../api/settlemen
 import { recalculateMdr } from "../../api/mdrRecalculation.js";
 import { describeError } from "../../api/client.js";
 import { RequireRole } from "../../auth/RequireRole.js";
+import { PayoutDaysPanel } from "./PayoutDaysPanel.js";
 import type {
   AnalyticsRebuildSummary,
   BalanceRebuildSummary,
@@ -16,11 +17,9 @@ function bhd(fils: number): string {
   return `${formatBhd(toFils(fils, { allowNegative: true }))} BHD`;
 }
 
-// YA: browser-local yesterday
+/** Yesterday's Bahrain business date (UTC+3), whatever the browser's timezone. */
 function yesterdayIso(): string {
-  const date = new Date();
-  date.setDate(date.getDate() - 1);
-  return date.toISOString().slice(0, 10);
+  return new Date(Date.now() + 3 * 60 * 60 * 1000 - 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 }
 
 /**
@@ -130,6 +129,8 @@ export function SettlementPage() {
         and <code>super_admin</code> roles. Every invocation is written to the admin audit log before
         it runs.
       </p>
+
+      <PayoutDaysPanel onRun={setRunResult} />
 
       <h2>Re-run a daily batch</h2>
       <p className="admin-muted">

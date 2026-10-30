@@ -2,6 +2,7 @@ package settlement
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -47,6 +48,10 @@ type batchRow struct {
 // RecalculateMDR re-derives the fee on a merchant's closed, not-yet-paid
 // batches in [from, to) at the merchant's current terms and posts the
 // difference. Paid batches are skipped (BUG-018).
+// ErrMerchantNotFound is returned by RecalculateMDR when no merchant has the
+// given id (BUG-106), so the internal API can answer 404 instead of 500.
+var ErrMerchantNotFound = errors.New("settlement: merchant not found")
+
 func RecalculateMDR(ctx context.Context, db *pgxpool.Pool, merchantID uuid.UUID, from, to time.Time) (RecalcResult, error) {
 	tx, err := db.Begin(ctx)
 	if err != nil {
@@ -58,6 +63,9 @@ func RecalculateMDR(ctx context.Context, db *pgxpool.Pool, merchantID uuid.UUID,
 	err = tx.QueryRow(ctx, `SELECT mdr_bps, negotiated_discount_bps FROM merchants WHERE id = $1`, merchantID).
 		Scan(&mdrBps, &discountBps)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return RecalcResult{}, ErrMerchantNotFound
+		}
 		return RecalcResult{}, fmt.Errorf("settlement: RecalculateMDR: load merchant: %w", err)
 	}
 
@@ -91,9 +99,26 @@ func RecalculateMDR(ctx context.Context, db *pgxpool.Pool, merchantID uuid.UUID,
 	}
 	rows.Close()
 
+	// BUG-065: resolve each event's rate the way CloseBatch does —
+	// fee_schedules first, merchants.mdr_bps only as the fallback.
+	schedules, err := LoadFeeSchedules(ctx, tx, merchantID)
+	if err != nil {
+		return RecalcResult{}, fmt.Errorf("settlement: RecalculateMDR: load fee schedules: %w", err)
+	}
+
+	// BUG-066: CloseBatch takes the platform volume-tier bonus off every
+	// event's rate; the recalculation must too, or a no-change run re-adds it.
+	// The counter only grows, so the current bonus is the bonus at "current
+	// terms" (read without a lock: a recalculation does not move volume).
+	var platformProcessedFils int64
+	if err := tx.QueryRow(ctx, `SELECT total_processed_fils FROM platform_stats WHERE id = 1`).Scan(&platformProcessedFils); err != nil {
+		return RecalcResult{}, fmt.Errorf("settlement: RecalculateMDR: read platform volume: %w", err)
+	}
+	tierBonusBps := VolumeTierMdrBonusBps(platformProcessedFils)
+
 	var adjusted []BatchAdjustment
 	for _, b := range batches {
-		newFee, err := recomputeBatchFee(ctx, tx, b.id, mdrBps, discountBps)
+		newFee, err := recomputeBatchFee(ctx, tx, b.id, schedules, mdrBps, discountBps, tierBonusBps)
 		if err != nil {
 			return RecalcResult{}, err
 		}
@@ -114,6 +139,19 @@ func RecalculateMDR(ctx context.Context, db *pgxpool.Pool, merchantID uuid.UUID,
 			UPDATE settlement_batches SET fee_fils = $2, net_payout_fils = $3 WHERE id = $1
 		`, b.id, int64(newFee), int64(newNetPayout)); err != nil {
 			return RecalcResult{}, fmt.Errorf("settlement: RecalculateMDR: update batch %s: %w", b.id, err)
+		}
+		// BUG-068: reporting (merchant_payout_trends) only learns a batch's
+		// fee and net from settlement.batch_closed, and upserts on it. Emit
+		// the new figures in this transaction so it stops showing the old ones.
+		payload, err := buildBatchClosedPayload(merchantID, b.id, b.batchDate, b.grossFils, newFee, newNetPayout)
+		if err != nil {
+			return RecalcResult{}, fmt.Errorf("settlement: RecalculateMDR: build outbox payload for %s: %w", b.id, err)
+		}
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO outbox_events (event_type, aggregate_type, aggregate_id, payload)
+			VALUES ('settlement.batch_closed', 'settlement_batch', $1, $2)
+		`, b.id, payload); err != nil {
+			return RecalcResult{}, fmt.Errorf("settlement: RecalculateMDR: enqueue outbox event for %s: %w", b.id, err)
 		}
 		// A fee increase (diff > 0) reduces net payout owed, so the cache
 		// moves by -diff — the same signed-delta idiom ApplyBatchClose
@@ -142,9 +180,9 @@ func RecalculateMDR(ctx context.Context, db *pgxpool.Pool, merchantID uuid.UUID,
 // CloseBatch step 8 uses, never ApplyRateFils applied once to a pre-summed
 // total, so this recomputation can never itself diverge from what a fresh
 // CloseBatch would have produced at today's rate.
-func recomputeBatchFee(ctx context.Context, tx pgx.Tx, batchID uuid.UUID, mdrBps, discountBps int64) (money.Fils, error) {
+func recomputeBatchFee(ctx context.Context, tx pgx.Tx, batchID uuid.UUID, schedules []FeeScheduleRow, mdrBps, discountBps, tierBonusBps int64) (money.Fils, error) {
 	rows, err := tx.Query(ctx, `
-		SELECT amount_fils FROM transaction_events WHERE settlement_batch_id = $1 ORDER BY id
+		SELECT amount_fils, occurred_at FROM transaction_events WHERE settlement_batch_id = $1 ORDER BY id
 	`, batchID)
 	if err != nil {
 		return 0, fmt.Errorf("settlement: RecalculateMDR: select batch events for %s: %w", batchID, err)
@@ -154,12 +192,17 @@ func recomputeBatchFee(ctx context.Context, tx pgx.Tx, batchID uuid.UUID, mdrBps
 	var fee money.Fils
 	for rows.Next() {
 		var amountFils int64
-		if err := rows.Scan(&amountFils); err != nil {
+		var occurredAt time.Time
+		if err := rows.Scan(&amountFils, &occurredAt); err != nil {
 			return 0, fmt.Errorf("settlement: RecalculateMDR: scan batch event for %s: %w", batchID, err)
 		}
 		// FH: sums every event with this batch id -- incl. refund events once FP-212 lands? need an event_type filter?
 		// MK: refunds won't carry settlement_batch_id on transaction_events, they live in their own table. non-issue
-		fee += ComputeSettlementFee(money.Fils(amountFils), mdrBps, discountBps)
+		effectiveMdrBps := EffectiveMdrBpsAt(schedules, occurredAt, mdrBps)
+		if effectiveMdrBps -= tierBonusBps; effectiveMdrBps < 0 {
+			effectiveMdrBps = 0
+		}
+		fee += ComputeSettlementFee(money.Fils(amountFils), effectiveMdrBps, discountBps)
 	}
 	if err := rows.Err(); err != nil {
 		return 0, fmt.Errorf("settlement: RecalculateMDR: iterate batch events for %s: %w", batchID, err)

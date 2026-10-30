@@ -1,7 +1,7 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { toFils } from "@filspay/money";
 import { requireApiKey } from "../apiKeys/verify.js";
-import { requireMerchantAuth, requireMerchantWriterActor } from "../auth/requireMerchantAuth.js";
+import { requireMerchantAuth, requireMerchantRole, requireMerchantWriterActor } from "../auth/requireMerchantAuth.js";
 import { authorizeTransaction, type AuthorizeInput } from "../payments/authorize.js";
 import { captureTransaction } from "../payments/capture.js";
 import { applyCaptureDiscountAdjustment } from "../payments/discountAdjustment.js";
@@ -74,6 +74,11 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
       if (amountFils === undefined || !card) {
         throw new BadRequestError("invalid_request", "amountFils and card are required");
       }
+      // BUG-074: checked here, so a bad amount is a 400 and never reaches the
+      // acquirer or the amount_fils > 0 CHECK (both were a 500).
+      if (typeof amountFils !== "number" || !Number.isSafeInteger(amountFils) || amountFils <= 0) {
+        throw new BadRequestError("invalid_amount", "amountFils must be a positive whole number of fils");
+      }
       const cardProblem = checkCard(card);
       if (cardProblem) {
         throw new BadRequestError(cardProblem);
@@ -97,10 +102,16 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
     // MK: impersonation is read-only, enforced in requireMerchantAuth. fine
     // MK: confirmed — ADMIN.md says grants are support-level read only
     "/:id/capture",
-    { preHandler: requireMerchantAuth },
+    // Capture moves money: owner/finance sessions (and API keys) only, never support.
+    { preHandler: [requireMerchantAuth, requireMerchantRole("owner", "finance")] },
     async (request, reply) => {
       const idempotencyKey = getIdempotencyKey(request);
       const { amountFils } = request.body ?? {};
+      // BUG-074: a non-integer or negative amount is the client's mistake (400),
+      // not a toFils RangeError (500). 0 still reaches capture's own 422.
+      if (amountFils !== undefined && (typeof amountFils !== "number" || !Number.isSafeInteger(amountFils) || amountFils < 0)) {
+        throw new BadRequestError("invalid_amount", "amountFils must be a whole number of fils");
+      }
 
       const result = await captureTransaction(app.db, app.acquirer, {
         transactionId: request.params.id,
@@ -123,9 +134,9 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
   );
 
   app.post<{ Params: TransactionIdParams }>(
-    // TODO(FH): role check? finance role users shouldn't void. ask MK
+    // Void cancels a payment: same gate as capture (owner/finance, never support).
     "/:id/void",
-    { preHandler: requireMerchantAuth },
+    { preHandler: [requireMerchantAuth, requireMerchantRole("owner", "finance")] },
     async (request, reply) => {
       const result = await voidTransaction(app.db, {
         transactionId: request.params.id,

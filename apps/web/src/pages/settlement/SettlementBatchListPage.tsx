@@ -200,13 +200,14 @@ export function SettlementBatchListPage() {
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Gross</TableHead>
                   <TableHead className="text-right">Fee</TableHead>
+                  <TableHead className="text-right">Refunds</TableHead>
                   <TableHead className="text-right">Net payout</TableHead>
                   <TableHead className="hidden md:table-cell">Closed</TableHead>
                   <TableHead className="hidden md:table-cell">Paid</TableHead>
                 </TableRow>
               </TableHeader>
               {initialLoading ? (
-                <TableSkeleton rows={6} cols={7} />
+                <TableSkeleton rows={6} cols={8} />
               ) : (
                 <TableBody>
                   {batches.map((batch) => (
@@ -227,6 +228,9 @@ export function SettlementBatchListPage() {
                       </TableCell>
                       <TableCell className="text-right">
                         <Money fils={batch.feeFils} />
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {batch.refundsFils > 0 ? <Money fils={-batch.refundsFils} /> : <Money fils={0} className="text-muted-foreground" />}
                       </TableCell>
                       <TableCell className="text-right">
                         <Money fils={batch.netPayoutFils} className="font-medium" />

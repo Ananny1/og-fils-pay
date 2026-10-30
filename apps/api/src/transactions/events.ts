@@ -95,6 +95,10 @@ export async function recordTransactionEvent(
  *  existence check on the parent transaction (see routes/transactions.ts). */
 // AM: ordering by occurred_at then id breaks when a refund and capture land in the same ms? FP-188
 // MK: id is a uuid, the tie-break is arbitrary but stable. timeline is fine
+/** BUG-103: hard cap on one timeline read, so a transaction with a runaway
+ *  number of events can't load them all into memory per request. */
+export const TRANSACTION_EVENTS_MAX = 500;
+
 export async function listTransactionEvents(pool: Pool, transactionId: string): Promise<TransactionEventRow[]> {
   const result = await pool.query<{
     id: string;
@@ -110,8 +114,9 @@ export async function listTransactionEvents(pool: Pool, transactionId: string): 
     `SELECT id, transaction_id, event_type, amount_fils, actor_type, actor_id, metadata, occurred_at, created_at
        FROM transaction_events
       WHERE transaction_id = $1
-      ORDER BY occurred_at ASC, id ASC`,
-    [transactionId],
+      ORDER BY occurred_at ASC, id ASC
+      LIMIT $2`,
+    [transactionId, TRANSACTION_EVENTS_MAX],
   );
   return result.rows.map((row) => ({
     id: row.id,

@@ -87,6 +87,18 @@ export async function applyAdjustmentImport(
       });
     const importId = importRow.rows[0]!.id;
 
+    // BUG-071: an unknown merchant id used to hit the ledger FK and 500.
+    // One lookup for the whole file; the first unknown id is named back.
+    const merchantIds = [...new Set(input.rows.map((r) => r.merchantId))];
+    const found = await client.query<{ id: string }>(`SELECT id FROM merchants WHERE id = ANY($1::uuid[])`, [
+      merchantIds,
+    ]);
+    const known = new Set(found.rows.map((r) => r.id));
+    const missing = merchantIds.find((id) => !known.has(id.toLowerCase()));
+    if (missing !== undefined) {
+      throw new BadRequestError("invalid_csv_row", `merchant "${missing}" does not exist`);
+    }
+
     let total = ZERO_FILS;
     for (let i = 0; i < input.rows.length; i++) {
       const row = input.rows[i]!;

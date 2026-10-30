@@ -28,6 +28,23 @@ export interface WebhookTransportResponse {
 
 export type WebhookTransport = (req: WebhookTransportRequest) => Promise<WebhookTransportResponse>;
 
+const MAX_RESPONSE_BYTES = 16 * 1024;
+
+async function readCapped(response: Response, maxBytes: number): Promise<string> {
+  if (!response.body) return "";
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  while (total < maxBytes) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+    total += value.byteLength;
+  }
+  if (total >= maxBytes) await reader.cancel().catch(() => {});
+  return Buffer.concat(chunks).subarray(0, maxBytes).toString("utf8");
+}
+
 /** Real transport: Node's global fetch with an AbortController-driven
  *  timeout, used by index.ts's production wiring. */
 export function createFetchTransport(): WebhookTransport {
@@ -42,10 +59,15 @@ export function createFetchTransport(): WebhookTransport {
         headers: req.headers,
         body: req.body,
         signal: controller.signal,
+        // BUG-098: never follow a receiver's redirect (SSRF to internal hosts;
+        // the URL checks only see the first hop). A 3xx is a failed attempt.
+        redirect: "manual",
       });
       // unbounded read, a 1gb response would oom us? — am
       // MK: timeoutMs bounds it. fine for now, revisit after Eid inshallah
-      const body = await response.text();
+      // BUG-099: read at most MAX_RESPONSE_BYTES (callers keep only the first
+      // 2000 chars), then drop the connection, so a huge reply can't fill memory.
+      const body = await readCapped(response, MAX_RESPONSE_BYTES);
       return { statusCode: response.status, body };
     } catch (err) {
       return {

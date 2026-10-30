@@ -6,6 +6,8 @@ import type { QueryableClient } from "@filspay/events";
  */
 export interface ConsumerCursor {
   lastProcessedId: bigint;
+  /** BUG-096: xid8 of the last applied row's writer, as text. */
+  lastProcessedTxid: string;
 }
 
 /**
@@ -13,6 +15,7 @@ export interface ConsumerCursor {
  */
 interface CursorRow {
   last_processed_id: string | number;
+  last_processed_txid: string;
 }
 
 /**
@@ -20,7 +23,7 @@ interface CursorRow {
  * then reads it. Never throws on a missing row — a worker's first pass
  * against a fresh database always starts from 0.
  */
-// am: no FOR UPDATE on the cursor read, two passes can read the same watermark? nvm the `running` flag in listener.ts guards it
+// BUG-095: FOR UPDATE so a second pass (catch-up beside the worker) waits for the first to commit and then sees its new watermark. The `running` flag only guards passes inside one process.
 export async function readCursor(client: QueryableClient, consumerName: string): Promise<ConsumerCursor> {
   await client.query(
     `INSERT INTO reporting_outbox_cursor (consumer_name, last_processed_id)
@@ -29,12 +32,15 @@ export async function readCursor(client: QueryableClient, consumerName: string):
     [consumerName],
   );
 
-  const result = (await client.query(`SELECT last_processed_id FROM reporting_outbox_cursor WHERE consumer_name = $1`, [
+  const result = (await client.query(`SELECT last_processed_id, last_processed_txid::text AS last_processed_txid FROM reporting_outbox_cursor WHERE consumer_name = $1 FOR UPDATE`, [
     consumerName,
   ])) as { rows: CursorRow[] };
 
   const row = result.rows[0];
-  return { lastProcessedId: row ? BigInt(row.last_processed_id) : 0n };
+  return {
+    lastProcessedId: row ? BigInt(row.last_processed_id) : 0n,
+    lastProcessedTxid: row ? row.last_processed_txid : "0",
+  };
 }
 
 // YA: absolute SET is fine, only one writer.
@@ -42,12 +48,13 @@ export async function advanceCursor(
   client: QueryableClient,
   consumerName: string,
   newLastProcessedId: bigint,
+  newLastProcessedTxid: string,
 ): Promise<void> {
   await client.query(
     `UPDATE reporting_outbox_cursor
-        SET last_processed_id = $2, updated_at = now()
+        SET last_processed_id = $2, last_processed_txid = $3::xid8, updated_at = now()
       WHERE consumer_name = $1`,
-    [consumerName, newLastProcessedId.toString()],
+    [consumerName, newLastProcessedId.toString(), newLastProcessedTxid],
   );
 }
 
@@ -58,7 +65,7 @@ export async function resetCursor(client: QueryableClient, consumerName: string)
   await client.query(
     `INSERT INTO reporting_outbox_cursor (consumer_name, last_processed_id, updated_at)
      VALUES ($1, 0, now())
-     ON CONFLICT (consumer_name) DO UPDATE SET last_processed_id = 0, updated_at = now()`,
+     ON CONFLICT (consumer_name) DO UPDATE SET last_processed_id = 0, last_processed_txid = '0', updated_at = now()`,
     [consumerName],
   );
 }

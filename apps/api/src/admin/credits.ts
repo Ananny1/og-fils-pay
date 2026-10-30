@@ -3,7 +3,8 @@ import type { Pool, PoolClient } from "pg";
 import { addFils, toFils, ZERO_FILS, type Fils } from "@filspay/money";
 import { insertAdminAuditLog } from "../adminAudit/log.js";
 import { withTransaction } from "../db/withTransaction.js";
-import { ConflictError, NotFoundError } from "../lib/errors.js";
+import { ConflictError, NotFoundError, UnprocessableEntityError } from "../lib/errors.js";
+import { claimIdempotencyKey, completeIdempotencyKey, hashRequest } from "../payments/idempotency.js";
 import { assertDistinctApprover } from "./creditApproval.js";
 import { calculateCreditFeeReversal, creditRequiresSecondApprover } from "./creditThreshold.js";
 import { parseCreditRequestInput, type CreditReasonCode } from "./creditRequestValidation.js";
@@ -204,7 +205,7 @@ async function postCreditToLedger(client: PoolClient, credit: PostableCredit): P
  */
 export async function createCreditRequest(
   pool: Pool,
-  input: { merchantId: string; adminUserId: string; body: unknown },
+  input: { merchantId: string; adminUserId: string; body: unknown; idempotencyKey?: string },
 ): Promise<CreditRequestRecord> {
   const draft = parseCreditRequestInput(input.body);
 
@@ -216,6 +217,29 @@ export async function createCreditRequest(
     const merchant = merchantResult.rows[0];
     if (!merchant) {
       throw new NotFoundError("merchant_not_found");
+    }
+
+    // BUG-109: a double click or a retry after a lost reply must not post twice.
+    // Scoped per admin (in the endpoint) and per merchant; same key + same body
+    // replays the first record, same key + different body is a 422.
+    let claimId: string | null = null;
+    if (input.idempotencyKey !== undefined) {
+      const claim = await claimIdempotencyKey(client, {
+        merchantId: input.merchantId,
+        endpoint: `admin.credits.create:${input.adminUserId}`,
+        key: input.idempotencyKey,
+        requestHash: hashRequest(input.body ?? null),
+      });
+      if (claim.outcome === "conflict_hash_mismatch") {
+        throw new UnprocessableEntityError("idempotency_key_reused");
+      }
+      if (claim.outcome === "conflict_in_progress") {
+        throw new ConflictError("request_in_progress");
+      }
+      if (claim.outcome === "replay") {
+        return claim.row.responseBody as CreditRequestRecord;
+      }
+      claimId = claim.row.id;
     }
 
     // Never operator-supplied: the reversal is the merchant's own contracted
@@ -277,7 +301,11 @@ export async function createCreditRequest(
       },
     });
 
-    return readRecord(client, creditRequestId);
+    const record = await readRecord(client, creditRequestId);
+    if (claimId !== null) {
+      await completeIdempotencyKey(client, claimId, { statusCode: 201, body: record, resourceId: creditRequestId });
+    }
+    return record;
   });
 }
 

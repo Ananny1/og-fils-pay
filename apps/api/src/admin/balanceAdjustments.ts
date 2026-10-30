@@ -2,7 +2,8 @@ import type { Pool } from "pg";
 import { toFils, type Fils } from "@filspay/money";
 import { insertAdminAuditLog } from "../adminAudit/log.js";
 import { withTransaction } from "../db/withTransaction.js";
-import { NotFoundError } from "../lib/errors.js";
+import { ConflictError, NotFoundError, UnprocessableEntityError } from "../lib/errors.js";
+import { claimIdempotencyKey, completeIdempotencyKey, hashRequest } from "../payments/idempotency.js";
 import { postLedgerAdjustment } from "./ledgerAdjustments.js";
 
 export interface BalanceAdjustmentInput {
@@ -11,6 +12,8 @@ export interface BalanceAdjustmentInput {
   /** A correction can go either way, so this is a signed delta. */
   deltaFils: Fils;
   reason: string;
+  /** BUG-109: optional client Idempotency-Key; only applyBalanceCorrection honours it. */
+  idempotencyKey?: string;
 }
 
 /** Before/after are read under the same row lock as the UPDATE, so the pair is exact. */
@@ -37,6 +40,29 @@ export async function applyBalanceCorrection(
     }
     const before = toFils(Number(row.cached_payable_fils), { allowNegative: true });
 
+    // BUG-109: claimed after the row lock (so the merchant exists for the FK);
+    // a double submit with the same key replays the first answer instead of
+    // moving the balance again. Scoped per admin and merchant.
+    let claimId: string | null = null;
+    if (input.idempotencyKey !== undefined) {
+      const claim = await claimIdempotencyKey(client, {
+        merchantId: input.merchantId,
+        endpoint: `admin.balance_adjustments:${input.adminUserId}`,
+        key: input.idempotencyKey,
+        requestHash: hashRequest({ deltaFils: input.deltaFils, reason: input.reason }),
+      });
+      if (claim.outcome === "conflict_hash_mismatch") {
+        throw new UnprocessableEntityError("idempotency_key_reused");
+      }
+      if (claim.outcome === "conflict_in_progress") {
+        throw new ConflictError("request_in_progress");
+      }
+      if (claim.outcome === "replay") {
+        return claim.row.responseBody as BalanceAdjustmentResult;
+      }
+      claimId = claim.row.id;
+    }
+
     const updated = await client.query<{ cached_payable_fils: string }>(
       `UPDATE merchant_balances
           SET cached_payable_fils = cached_payable_fils + $2, updated_at = now()
@@ -54,12 +80,16 @@ export async function applyBalanceCorrection(
       metadata: { deltaFils: input.deltaFils, reason: input.reason, before, after },
     });
 
-    return {
+    const result: BalanceAdjustmentResult = {
       merchantId: input.merchantId,
       deltaFils: input.deltaFils,
       cachedPayableFilsBefore: before,
       cachedPayableFilsAfter: after,
     };
+    if (claimId !== null) {
+      await completeIdempotencyKey(client, claimId, { statusCode: 200, body: result });
+    }
+    return result;
   });
 }
 

@@ -974,7 +974,7 @@ test("webhook batch replay replays every matching failed delivery in range, once
 
   // Each new row is a real replay of a distinct original, produced by the
   // same per-delivery logic the merchant-facing route uses: pending, due
-  // now, with a FRESH delivery_event_id echoed into the stored envelope.
+  // now, with the original delivery_event_id (BUG-104) echoed into the stored envelope.
   const replays = await pool.query<{
     id: string;
     status: string;
@@ -992,7 +992,7 @@ test("webhook batch replay replays every matching failed delivery in range, once
     assert.equal(row.status, "pending");
     assert.ok(inRange.includes(row.replay_of_delivery_id));
     originals.add(row.replay_of_delivery_id);
-    assert.equal(row.payload.id, row.delivery_event_id, "envelope id must match the fresh delivery_event_id");
+    assert.equal(row.payload.id, row.delivery_event_id, "envelope id must match the delivery_event_id");
   }
   assert.equal(originals.size, 3, "each in-range original replayed exactly once");
 
@@ -1350,6 +1350,45 @@ test("settlement run-batch validates its input before writing an audit row or ca
       payload,
     });
     assert.equal(res.statusCode, 400, JSON.stringify(payload));
+  }
+  assert.equal(settlementSpy.runBatchCalls.length, 0);
+  assert.equal((await auditRowsFor(finance.id, "settlement_run_batch")).length, 0);
+});
+
+// FP-301: the Payout days panel.
+test("settlement days: finance gets the last 7 Bahrain business days, newest first; support is refused", async () => {
+  const finance = await signedInAdmin("finance", "days-finance");
+  const res = await app.inject({ method: "GET", url: "/v1/admin/settlement/days", headers: { cookie: finance.cookie } });
+  assert.equal(res.statusCode, 200);
+  const { days } = res.json() as { days: Array<{ businessDate: string; status: string }> };
+  assert.equal(days.length, 7);
+  const bahrainToday = new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  assert.equal(days[0]?.businessDate, bahrainToday);
+  assert.equal(days[0]?.status, "running");
+  assert.ok(days.slice(1).every((d) => d.status !== "running"));
+
+  const support = await signedInAdmin("support", "days-support");
+  const denied = await app.inject({ method: "GET", url: "/v1/admin/settlement/days", headers: { cookie: support.cookie } });
+  assert.equal(denied.statusCode, 403);
+});
+
+// BUG-088: a batch only claims its own day's captures, so closing a day that is
+// still running would strand every later sale of that day. Refused up front.
+test("settlement run-batch refuses a Bahrain business day that is not over yet", async () => {
+  const finance = await signedInAdmin("finance", "runbatch-today");
+  settlementSpy.runBatchCalls = [];
+  const bahrainToday = new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const bahrainTomorrow = new Date(Date.now() + 27 * 60 * 60 * 1000).toISOString().slice(0, 10);
+
+  for (const date of [bahrainToday, bahrainTomorrow]) {
+    const res = await app.inject({
+      method: "POST",
+      url: "/v1/admin/settlement/run-batch",
+      headers: { cookie: finance.cookie },
+      payload: { date },
+    });
+    assert.equal(res.statusCode, 409, date);
+    assert.equal(res.json().code ?? res.json().error, "business_day_not_over");
   }
   assert.equal(settlementSpy.runBatchCalls.length, 0);
   assert.equal((await auditRowsFor(finance.id, "settlement_run_batch")).length, 0);

@@ -8,8 +8,9 @@
  * with `parseBhdToFils` (string maths, never a float).
  */
 import { Undo2 } from "lucide-react";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { parseBhdToFils } from "@filspay/money";
+import { keyForNextAttempt } from "./refundIdempotency.js";
 import { ApiError, describeError, request } from "../../api/client.js";
 import { useDashboardAuth } from "../../auth/DashboardAuthContext.js";
 import { RequireRole } from "../../auth/RequireRole.js";
@@ -88,6 +89,8 @@ export function RefundDrawer({ txn, onRefunded }: RefundDrawerProps) {
   const [amount, setAmount] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // One key per intended refund; kept across a retry whose answer was lost.
+  const idempotencyKey = useRef<string | null>(null);
 
   const merchantId = me?.merchant.id;
   const refundableFils = Math.max(0, txn.capturedFils - (txn.refundedFils ?? 0));
@@ -119,13 +122,20 @@ export function RefundDrawer({ txn, onRefunded }: RefundDrawerProps) {
       // still refundable — its own default, same as the capture form.
       const body = amountFils === undefined ? { transactionId: txn.id } : { transactionId: txn.id, amountFils };
 
-      await request<RefundResponse>(`/v1/merchants/${encodeURIComponent(merchantId)}/refunds`, {
-        method: "POST",
-        // A fresh key per attempt, including a retry after a decline — same
-        // discipline as capture and the checkout page's submit handler.
-        headers: { "Idempotency-Key": crypto.randomUUID() },
-        body: JSON.stringify(body),
-      });
+      idempotencyKey.current ??= crypto.randomUUID();
+      const usedKey = idempotencyKey.current;
+      try {
+        await request<RefundResponse>(`/v1/merchants/${encodeURIComponent(merchantId)}/refunds`, {
+          method: "POST",
+          headers: { "Idempotency-Key": usedKey },
+          body: JSON.stringify(body),
+        });
+        idempotencyKey.current = keyForNextAttempt(usedKey, true);
+      } catch (err) {
+        // BUG-089: a fresh key on a retry after a lost answer refunded twice.
+        idempotencyKey.current = keyForNextAttempt(usedKey, err instanceof ApiError);
+        throw err;
+      }
 
       setOpen(false);
       setAmount("");
@@ -175,7 +185,11 @@ export function RefundDrawer({ txn, onRefunded }: RefundDrawerProps) {
                   placeholder={formatMoney(refundableFils)}
                   className="font-mono tabular-nums"
                   value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
+                  onChange={(e) => {
+                    setAmount(e.target.value);
+                    // A different amount is a different refund.
+                    idempotencyKey.current = null;
+                  }}
                   disabled={submitting}
                 />
                 <FieldDescription>
