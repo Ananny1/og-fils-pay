@@ -1355,6 +1355,23 @@ test("settlement run-batch validates its input before writing an audit row or ca
   assert.equal((await auditRowsFor(finance.id, "settlement_run_batch")).length, 0);
 });
 
+// FP-301: the Payout days panel.
+test("settlement days: finance gets the last 7 Bahrain business days, newest first; support is refused", async () => {
+  const finance = await signedInAdmin("finance", "days-finance");
+  const res = await app.inject({ method: "GET", url: "/v1/admin/settlement/days", headers: { cookie: finance.cookie } });
+  assert.equal(res.statusCode, 200);
+  const { days } = res.json() as { days: Array<{ businessDate: string; status: string }> };
+  assert.equal(days.length, 7);
+  const bahrainToday = new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  assert.equal(days[0]?.businessDate, bahrainToday);
+  assert.equal(days[0]?.status, "running");
+  assert.ok(days.slice(1).every((d) => d.status !== "running"));
+
+  const support = await signedInAdmin("support", "days-support");
+  const denied = await app.inject({ method: "GET", url: "/v1/admin/settlement/days", headers: { cookie: support.cookie } });
+  assert.equal(denied.statusCode, 403);
+});
+
 // BUG-095: a batch only claims its own day's captures, so closing a day that is
 // still running would strand every later sale of that day. Refused up front.
 test("settlement run-batch refuses a Bahrain business day that is not over yet", async () => {

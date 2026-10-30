@@ -1,5 +1,5 @@
 import { request } from "./client.js";
-import type { AnalyticsRebuildSummary, BalanceRebuildSummary, RunBatchSummary } from "../types.js";
+import type { AnalyticsRebuildSummary, BalanceRebuildSummary, RunBatchSummary, SettlementDay } from "../types.js";
 
 /** `POST /v1/admin/settlement/run-batch`. `date` is a `YYYY-MM-DD`
  *  business date; omitting `merchantId` runs every eligible merchant. */
@@ -31,4 +31,9 @@ export function rebuildBalances(): Promise<BalanceRebuildSummary> {
  */
 export function rebuildAnalytics(): Promise<AnalyticsRebuildSummary> {
   return request("/v1/admin/reporting/rebuild", { method: "POST" });
+}
+
+/** `GET /v1/admin/settlement/days`: the last 7 business days, newest first (FP-301). */
+export function listSettlementDays(): Promise<{ days: SettlementDay[] }> {
+  return request("/v1/admin/settlement/days");
 }

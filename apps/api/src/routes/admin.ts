@@ -5,6 +5,7 @@ import { endImpersonation } from "../admin/impersonation.js";
 import { UUID_RE } from "../admin/merchants.js";
 import { refreshAnalyticsRollups } from "../admin/reportingRebuild.js";
 import { businessDayHasEnded } from "../admin/businessDay.js";
+import { listSettlementDays } from "../admin/settlementDays.js";
 import {
   triggerBalanceRebuild,
   triggerMdrRecalculation,
@@ -107,6 +108,19 @@ export async function adminRoutes(app: FastifyInstance, options: AdminRoutesOpti
    * There is no ordering here in which the batch runs and nothing says who
    * asked for it.
    */
+  /**
+   * The last 7 business days with what each still needs (FP-301): sales no
+   * batch has claimed yet, and the totals of the batches already closed.
+   * Read-only; drives the admin "Payout days" panel.
+   */
+  app.get(
+    "/settlement/days",
+    { preHandler: [requireAdminSession, requireAdminRole("finance", "super_admin")] },
+    async (_request, reply) => {
+      reply.send({ days: await listSettlementDays(app.db, new Date()) });
+    },
+  );
+
   app.post<{ Body: RunBatchBody }>(
     // FH: audit row committed BEFORE the cross-process call, so a crash still leaves a trace. correct
     "/settlement/run-batch",

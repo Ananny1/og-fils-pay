@@ -207,6 +207,22 @@ export interface SettlementMerchantOutcome {
 /** `POST /v1/admin/settlement/run-batch` → the `DailyBatchReport` the Go
  *  `run-batch` produces. The UI renders defensively if `merchantResults` is
  *  absent. */
+/** `GET /v1/admin/settlement/days` row (FP-301). */
+export type SettlementDayStatus = "running" | "needs_closing" | "closed_unpaid" | "done";
+
+export interface SettlementDay {
+  businessDate: string;
+  status: SettlementDayStatus;
+  /** Sales of this day that no batch has claimed yet (before fees). */
+  waitingFils: number;
+  waitingMerchantCount: number;
+  batchCount: number;
+  paidBatchCount: number;
+  grossFils: number;
+  feeFils: number;
+  netPayoutFils: number;
+}
+
 export interface RunBatchSummary {
   businessDate: string;
   merchantResults: SettlementMerchantOutcome[];
