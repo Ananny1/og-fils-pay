@@ -5,8 +5,29 @@ import type { Config } from "../config.js";
 import { withTransaction } from "../db/withTransaction.js";
 import { sha256Hex } from "../lib/crypto.js";
 import { NotFoundError, UnprocessableEntityError } from "../lib/errors.js";
+import { decodeEncryptionKey, decryptBytes, encryptBytes } from "../webhooks/secretCrypto.js";
 import { detectFileType, extensionFor, mimeTypeFor } from "./fileSignature.js";
 import { generateKycThumbnail } from "./kycThumbnail.js";
+
+/** Storage keys of files written encrypted (AES-256-GCM, SEC-4) end in
+ *  this suffix. Older rows point at plaintext files without it and are
+ *  still served as-is, so no data migration is needed. */
+const ENCRYPTED_SUFFIX = ".enc";
+
+async function writeKycFile(config: Config, storageKey: string, plaintext: Buffer): Promise<void> {
+  await writeFile(
+    join(config.kycUploadDir, storageKey),
+    encryptBytes(plaintext, decodeEncryptionKey(config.kycEncryptionKey)),
+  );
+}
+
+async function readKycFile(config: Config, storageKey: string): Promise<Buffer> {
+  const stored = await readFile(join(config.kycUploadDir, storageKey));
+  if (!storageKey.endsWith(ENCRYPTED_SUFFIX)) {
+    return stored;
+  }
+  return decryptBytes(stored, decodeEncryptionKey(config.kycEncryptionKey));
+}
 
 export type KycDocumentType = "commercial_registration" | "owner_id" | "proof_of_address" | "bank_letter";
 
@@ -34,8 +55,8 @@ export interface RecordKycDocumentResult {
 
 /**
  * Validates the upload from its own bytes (never the client-supplied
- * filename or Content-Type), writes it to disk under
- * `config.kycUploadDir/<merchantId>/<sha256>.<ext>`, and records it — moving
+ * filename or Content-Type), writes it to disk AES-256-GCM encrypted under
+ * `config.kycUploadDir/<merchantId>/<sha256>.<ext>.enc`, and records it — moving
  * onboarding_status to 'under_review' as a side effect of "documents are
  * now in the queue," never touching kyc_passed.
  */
@@ -69,19 +90,18 @@ export async function recordKycDocument(
   }
 
   const sha256 = sha256Hex(input.buffer);
-  const storageKey = join(input.merchantId, `${sha256}.${extensionFor(detected)}`);
-  const fullPath = join(config.kycUploadDir, storageKey);
+  const storageKey = join(input.merchantId, `${sha256}.${extensionFor(detected)}${ENCRYPTED_SUFFIX}`);
   await mkdir(join(config.kycUploadDir, input.merchantId), { recursive: true });
   // written before the db insert, a failed insert leaves an orphan in ./data/kyc — am
-  await writeFile(fullPath, input.buffer);
+  await writeKycFile(config, storageKey, input.buffer);
 
   const mimeType = mimeTypeFor(detected);
 
   const thumbnail = await generateKycThumbnail(input.buffer, detected);
   let thumbnailStorageKey: string | null = null;
   if (thumbnail) {
-    thumbnailStorageKey = join(input.merchantId, `${sha256}.thumb.jpg`);
-    await writeFile(join(config.kycUploadDir, thumbnailStorageKey), thumbnail.buffer);
+    thumbnailStorageKey = join(input.merchantId, `${sha256}.thumb.jpg${ENCRYPTED_SUFFIX}`);
+    await writeKycFile(config, thumbnailStorageKey, thumbnail.buffer);
   }
 
   return withTransaction(pool, async (client) => {
@@ -193,7 +213,7 @@ export async function getKycDocumentFile(
   if (!row) {
     throw new NotFoundError("kyc_document_not_found");
   }
-  const buffer = await readFile(join(config.kycUploadDir, row.storage_key));
+  const buffer = await readKycFile(config, row.storage_key);
   return { buffer, mimeType: row.mime_type, fileName: row.file_name };
 }
 
@@ -220,6 +240,6 @@ export async function getKycThumbnailFile(
   if (!row || !row.thumbnail_storage_key || !row.thumbnail_mime_type) {
     throw new NotFoundError("kyc_thumbnail_not_found");
   }
-  const buffer = await readFile(join(config.kycUploadDir, row.thumbnail_storage_key));
+  const buffer = await readKycFile(config, row.thumbnail_storage_key);
   return { buffer, mimeType: row.thumbnail_mime_type, fileName: row.file_name };
 }

@@ -67,6 +67,11 @@ export interface Config {
 
   kycUploadDir: string;
   kycMaxFileSizeBytes: number;
+  /** Base64 32-byte AES-256-GCM key for KYC files at rest (SEC-4).
+   *  KYC_ENCRYPTION_KEY, same validation as the webhook key; falls back
+   *  to WEBHOOK_SECRET_ENCRYPTION_KEY when unset so an existing box keeps
+   *  booting. Set a dedicated one in production. */
+  kycEncryptionKey: string;
 
   acquirerLatencyMinMs: number;
   acquirerLatencyMaxMs: number;
@@ -219,18 +224,19 @@ const BASE64_RE = /^[A-Za-z0-9+/]+={0,2}$/;
  *  first-delivery time. Returns the original base64 string unchanged — the
  *  Config field stays base64-encoded; callers decode to a Buffer at the
  *  point of use. */
-function parseWebhookSecretEncryptionKey(value: string | undefined): string {
+function parseWebhookSecretEncryptionKey(
+  value: string | undefined,
+  name = "WEBHOOK_SECRET_ENCRYPTION_KEY",
+): string {
   if (!value) {
-    throw new Error("loadConfig: WEBHOOK_SECRET_ENCRYPTION_KEY environment variable is not set");
+    throw new Error(`loadConfig: ${name} environment variable is not set`);
   }
   if (!BASE64_RE.test(value)) {
-    throw new Error("loadConfig: WEBHOOK_SECRET_ENCRYPTION_KEY is not valid base64");
+    throw new Error(`loadConfig: ${name} is not valid base64`);
   }
   const decoded = Buffer.from(value, "base64");
   if (decoded.length !== 32) {
-    throw new Error(
-      `loadConfig: WEBHOOK_SECRET_ENCRYPTION_KEY must base64-decode to exactly 32 bytes, got ${decoded.length}`,
-    );
+    throw new Error(`loadConfig: ${name} must base64-decode to exactly 32 bytes, got ${decoded.length}`);
   }
   return value;
 }
@@ -259,6 +265,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   if (nodeEnv === "production" && acquirerCallbackSigningSecret === "") {
     throw new Error("loadConfig: ACQUIRER_CALLBACK_SIGNING_SECRET is required when NODE_ENV=production");
   }
+
+  const webhookSecretEncryptionKey = parseWebhookSecretEncryptionKey(
+    env.WEBHOOK_SECRET_ENCRYPTION_KEY || (nodeEnv !== "production" ? DEV_FALLBACK_WEBHOOK_KEY_B64 : undefined),
+  );
 
   return {
     nodeEnv,
@@ -301,6 +311,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
 
     kycUploadDir: env.KYC_UPLOAD_DIR ?? "./data/kyc",
     kycMaxFileSizeBytes: parseIntEnv(env.KYC_MAX_FILE_SIZE_BYTES, 8_388_608),
+    kycEncryptionKey: env.KYC_ENCRYPTION_KEY
+      ? parseWebhookSecretEncryptionKey(env.KYC_ENCRYPTION_KEY, "KYC_ENCRYPTION_KEY")
+      : webhookSecretEncryptionKey,
 
     acquirerLatencyMinMs: parseIntEnv(env.ACQUIRER_LATENCY_MIN_MS, 100),
     acquirerLatencyMaxMs: parseIntEnv(env.ACQUIRER_LATENCY_MAX_MS, 400),
@@ -331,9 +344,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     checkoutBaseUrl: env.CHECKOUT_BASE_URL ?? "http://localhost:5173",
     paymentLinkReservationTimeoutSeconds: parseIntEnv(env.PAYMENT_LINK_RESERVATION_TIMEOUT_SECONDS, 60),
 
-    webhookSecretEncryptionKey: parseWebhookSecretEncryptionKey(
-      env.WEBHOOK_SECRET_ENCRYPTION_KEY || (nodeEnv !== "production" ? DEV_FALLBACK_WEBHOOK_KEY_B64 : undefined),
-    ),
+    webhookSecretEncryptionKey,
     webhookMaxAttempts: parseIntEnv(env.WEBHOOK_MAX_ATTEMPTS, 8),
     webhookBackoffBaseMs: parseIntEnv(env.WEBHOOK_BACKOFF_BASE_MS, 30_000),
     webhookBackoffCapMs: parseIntEnv(env.WEBHOOK_BACKOFF_CAP_MS, 21_600_000),

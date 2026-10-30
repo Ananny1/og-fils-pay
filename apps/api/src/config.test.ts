@@ -66,3 +66,14 @@ test("SMTP is off unless SMTP_HOST is set, and its settings are read when it is 
   assert.equal(config.smtpUser, "sender@example.test");
   assert.equal(config.mailFrom, "FilsPay <sender@example.test>");
 });
+
+test("KYC_ENCRYPTION_KEY falls back to the webhook key, and a malformed one refuses to boot (SEC-4)", () => {
+  const webhookKey = "Y1ZTGTcYbe30GZJebys9w7T3OYZNKewuOH3SUCEdRQk=";
+  assert.equal(loadConfig({ DATABASE_URL, WEBHOOK_SECRET_ENCRYPTION_KEY: webhookKey }).kycEncryptionKey, webhookKey);
+  const kycKey = Buffer.alloc(32, 7).toString("base64");
+  assert.equal(loadConfig({ DATABASE_URL, KYC_ENCRYPTION_KEY: kycKey }).kycEncryptionKey, kycKey);
+  assert.throws(
+    () => loadConfig({ DATABASE_URL, KYC_ENCRYPTION_KEY: "dG9vLXNob3J0" }),
+    /KYC_ENCRYPTION_KEY must base64-decode/,
+  );
+});
