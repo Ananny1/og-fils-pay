@@ -1,4 +1,4 @@
-import { ArrowUp, Loader2, RotateCcw, Square } from "lucide-react";
+import { ArrowUp, Loader2, RotateCcw, Square, XIcon } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
@@ -8,7 +8,7 @@ import { useDashboardAuth } from "@/auth/DashboardAuthContext";
 import { BotIcon } from "@/components/dashboard/bot-icon";
 import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Sheet, SheetClose, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
@@ -40,6 +40,7 @@ export function AssistantPanel() {
   const [busy, setBusy] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const launcherRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -104,18 +105,20 @@ export function AssistantPanel() {
 
   return (
     <>
-      <AnimatePresence>
-        {!open ? (
-          <motion.div
-            initial={{ opacity: 0, y: 16, scale: 0.9 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 16, scale: 0.9 }}
-            transition={{ type: "spring", stiffness: 320, damping: 24 }}
-            className="fixed right-5 bottom-5 z-40"
-          >
+      {/* The launcher stays mounted (just hidden) while the panel is open, so
+          closing the panel can hand focus back to it instead of <body>. */}
+      <motion.div
+        initial={{ opacity: 0, y: 16, scale: 0.9 }}
+        animate={open ? { opacity: 0, y: 16, scale: 0.9 } : { opacity: 1, y: 0, scale: 1 }}
+        transition={{ type: "spring", stiffness: 320, damping: 24 }}
+        aria-hidden={open || undefined}
+        className={cn("fixed right-5 bottom-5 z-40", open && "pointer-events-none")}
+      >
             <Button
+              ref={launcherRef}
               size="lg"
               aria-label="Open the FilsPay assistant chat"
+              tabIndex={open ? -1 : undefined}
               className="group h-12 gap-2.5 border-2 border-[var(--card-border)] pr-2 pl-2 sm:pr-5"
               onClick={() => setOpen(true)}
             >
@@ -125,12 +128,15 @@ export function AssistantPanel() {
               <span className="hidden sm:inline">Ask FilsPay</span>
               <Kbd className="ml-1 hidden bg-primary-foreground/15 text-primary-foreground sm:inline-flex">⌘J</Kbd>
             </Button>
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
+      </motion.div>
 
       <Sheet open={open} onOpenChange={setOpen}>
-        <SheetContent side="right" className="flex w-full flex-col gap-0 p-0 sm:max-w-md">
+        <SheetContent
+          side="right"
+          showCloseButton={false}
+          finalFocus={launcherRef}
+          className="flex w-full flex-col gap-0 p-0 sm:max-w-md"
+        >
           <SheetHeader className="border-b px-5 py-4">
             <div className="flex items-center gap-2.5">
               <span className="flex size-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-elegant">
@@ -153,6 +159,11 @@ export function AssistantPanel() {
                   <RotateCcw />
                 </Button>
               ) : null}
+              {/* In the header row, not the sheet's absolute X, so it no
+                  longer sits on top of the reset button. */}
+              <SheetClose render={<Button variant="ghost" size="icon-sm" aria-label="Close" />}>
+                <XIcon />
+              </SheetClose>
             </div>
           </SheetHeader>
 
@@ -258,6 +269,7 @@ export function AssistantPanel() {
           >
             <div className="relative rounded-2xl border bg-card shadow-soft focus-within:ring-2 focus-within:ring-ring/30">
               <Textarea
+                aria-label="Ask FilsPay a question"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => {
