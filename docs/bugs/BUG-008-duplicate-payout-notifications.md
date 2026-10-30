@@ -58,6 +58,8 @@ False claims (trap protocol):
 | `db/migrations/0085_payout_notification_dedupe.sql` | Unique partial index `outbox_events (event_type, aggregate_id) WHERE event_type='settlement.paid'`; unique index `settlement_payout_disbursements (settlement_batch_id)`. Existing duplicates are **kept as evidence**: later event copies re-typed `settlement.paid.duplicate`, later disbursement copies moved to new table `settlement_payout_disbursement_duplicates` for finance recovery |
 | `apps/settlement/internal/settlement/payout_notify.go` | `ON CONFLICT (event_type, aggregate_id) WHERE event_type='settlement.paid' DO NOTHING`; count only inserted rows; false comment replaced |
 | `apps/api/src/webhooks/payoutDisbursement.ts` | `ON CONFLICT (settlement_batch_id) DO NOTHING` |
+| `db/migrations/0086_cancel_duplicate_payout_deliveries.sql` | (review fix) 0085 stopped **new** deliveries for re-typed events, but delivery rows already `pending` for them keep `event_type='settlement.paid'` and were still retried, so the duplicate notice still went out. 0086 sets those pending rows to `failed` (an existing terminal status from 0022 that the dispatcher never sets itself, so they are easy to tell apart). Rows are kept as evidence; already-sent rows untouched. 0085 itself is not edited (already applied). |
+| `apps/api/src/webhooks/duplicatePayoutDeliveries.test.ts` | (review fix) 2 tests for 0086 |
 | `apps/api/src/webhooks/dispatcher.ts` | Step B claims each row before sending: `UPDATE ... SET next_attempt_at = now() + lease WHERE id=$1 AND status='pending' AND next_attempt_at <= now()`; only the pass that matched sends. Lease = request timeout + 30 s. If the attempt throws, the claim is given back (old `next_attempt_at` restored). |
 
 The two unique indexes are the real guarantee (the database decides, whatever the number of
@@ -72,6 +74,8 @@ replicas or CLIs). The claim in Step B stops the duplicate HTTP send, which a un
 | 3 | Advisory lock so only one `EnqueuePayoutNotifications` / one dispatcher runs at a time | Simple | Does not fix the per-endpoint disbursement; a crash can hold the lock; still no DB guarantee | |
 | 4 (creative) | Move the disbursement out of the webhook path into `PayoutBatch`'s own transaction (what 0057 claims) | Disbursement no longer depends on whether the merchant registered a webhook (today: no endpoint → no disbursement row at all) | Cross-service change (Go + TS), bigger than a 4-hour sprint fix; recorded as a follow-up | |
 
+Review follow-up (pending deliveries of re-typed events), options: (1, chosen) new migration 0086 marks them `failed`: one UPDATE, keeps evidence, no runtime cost; (2) make Step B join `outbox_events` and skip `*.duplicate` types: also covers future re-types but adds a join to every dispatch pass for a one-off cleanup; (3) delete the rows: loses the evidence 0085 was careful to keep.
+
 **Why we chose #1:** it closes all three duplicate paths with the smallest change and makes the
 database the single source of "once per batch".
 
@@ -84,6 +88,8 @@ database the single source of "once per batch".
 | two concurrent dispatch passes send a due delivery only once | same | ❌ sent 2× | ✅ 1× |
 | recordPayoutDisbursementEffect called twice (or concurrently) ... one disbursement | `apps/api/src/webhooks/payoutDisbursement.test.ts` | ❌ 3 | ✅ 1 |
 | per-row isolation (poisoned row left unchanged) | `dispatcher.test.ts` | ✅ | ✅ (claim is given back) |
+| a delivery already pending for a `settlement.paid.duplicate` event is not sent after 0086 | `apps/api/src/webhooks/duplicatePayoutDeliveries.test.ts` | ❌ sent 1× (0086 as a no-op) | ✅ 0×, status `failed` |
+| 0086 leaves a pending delivery for a normal event untouched | same | ✅ | ✅ `pending` |
 
 Migration 0085 was applied to a test DB that already held duplicates from the red runs:
 1 event re-typed, 3 disbursements moved to the duplicates table, both unique indexes created.
