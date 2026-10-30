@@ -14,7 +14,7 @@ import { StatusBadge } from "@/components/dashboard/status-badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { dateTime } from "../../format.js";
@@ -45,17 +45,33 @@ export function WebhookEndpointCreatePage() {
 
   const [url, setUrl] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  // Server errors go in the top banner; a bad URL shows at the field.
   const [error, setError] = useState<string | null>(null);
+  const [urlError, setUrlError] = useState<string | null>(null);
   const [created, setCreated] = useState<WebhookEndpointCreateResponse | null>(null);
 
   /** The response carries the secret; this is the only time it is shown. */
   async function handleSubmit(event: React.FormEvent): Promise<void> {
     event.preventDefault();
     if (!me) return;
-    setSubmitting(true);
     setError(null);
+    const trimmed = url.trim();
+    let parsed: URL | null = null;
     try {
-      setCreated(await createWebhookEndpoint(me.merchant.id, { url: url.trim() }));
+      parsed = new URL(trimmed);
+    } catch {
+      parsed = null;
+    }
+    if (!parsed || (parsed.protocol !== "https:" && parsed.protocol !== "http:")) {
+      setUrlError(
+        trimmed === "" ? "Enter the endpoint URL." : "Enter a full URL, e.g. https://example.com/filspay/webhooks.",
+      );
+      return;
+    }
+    setUrlError(null);
+    setSubmitting(true);
+    try {
+      setCreated(await createWebhookEndpoint(me.merchant.id, { url: trimmed }));
       toast.success("Webhook endpoint created");
     } catch (err) {
       setError(describeError(err));
@@ -84,7 +100,7 @@ export function WebhookEndpointCreatePage() {
 
       <FadeContent trigger="mount" duration={0.5}>
         <Card className="max-w-xl">
-          <form onSubmit={(e) => void handleSubmit(e)}>
+          <form noValidate onSubmit={(e) => void handleSubmit(e)}>
             <CardHeader>
               <CardTitle className="case-label">Endpoint</CardTitle>
               <CardDescription>
@@ -94,7 +110,7 @@ export function WebhookEndpointCreatePage() {
             <CardContent className="pt-6">
               <FieldGroup>
                 <ErrorAlert message={error} title="Could not create the endpoint" />
-                <Field>
+                <Field data-invalid={urlError ? true : undefined}>
                   <FieldLabel htmlFor="wh-url">Endpoint URL</FieldLabel>
                   <Input
                     id="wh-url"
@@ -103,13 +119,18 @@ export function WebhookEndpointCreatePage() {
                     autoFocus
                     placeholder="https://example.com/filspay/webhooks"
                     className="font-mono"
+                    aria-invalid={urlError ? true : undefined}
                     value={url}
-                    onChange={(e) => setUrl(e.target.value)}
+                    onChange={(e) => {
+                      setUrl(e.target.value);
+                      setUrlError(null);
+                    }}
                   />
                   <FieldDescription>
                     Must be reachable over HTTPS. Respond with a 2xx within a few seconds; anything
                     else is retried with backoff.
                   </FieldDescription>
+                  {urlError ? <FieldError>{urlError}</FieldError> : null}
                 </Field>
               </FieldGroup>
             </CardContent>

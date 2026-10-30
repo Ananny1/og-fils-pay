@@ -53,11 +53,14 @@ export function PaymentLinkCreatePage() {
   const [description, setDescription] = useState("");
   const [expiresAt, setExpiresAt] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  // Server errors go in the top banner; field problems show at the field.
   const [error, setError] = useState<string | null>(null);
+  const [amountError, setAmountError] = useState<string | null>(null);
+  const [expiryError, setExpiryError] = useState<string | null>(null);
 
   // Preview only: the submit path below re-derives and re-checks the number.
   const previewFils = amountBhd.trim() === "" ? null : parseAmountFils(amountBhd);
-  const amountInvalid = amountBhd.trim() !== "" && previewFils === null;
+  const shownAmountError = amountBhd.trim() !== "" && previewFils === null ? AMOUNT_HINT : amountError;
 
   async function handleSubmit(event: React.FormEvent): Promise<void> {
     event.preventDefault();
@@ -65,19 +68,16 @@ export function PaymentLinkCreatePage() {
     setError(null);
 
     const amount = parseAmountFils(amountBhd);
-    if (amount === null) {
-      setError(AMOUNT_HINT);
-      return;
-    }
+    const nextAmountError = amount === null ? AMOUNT_HINT : null;
     const expiresAtIso = localDateTimeToIso(expiresAt);
-    if (!expiresAtIso) {
-      setError("Expiry must be a valid date and time.");
-      return;
-    }
-    if (new Date(expiresAtIso).getTime() <= Date.now()) {
-      setError("Expiry must be in the future.");
-      return;
-    }
+    const nextExpiryError = !expiresAtIso
+      ? "Pick a valid date and time."
+      : new Date(expiresAtIso).getTime() <= Date.now()
+        ? "Expiry must be in the future."
+        : null;
+    setAmountError(nextAmountError);
+    setExpiryError(nextExpiryError);
+    if (amount === null || !expiresAtIso || nextExpiryError) return;
 
     setSubmitting(true);
     try {
@@ -111,7 +111,7 @@ export function PaymentLinkCreatePage() {
 
       <FadeContent trigger="mount" duration={0.5}>
         <Card className="max-w-xl">
-          <form onSubmit={(e) => void handleSubmit(e)}>
+          <form noValidate onSubmit={(e) => void handleSubmit(e)}>
             <CardHeader>
               <CardTitle className="case-label">Link details</CardTitle>
               <CardDescription>
@@ -122,7 +122,7 @@ export function PaymentLinkCreatePage() {
               <FieldGroup>
                 <ErrorAlert message={error} title="Could not create the link" />
 
-                <Field data-invalid={amountInvalid || undefined}>
+                <Field data-invalid={shownAmountError ? true : undefined}>
                   <FieldLabel htmlFor="pl-amount">Amount (BHD)</FieldLabel>
                   <Input
                     id="pl-amount"
@@ -132,12 +132,15 @@ export function PaymentLinkCreatePage() {
                     required
                     placeholder="4.750"
                     className="font-mono"
-                    aria-invalid={amountInvalid || undefined}
+                    aria-invalid={shownAmountError ? true : undefined}
                     value={amountBhd}
-                    onChange={(e) => setAmountBhd(e.target.value)}
+                    onChange={(e) => {
+                      setAmountBhd(e.target.value);
+                      setAmountError(null);
+                    }}
                   />
-                  {amountInvalid ? (
-                    <FieldError>{AMOUNT_HINT}</FieldError>
+                  {shownAmountError ? (
+                    <FieldError>{shownAmountError}</FieldError>
                   ) : (
                     <FieldDescription>
                       Up to 3 decimals (1 BHD = 1000 fils).
@@ -175,16 +178,21 @@ export function PaymentLinkCreatePage() {
                   <FieldDescription>Optional. Shown to the customer at checkout.</FieldDescription>
                 </Field>
 
-                <Field>
+                <Field data-invalid={expiryError ? true : undefined}>
                   <FieldLabel htmlFor="pl-expires">Expires at</FieldLabel>
                   <Input
                     id="pl-expires"
                     type="datetime-local"
                     required
+                    aria-invalid={expiryError ? true : undefined}
                     value={expiresAt}
-                    onChange={(e) => setExpiresAt(e.target.value)}
+                    onChange={(e) => {
+                      setExpiresAt(e.target.value);
+                      setExpiryError(null);
+                    }}
                   />
                   <FieldDescription>Bahrain time. The link stops accepting payment after this.</FieldDescription>
+                  {expiryError ? <FieldError>{expiryError}</FieldError> : null}
                 </Field>
               </FieldGroup>
             </CardContent>
