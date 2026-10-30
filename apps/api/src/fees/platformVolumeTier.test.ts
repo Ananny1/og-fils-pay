@@ -54,6 +54,12 @@ test("15bps once lifetime processed volume reaches the threshold", async () => {
   assert.equal(await withClient(getVolumeTierBonusBps), 15);
 });
 
+// BUG-022: the column must hold more than int32 max (2,147,483,647 fils).
+test("the tier stays granted past int32 max", async () => {
+  await setTotal(3_000_000_000);
+  assert.equal(await withClient(getVolumeTierBonusBps), 15);
+});
+
 test("the tier stays granted above the threshold", async () => {
   await setTotal(2_100_000_000);
   assert.equal(await withClient(getVolumeTierBonusBps), 15);
