@@ -23,14 +23,26 @@ export async function bulkApproveMerchantsKyc(
   input: BulkApproveMerchantsKycInput,
 ): Promise<BulkApproveMerchantsKycResult> {
   return withTransaction(pool, async (client) => {
+    // Only merchants waiting for review move. Without the status predicate a
+    // rejected merchant (or one that never uploaded KYC) was approved too.
     const result = await client.query<{ id: string }>(
       `UPDATE merchants
           SET onboarding_status = 'approved', kyc_passed = true
         WHERE id = ANY($1::uuid[])
+          AND onboarding_status = 'under_review'
       RETURNING id`,
       [input.merchantIds],
     );
     const approvedMerchantIds = result.rows.map((row) => row.id);
+
+    // Same per-merchant review trail as a single review (recordKycReviewInTx).
+    await client.query(
+      `INSERT INTO merchant_kyc_reviews (merchant_id, outcome, reviewer_identifier, reviewer_admin_user_id, notes)
+       SELECT m_id, 'approved', au.email, au.id, $3
+         FROM unnest($1::uuid[]) AS m_id
+         JOIN admin_users au ON au.id = $2`,
+      [approvedMerchantIds, input.adminUserId, input.notes ?? null],
+    );
 
     await insertAdminAuditLog(client, {
       adminUserId: input.adminUserId,

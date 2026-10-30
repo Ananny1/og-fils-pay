@@ -9,7 +9,6 @@ import {
   promoteSession,
   revokeSession,
 } from "../auth/sessions.js";
-import { findOtpRecipient } from "../auth/users.js";
 import { withTransaction } from "../db/withTransaction.js";
 import { BadRequestError, GoneError, TooManyRequestsError, UnauthorizedError } from "../lib/errors.js";
 
@@ -75,7 +74,10 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       throw new UnauthorizedError("invalid_credentials");
     }
 
-    const recipient = await findOtpRecipient(app.db, email) ?? user;
+    // The OTP and the pending session are bound to the exact merchant_users
+    // row whose password was just checked — never re-resolved by email,
+    // which is only unique per merchant (0011).
+    const recipient = user;
 
     const { code, expiresAt, rawToken } = await withTransaction(app.db, async (client) => {
       const challenge = await issueChallenge(client, {
@@ -153,18 +155,23 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
         throw new GoneError("otp_expired");
       }
 
-      // am: check-then-increment is fine, max_attempts=5 so worst case is 5 guesses
-      // MK: 5 guesses per parallel batch? if i fire 50 at once they all read attempt_count=0
-      if (challenge.attempt_count >= challenge.max_attempts) {
+      // Spend one attempt atomically BEFORE comparing. A separate
+      // read-then-increment let parallel requests all see attempt_count=0
+      // and each get a guess; the conditional UPDATE lets exactly
+      // max_attempts requests through, however many arrive at once.
+      const spent = await app.db.query(
+        `UPDATE otp_challenges SET attempt_count = attempt_count + 1
+          WHERE id = $1 AND attempt_count < max_attempts
+          RETURNING attempt_count`,
+        [challenge.id],
+      );
+      if (spent.rowCount === 0) {
         await revokeSession(app.db, pending.sessionId);
         throw new TooManyRequestsError("too_many_attempts");
       }
 
       const matches = verifyOtpCode(code, challenge.code_salt, challenge.code_hash);
       if (!matches) {
-        await app.db.query(`UPDATE otp_challenges SET attempt_count = attempt_count + 1 WHERE id = $1`, [
-          challenge.id,
-        ]);
         throw new UnauthorizedError("invalid_code");
       }
 
@@ -182,6 +189,17 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       if (!merchantUserResult) {
         throw new Error("otp/verify: merchant_users row disappeared mid-transaction");
       }
+
+      // Re-set the cookie at the full session TTL, as the admin verify does.
+      // Without this the browser keeps the login-step cookie's 10-minute
+      // Max-Age and drops a 12h session after 10 minutes.
+      reply.setCookie(app.config.cookieName, rawToken, {
+        httpOnly: true,
+        path: "/",
+        sameSite: "lax",
+        secure: app.config.cookieSecure,
+        maxAge: app.config.sessionTtlHours * 3_600,
+      });
 
       reply.code(200).send({
         authenticated: true,
@@ -227,6 +245,16 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
         codeLength: app.config.otpCodeLength,
         maxAttempts: app.config.otpMaxAttempts,
       });
+      // Carry the spent guesses over, as the doc above promises: a resend
+      // must never reset the guess budget.
+      if (existingChallenge) {
+        await client.query(
+          `UPDATE otp_challenges
+              SET attempt_count = (SELECT attempt_count FROM otp_challenges WHERE id = $2)
+            WHERE id = $1`,
+          [challenge.id, existingChallenge.id],
+        );
+      }
       await client.query(`UPDATE sessions SET otp_challenge_id = $1 WHERE id = $2`, [
         challenge.id,
         pending.sessionId,

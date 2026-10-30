@@ -81,11 +81,13 @@ export type ImpersonationMerchantRole = "owner" | "finance" | "support";
 /** `admin_users.role` (migration 0031). */
 type AdminUserRole = "support" | "finance" | "super_admin";
 
-/** Maps the admin's role to the merchant-plane role used during impersonation. */
+/** Maps the admin's role to the merchant-plane role used during impersonation.
+ *  Every admin role maps to 'support' (0035, HANDOVER): a grant is view-only
+ *  whoever holds it, so the owner/finance write gates stay closed to it. */
 const MERCHANT_ROLE_FOR_ADMIN_ROLE: Record<AdminUserRole, ImpersonationMerchantRole> = {
   support: "support",
-  finance: "finance",
-  super_admin: "owner",
+  finance: "support",
+  super_admin: "support",
 };
 
 /** @property merchantRole Always "support" (ARCH §8): a grant is view-only. */
@@ -120,7 +122,8 @@ export async function lookupImpersonationGrant(
       WHERE g.token_hash = $1
         AND g.revoked_at IS NULL
         AND g.ended_at IS NULL
-        AND g.expires_at > now()`,
+        AND g.expires_at > now()
+        AND au.status = 'active'`,
     [tokenHash],
   );
   const row = result.rows[0];
