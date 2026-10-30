@@ -1,5 +1,6 @@
 import type { Pool } from "pg";
 import { estimateFeeFils } from "../fees/estimate.js";
+import { getVolumeTierBonusBps } from "../fees/platformVolumeTier.js";
 
 const DEFAULT_LIMIT = 25;
 const MAX_LIMIT = 100;
@@ -287,7 +288,7 @@ export async function getReconciliationReport(
   const windowStart = bahrainLocalMidnightUtc(input.from);
   const windowEnd = bahrainLocalMidnightUtc(input.to);
 
-  const [ledgerResult, settlementResult, pendingResult, merchantResult] = await Promise.all([
+  const [ledgerResult, settlementResult, pendingResult, merchantResult, scheduleResult, volumeTierBonusBps] = await Promise.all([
     pool.query<{ net: string }>(
       `SELECT COALESCE(SUM(CASE WHEN direction = 'credit' THEN amount_fils ELSE -amount_fils END), 0) AS net
          FROM ledger_entries
@@ -302,8 +303,8 @@ export async function getReconciliationReport(
           AND status IN ('closed', 'paid')`,
       [input.merchantId, input.from, input.to],
     ),
-    pool.query<{ amount_fils: string | number }>(
-      `SELECT te.amount_fils
+    pool.query<{ amount_fils: string | number; occurred_at: Date }>(
+      `SELECT te.amount_fils, te.occurred_at
          FROM transaction_events te
          JOIN transactions t ON t.id = te.transaction_id
         WHERE t.merchant_id = $1 AND te.event_type IN ('captured', 'partially_captured')
@@ -315,17 +316,37 @@ export async function getReconciliationReport(
       `SELECT mdr_bps, negotiated_discount_bps FROM merchants WHERE id = $1`,
       [input.merchantId],
     ),
+    // Ascending, same tie-break as getEffectiveMdrBps (created_at last wins).
+    pool.query<{ mdr_bps: number; effective_from: Date }>(
+      `SELECT mdr_bps, effective_from FROM fee_schedules
+        WHERE merchant_id = $1
+        ORDER BY effective_from ASC, created_at ASC`,
+      [input.merchantId],
+    ),
+    getVolumeTierBonusBps(pool),
   ]);
 
-  // MK: merchants.mdr_bps is kept in sync with the current fee_schedules row by the 0046 trigger,
-  // so reading it here is the same as resolving the schedule
+  // BUG-054: this used merchants.mdr_bps directly, citing "the 0046
+  // trigger" that keeps it in sync with fee_schedules — no such trigger
+  // exists (0046 is settlement_batch_splits). Capture and CloseBatch both
+  // resolve the effective-dated schedule at the event's own time and subtract
+  // the volume-tier bonus, so the pending estimate does the same per event.
   const merchant = merchantResult.rows[0];
-  const mdrBps = merchant?.mdr_bps ?? 0;
+  const fallbackMdrBps = merchant?.mdr_bps ?? 0;
   const discountBps = merchant?.negotiated_discount_bps ?? 0;
+  const schedules = scheduleResult.rows;
 
   let pendingUnbatchedFils = 0;
   for (const row of pendingResult.rows) {
     const amountFils = Number(row.amount_fils);
+    let scheduledMdrBps = fallbackMdrBps;
+    for (let i = schedules.length - 1; i >= 0; i--) {
+      if (schedules[i]!.effective_from.getTime() <= row.occurred_at.getTime()) {
+        scheduledMdrBps = schedules[i]!.mdr_bps;
+        break;
+      }
+    }
+    const mdrBps = Math.max(0, scheduledMdrBps - volumeTierBonusBps);
     const feeFils = estimateFeeFils(amountFils, mdrBps, discountBps);
     pendingUnbatchedFils += amountFils - feeFils;
   }
