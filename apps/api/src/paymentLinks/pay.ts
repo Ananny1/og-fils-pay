@@ -139,8 +139,8 @@ async function authorizeCaptureAndFinalize(
 
   const txnId = (authResult.body as { id: string }).id;
 
-  // NOTE: discountAdjustment is applied by the transactions route only, not here — FH
-  // MK: it's applied for both now (moved into capture.ts in July)
+  // The merchant's negotiated discount is part of capture.ts's own fee
+  // calculation (BUG-036), so this path charges the same fee as settlement.
   // Step 3 — capture (full amount, immediately). amountFils omitted =>
   // capture the full remaining amount — always correct here, since this
   // transaction was just authorized for exactly link.amountFils and

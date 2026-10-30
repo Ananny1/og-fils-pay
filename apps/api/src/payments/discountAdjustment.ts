@@ -61,12 +61,17 @@ export async function applyCaptureDiscountAdjustment(
     const counts = countRow.rows[0];
     if (counts && Number(counts.adjustments) >= Number(counts.capture_events)) return;
 
-    const eventRow = await client.query<{ metadata: { feeFils?: number } }>(
+    const eventRow = await client.query<{ metadata: { feeFils?: number; discountBps?: number } }>(
       `SELECT metadata FROM transaction_events
         WHERE transaction_id = $1 AND event_type IN ('captured', 'partially_captured')
         ORDER BY occurred_at DESC, id DESC LIMIT 1`,
       [input.transactionId],
     );
+    // BUG-036: capture.ts now charges the discounted fee itself, in
+    // settlement's order, and records discountBps on the event. Rebating it
+    // again here would discount twice. Only legacy capture events (no
+    // discountBps in metadata) still get the after-the-fact adjustment.
+    if (eventRow.rows[0]?.metadata?.discountBps !== undefined) return;
     const feeBeforeDiscount = toFils(eventRow.rows[0]?.metadata?.feeFils ?? 0);
     if (feeBeforeDiscount <= 0) return;
 
