@@ -10,3 +10,4 @@ npm-debug.log*
 .env.*
 !ops/.env.docker.example
 .playwright-mcp/
+!ops/.env.prod.example

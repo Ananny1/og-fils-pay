@@ -1,0 +1,282 @@
+# FilsPay production stack for ONE server: 1 vCPU / 2 GB RAM.
+#
+#   cp ops/.env.prod.example ops/.env.prod      # then fill in every secret
+#   docker compose -f ops/docker-compose.prod.yml --env-file ops/.env.prod build
+#   docker compose -f ops/docker-compose.prod.yml --env-file ops/.env.prod up -d postgres
+#   docker compose -f ops/docker-compose.prod.yml --env-file ops/.env.prod run --rm migrate
+#   docker compose -f ops/docker-compose.prod.yml --env-file ops/.env.prod up -d
+#
+# Full steps (TLS included): docs/ops/DEPLOY.md. Behaviour under overload,
+# crash and DB restart: docs/ops/AVAILABILITY.md. Sizing: docs/ops/CAPACITY.md.
+#
+# Budget (hard limits; sum = 1.00 vCPU / 1.5 GB, leaving ~0.5 GB for the
+# OS, Docker and page cache):
+#
+#   service     cpus   memory   notes
+#   api         0.50   512M     the brief's fixed cap
+#   postgres    0.30   640M     shared_buffers 160MB, max_connections 60
+#   proxy       0.10    64M     nginx, 1 worker
+#   reporting   0.06   192M     background consumer
+#   settlement  0.04    96M     Go daemon, mostly idle
+#
+# Only the proxy publishes ports. Postgres and the settlement internal API
+# are reachable only on the private `backend` network.
+
+name: filspay
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+x-db-url: &db-url postgres://filspay:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in ops/.env.prod}@postgres:5432/filspay?sslmode=disable
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: filspay
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in ops/.env.prod}
+      POSTGRES_DB: filspay
+    # Tuned for a 640 MB container on a 2 GB box. Connection budget:
+    #   api 30 (+1 LISTEN) + reporting 3 (+1 LISTEN) + settlement 4
+    #   + migrate/seed 5 + 3 superuser-reserved = 47 of 60.
+    command:
+      - postgres
+      - -c
+      - max_connections=60
+      - -c
+      - shared_buffers=160MB
+      - -c
+      - effective_cache_size=512MB
+      - -c
+      - work_mem=4MB
+      - -c
+      - maintenance_work_mem=64MB
+      - -c
+      - wal_buffers=8MB
+      - -c
+      - checkpoint_completion_target=0.9
+      - -c
+      - max_wal_size=1GB
+      - -c
+      - random_page_cost=1.1
+      - -c
+      - effective_io_concurrency=100
+      # Durability is NOT traded for speed: every COMMIT is fsynced.
+      - -c
+      - synchronous_commit=on
+      - -c
+      - fsync=on
+      - -c
+      - full_page_writes=on
+      # Safety nets for a crashed client.
+      - -c
+      - idle_in_transaction_session_timeout=120s
+      - -c
+      - log_min_duration_statement=500ms
+      - -c
+      - log_lock_waits=on
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    shm_size: 128mb
+    networks: [backend]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U filspay -d filspay -h 127.0.0.1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 20s
+    stop_grace_period: 60s
+    deploy:
+      resources:
+        limits: { cpus: "0.30", memory: 640M }
+    logging: *logging
+
+  # One-off jobs: `docker compose ... run --rm migrate` (and `seed` only on a
+  # demo box — it truncates and regenerates data).
+  migrate:
+    build: &node-build
+      context: ..
+      dockerfile: ops/Dockerfile.node.prod
+    image: filspay-node:prod
+    profiles: [tools]
+    command: ["node", "--import", "tsx", "db/migrate.ts"]
+    env_file: ["${FILSPAY_ENV_FILE:-.env.prod}"]
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: *db-url
+    networks: [backend]
+    depends_on:
+      postgres: { condition: service_healthy }
+    deploy:
+      resources:
+        limits: { cpus: "0.50", memory: 384M }
+
+  seed:
+    image: filspay-node:prod
+    profiles: [tools]
+    command: ["node", "--import", "tsx", "db/seed/index.ts"]
+    env_file: ["${FILSPAY_ENV_FILE:-.env.prod}"]
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: *db-url
+    networks: [backend]
+    depends_on:
+      postgres: { condition: service_healthy }
+    deploy:
+      resources:
+        limits: { cpus: "0.50", memory: 512M }
+
+  api:
+    build: *node-build
+    image: filspay-node:prod
+    restart: unless-stopped
+    init: true   # tini as PID 1: forwards SIGTERM, reaps zombies
+    # Heap capped well under the 512 MB container limit: argon2 hashing
+    # (19 MiB each), sharp and Node's own buffers live outside the V8 heap.
+    command: ["node", "--max-old-space-size=320", "--import", "tsx", "apps/api/src/index.ts"]
+    env_file: ["${FILSPAY_ENV_FILE:-.env.prod}"]
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      DATABASE_URL: *db-url
+      SETTLEMENT_INTERNAL_URL: http://settlement:8091
+      KYC_UPLOAD_DIR: /app/data/kyc
+      TRUST_PROXY_HOPS: "1"
+      # Capacity settings (docs/ops/CAPACITY.md explains each number).
+      PG_POOL_MAX: ${API_PG_POOL_MAX:-30}
+      PG_POOL_CONNECTION_TIMEOUT_MS: "3000"
+      PG_STATEMENT_TIMEOUT_MS: "15000"
+      PG_IDLE_IN_TRANSACTION_TIMEOUT_MS: "30000"
+      MAX_IN_FLIGHT_REQUESTS: ${API_MAX_IN_FLIGHT:-40}
+      BODY_LIMIT_BYTES: "1048576"
+      HTTP_REQUEST_TIMEOUT_MS: "30000"
+      SHUTDOWN_TIMEOUT_MS: "25000"
+    volumes:
+      - kyc:/app/data/kyc
+    networks: [backend, edge]
+    depends_on:
+      postgres: { condition: service_healthy }
+    healthcheck:
+      # bash's /dev/tcp: no curl in the slim image, and spawning `node`
+      # every 10 s would cost ~40 MB and real CPU on a 0.5 vCPU budget.
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/3000 && printf 'GET /readyz HTTP/1.0\\r\\n\\r\\n' >&3 && head -1 <&3 | grep -q ' 200 '"]
+      interval: 10s
+      timeout: 4s
+      retries: 3
+      start_period: 40s
+    stop_grace_period: 30s   # > SHUTDOWN_TIMEOUT_MS
+    deploy:
+      resources:
+        limits: { cpus: "0.50", memory: 512M }
+    logging: *logging
+
+  settlement:
+    build:
+      context: ..
+      dockerfile: ops/Dockerfile.go
+    image: filspay-settlement:prod
+    restart: unless-stopped
+    init: true
+    command: ["./settlement", "daemon"]
+    env_file: ["${FILSPAY_ENV_FILE:-.env.prod}"]
+    environment:
+      DATABASE_URL: *db-url
+      SETTLEMENT_PG_POOL_MAX_CONNS: "4"
+    # No `ports:` — only the api reaches it, over the backend network.
+    networks: [backend]
+    depends_on:
+      postgres: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "nc", "-z", "127.0.0.1", "8091"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    stop_grace_period: 40s   # internal API drains for up to 30 s
+    deploy:
+      resources:
+        limits: { cpus: "0.04", memory: 96M }
+    logging: *logging
+
+  reporting:
+    image: filspay-node:prod
+    restart: unless-stopped
+    init: true
+    command: ["node", "--max-old-space-size=128", "--import", "tsx", "apps/reporting/src/index.ts", "worker"]
+    env_file: ["${FILSPAY_ENV_FILE:-.env.prod}"]
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: *db-url
+      PG_POOL_MAX: "3"
+    networks: [backend]
+    depends_on:
+      postgres: { condition: service_healthy }
+      api: { condition: service_started }   # same image; built once by api
+    # No healthcheck: no HTTP server. It exits on a fatal error and the
+    # restart policy brings it back; it resumes from the outbox on start.
+    stop_grace_period: 20s
+    deploy:
+      resources:
+        limits: { cpus: "0.06", memory: 192M }
+    logging: *logging
+
+  proxy:
+    build:
+      context: ..
+      dockerfile: ops/nginx/Dockerfile
+      args:
+        WEB_PUBLIC_URL: ${WEB_PUBLIC_URL:-http://localhost}
+    image: filspay-proxy:prod
+    restart: unless-stopped
+    environment:
+      TLS: ${TLS:-off}
+      WEB_DOMAIN: ${WEB_DOMAIN:-localhost}
+      ADMIN_DOMAIN: ${ADMIN_DOMAIN:-admin.localhost}
+      NGINX_API_RATE: ${NGINX_API_RATE:-20r/s}
+      NGINX_API_BURST: ${NGINX_API_BURST:-40}
+      NGINX_AUTH_RATE: ${NGINX_AUTH_RATE:-10r/m}
+      NGINX_AUTH_BURST: ${NGINX_AUTH_BURST:-5}
+      NGINX_CONN_PER_IP: ${NGINX_CONN_PER_IP:-30}
+    ports:
+      - "${PROXY_HTTP_PORT:-80}:80"
+      - "${PROXY_HTTPS_PORT:-443}:443"
+    volumes:
+      - letsencrypt:/etc/letsencrypt:ro
+      - acme:/var/www/acme:ro
+    networks: [edge]
+    depends_on:
+      api: { condition: service_started }
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/nginx-health"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+    deploy:
+      resources:
+        limits: { cpus: "0.10", memory: 64M }
+    logging: *logging
+
+  # Issues/renews the Let's Encrypt certificate (docs/ops/DEPLOY.md step 6).
+  certbot:
+    image: certbot/certbot:v2.11.0
+    profiles: [tools]
+    volumes:
+      - letsencrypt:/etc/letsencrypt
+      - acme:/var/www/acme
+
+networks:
+  # Postgres + settlement live only here; `internal` = no route to the
+  # internet and nothing published.
+  backend:
+    internal: true
+  edge: {}
+
+volumes:
+  pgdata:
+  kyc:
+  letsencrypt:
+  acme:

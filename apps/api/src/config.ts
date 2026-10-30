@@ -16,6 +16,32 @@ export interface Config {
   pgPoolMin: number;
   pgPoolIdleTimeoutMs: number;
   pgPoolConnectionTimeoutMs: number;
+  /** Server-side `statement_timeout` set on every pooled connection: a
+   *  runaway query is cancelled by Postgres instead of pinning a connection
+   *  (and a slot of the small pool) forever. 0 disables. */
+  pgStatementTimeoutMs: number;
+  /** Server-side `idle_in_transaction_session_timeout`: a connection left
+   *  in an open transaction (crashed handler, killed process) is closed by
+   *  Postgres so its row locks are released. 0 disables. */
+  pgIdleInTransactionTimeoutMs: number;
+
+  /** Overload guard (app.ts): at most this many requests are processed at
+   *  once; the rest get 503 + Retry-After immediately instead of queuing
+   *  behind a 0.5 vCPU event loop until they all time out. 0 disables. */
+  maxInFlightRequests: number;
+  /** Largest accepted request body (Fastify `bodyLimit`). Multipart
+   *  uploads have their own limit (kycMaxFileSizeBytes). */
+  bodyLimitBytes: number;
+  /** Node's `requestTimeout`: the whole request (headers + body) must
+   *  arrive within this, which stops slow-upload clients holding sockets. */
+  httpRequestTimeoutMs: number;
+  /** How many reverse-proxy hops to trust for the client IP
+   *  (X-Forwarded-For). 0 = trust none (direct exposure). Production runs
+   *  behind exactly one nginx, which overwrites X-Forwarded-For, so 1. */
+  trustProxyHops: number;
+  /** Hard cap on graceful shutdown (index.ts): after SIGTERM the process
+   *  exits even if something is stuck, before Docker's SIGKILL. */
+  shutdownTimeoutMs: number;
 
   sessionTtlHours: number;
   pendingSessionTtlMinutes: number;
@@ -221,6 +247,14 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     pgPoolMin: parseIntEnv(env.PG_POOL_MIN, 0),
     pgPoolIdleTimeoutMs: parseIntEnv(env.PG_POOL_IDLE_TIMEOUT_MS, 30_000),
     pgPoolConnectionTimeoutMs: parseIntEnv(env.PG_POOL_CONNECTION_TIMEOUT_MS, 5_000),
+    pgStatementTimeoutMs: parseIntEnv(env.PG_STATEMENT_TIMEOUT_MS, 30_000),
+    pgIdleInTransactionTimeoutMs: parseIntEnv(env.PG_IDLE_IN_TRANSACTION_TIMEOUT_MS, 60_000),
+
+    maxInFlightRequests: parseIntEnv(env.MAX_IN_FLIGHT_REQUESTS, 100),
+    bodyLimitBytes: parseIntEnv(env.BODY_LIMIT_BYTES, 1_048_576),
+    httpRequestTimeoutMs: parseIntEnv(env.HTTP_REQUEST_TIMEOUT_MS, 30_000),
+    trustProxyHops: parseIntEnv(env.TRUST_PROXY_HOPS, 0),
+    shutdownTimeoutMs: parseIntEnv(env.SHUTDOWN_TIMEOUT_MS, 25_000),
 
     sessionTtlHours: parseIntEnv(env.SESSION_TTL_HOURS, 12),
     pendingSessionTtlMinutes: parseIntEnv(env.PENDING_SESSION_TTL_MINUTES, 10),
