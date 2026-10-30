@@ -131,7 +131,7 @@ separate, optional decision.
 | ENH-005 | Rate limiting on login, OTP resend and pending-session lookups | BUG-011 | Slows brute force and resend abuse beyond the per-challenge attempt limit | Small middleware | 💡 (may become a bug if BUG-011 shows it's exploitable) |
 | ENH-006 | Per-service database roles + TLS to Postgres | D5, DEPLOY | Least privilege; one leaked service can't touch everything | Migration + compose | 💡 |
 | ENH-008 | **Email verification at signup** (confirm the owner email before the shop can log in) | BUG-037 | Stops anyone attaching someone else's email to a new shop; pairs with ENH-001 (email delivery) | Signup flow + token table + email | 💡 |
-| ENH-007 | Delete the now-unused `apps/api/src/auth/users.ts` (`findOtpRecipient`) | BUG-002 | A trap-shaped helper nobody calls | Tiny (a file deletion: Ebrahim to approve) | 💡 |
+| ENH-007 | Delete the now-unused `apps/api/src/auth/users.ts` (`findOtpRecipient`) | BUG-002 | A trap-shaped helper nobody calls | Tiny (a file deletion; approved 2026-10-30) | ✅ |
 
 ## Evidence coverage (every line of the 4 sheets → a task)
 
