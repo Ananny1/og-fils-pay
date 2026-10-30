@@ -44,8 +44,11 @@ function useCrumbs(): Array<{ label: string; to?: string }> {
 export function DashboardLayout() {
   const crumbs = useCrumbs();
   const { pathname } = useLocation();
+  // SidebarProvider writes this cookie when the sidebar is toggled; read it
+  // back so a collapsed sidebar stays collapsed after a refresh.
+  const defaultOpen = !document.cookie.includes("sidebar_state=false");
   return (
-    <SidebarProvider>
+    <SidebarProvider defaultOpen={defaultOpen}>
       <a
         href="#main"
         className="sr-only bg-primary px-3 py-2 text-primary-foreground focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50"
