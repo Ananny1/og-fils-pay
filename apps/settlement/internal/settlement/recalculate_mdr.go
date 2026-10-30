@@ -2,6 +2,7 @@ package settlement
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -47,6 +48,10 @@ type batchRow struct {
 // RecalculateMDR re-derives the fee on a merchant's closed, not-yet-paid
 // batches in [from, to) at the merchant's current terms and posts the
 // difference. Paid batches are skipped (BUG-018).
+// ErrMerchantNotFound is returned by RecalculateMDR when no merchant has the
+// given id (BUG-106), so the internal API can answer 404 instead of 500.
+var ErrMerchantNotFound = errors.New("settlement: merchant not found")
+
 func RecalculateMDR(ctx context.Context, db *pgxpool.Pool, merchantID uuid.UUID, from, to time.Time) (RecalcResult, error) {
 	tx, err := db.Begin(ctx)
 	if err != nil {
@@ -58,6 +63,9 @@ func RecalculateMDR(ctx context.Context, db *pgxpool.Pool, merchantID uuid.UUID,
 	err = tx.QueryRow(ctx, `SELECT mdr_bps, negotiated_discount_bps FROM merchants WHERE id = $1`, merchantID).
 		Scan(&mdrBps, &discountBps)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return RecalcResult{}, ErrMerchantNotFound
+		}
 		return RecalcResult{}, fmt.Errorf("settlement: RecalculateMDR: load merchant: %w", err)
 	}
 

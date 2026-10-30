@@ -317,9 +317,19 @@ func handleRecalculateMDR(pool *pgxpool.Pool) http.Handler {
 			writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid_to"})
 			return
 		}
+		// BUG-106: the range is half-open [from, to), so from >= to is empty
+		// or backwards: a caller mistake, refused rather than a silent no-op.
+		if !from.Before(to) {
+			writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid_range"})
+			return
+		}
 
 		result, err := settlement.RecalculateMDR(r.Context(), pool, merchantID, from, to)
 		if err != nil {
+			if errors.Is(err, settlement.ErrMerchantNotFound) {
+				writeJSON(w, http.StatusNotFound, errorResponse{Error: "merchant_not_found"})
+				return
+			}
 			log.Printf("settlement internal api: recalculate-mdr(%s) failed: %v", body.MerchantID, err)
 			writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "recalculate_mdr_failed"})
 			return
