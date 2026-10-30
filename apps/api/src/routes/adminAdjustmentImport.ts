@@ -55,7 +55,7 @@ export async function adminAdjustmentImportRoutes(app: FastifyInstance): Promise
 
       // am: no dry run and no idempotency key — uploading the same csv twice posts it twice
       // MK: finance checks the spreadsheet before uploading. fine for now
-      // FH: parseAdjustmentCsv handles 3dp BD amounts correctly (4.750 -> 4750 fils), Claude checked
+      // BUG-014: amounts are BD with up to 3 decimals, parsed with parseBhdToFils (4.75 -> 4750 fils)
       const rows = parseAdjustmentCsv(csvContent);
       for (const row of rows) {
         if (!UUID_RE.test(row.merchantId)) {
