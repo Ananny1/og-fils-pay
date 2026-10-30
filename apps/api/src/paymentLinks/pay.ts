@@ -8,7 +8,6 @@ export interface PayPaymentLinkInput {
   token: string;
   card: SimulatedCardInput;
   idempotencyKey: string;
-  submittedAt?: string;
 }
 
 export interface PayPaymentLinkResult {
@@ -29,12 +28,11 @@ interface LinkStatusRow {
   expires_at: Date;
 }
 
-/** A pay request is judged against when the buyer pressed pay, so a
- * retry that lands after midnight is not penalised. */
-export function expiryReferenceTime(submittedAt?: string): Date {
-  if (!submittedAt) return new Date();
-  const parsed = new Date(submittedAt);
-  return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+/** Expiry is always judged by the server's own clock. A client-supplied
+ * time (the old `submittedAt`) is ignored: this route is public, so any
+ * value the caller sends is under the payer's control (BUG-004). */
+export function expiryReferenceTime(_clientTime?: string): Date {
+  return new Date();
 }
 
 /**
@@ -57,7 +55,7 @@ export async function payPaymentLink(
   config: { paymentLinkReservationTimeoutSeconds: number },
   input: PayPaymentLinkInput,
 ): Promise<PayPaymentLinkResult> {
-  const expiryCheckTime = expiryReferenceTime(input.submittedAt);
+  const expiryCheckTime = expiryReferenceTime();
 
   // Step 1 — claim. A single UPDATE is already atomic; no explicit
   // transaction needed.
