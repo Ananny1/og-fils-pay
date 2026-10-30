@@ -5,11 +5,7 @@ import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { login, resendOtp, verifyOtp } from "../../api/dashboardAuth.js";
 import { ApiError, describeError } from "../../api/client.js";
 import { dateTime } from "../../format.js";
-import {
-  readLastMerchantId,
-  useDashboardAuth,
-  writeLastMerchantId,
-} from "../../auth/DashboardAuthContext.js";
+import { clearLastMerchantId, useDashboardAuth } from "../../auth/DashboardAuthContext.js";
 import type { DashboardLoginResponse } from "../../types.js";
 import AnimatedContent from "@/components/ui/AnimatedContent";
 import BlurText from "@/components/ui/BlurText";
@@ -61,8 +57,7 @@ const STEPS = [
  *
  * The Merchant ID field is a raw pasted UUID: `merchant_users.email` is
  * unique per merchant rather than globally, so an email alone cannot identify
- * a user. `localStorage` remembering the last-used value is the whole
- * mitigation available without new backend work.
+ * a user. It is not remembered between sign-ins: the form always starts empty.
  */
 export function LoginPage() {
   const { status, refresh } = useDashboardAuth();
@@ -71,8 +66,9 @@ export function LoginPage() {
   const { resolvedTheme } = useTheme();
 
   const [step, setStep] = useState<Step>({ kind: "credentials" });
-  // MK: remembers the last merchantId in localStorage. not a secret
-  const [merchantId, setMerchantId] = useState(() => readLastMerchantId());
+  // Every sign-in starts from an empty form: the Merchant ID is no longer
+  // remembered on the device (a shared computer must not pre-fill it).
+  const [merchantId, setMerchantId] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
@@ -93,6 +89,9 @@ export function LoginPage() {
     const id = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(id);
   }, [resendWaiting]);
+
+  // Browsers that used the old remember-me still hold an ID; forget it.
+  useEffect(() => clearLastMerchantId(), []);
 
   function startResendWait(): void {
     const t = Date.now();
@@ -148,7 +147,6 @@ export function LoginPage() {
     setErrorTitle("Sign-in failed");
     try {
       await verifyOtp({ code });
-      writeLastMerchantId(merchantId.trim());
       // The session cookie is now authenticated server-side; re-read `me` so
       // the rest of the dashboard renders from the server's answer, not from
       // the verify response we happen to be holding.
@@ -317,7 +315,7 @@ export function LoginPage() {
                             value={merchantId}
                             onChange={(e) => setMerchantId(e.target.value)}
                           />
-                          <FieldDescription>From your onboarding email. We remember it on this device.</FieldDescription>
+                          <FieldDescription>From your onboarding email.</FieldDescription>
                         </Field>
                         <Field>
                           <FieldLabel htmlFor="login-email">Email</FieldLabel>
