@@ -323,7 +323,7 @@ export function OverviewPage() {
                       <TableBody>
                         {volumes?.points.map((point) => (
                           <TableRow key={point.date}>
-                            <TableCell className="font-mono">{point.date}</TableCell>
+                            <TableCell className="whitespace-nowrap">{businessDate(point.date)}</TableCell>
                             <TableCell className="text-right font-mono tabular-nums">{formatCount(point.capturedCount)}</TableCell>
                             <TableCell className="text-right">
                               <Money fils={point.capturedGrossFils} />
@@ -380,7 +380,7 @@ export function OverviewPage() {
                               to={`/dashboard/settlement/${point.settlementBatchId}`}
                               className="font-medium text-foreground underline-offset-4 transition-colors hover:text-primary hover:underline"
                             >
-                              {point.batchDate}
+                              {businessDate(point.batchDate)}
                             </Link>
                           </TableCell>
                           <TableCell>

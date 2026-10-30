@@ -13,6 +13,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
+import { businessDate } from "../../format.js";
 import type { ReconciliationReport } from "../../types.js";
 
 /**
@@ -150,7 +151,7 @@ export function ReconciliationPage() {
                 <CheckCircle2 />
                 <AlertTitle>Everything adds up</AlertTitle>
                 <AlertDescription>
-                  From {report.periodFrom} up to {report.periodTo}, every fil you earned was either paid to
+                  From {businessDate(report.periodFrom)} up to {businessDate(report.periodTo)}, every fil you earned was either paid to
                   your bank or is on its way.
                 </AlertDescription>
               </Alert>
@@ -164,8 +165,8 @@ export function ReconciliationPage() {
                 </AlertTitle>
                 <AlertDescription>
                   {report.gapFils !== 0
-                    ? `Between ${report.periodFrom} and ${report.periodTo}, what you earned and what was paid out don't match. The difference above is exact, to the fil. Contact FilsPay support with these dates.`
-                    : `We can't check ${report.periodFrom} to ${report.periodTo} yet, probably because a payout is being worked out right now. Try again in a few minutes.`}
+                    ? `Between ${businessDate(report.periodFrom)} and ${businessDate(report.periodTo)}, what you earned and what was paid out don't match. The difference above is exact, to the fil. Contact FilsPay support with these dates.`
+                    : `We can't check ${businessDate(report.periodFrom)} to ${businessDate(report.periodTo)} yet, probably because a payout is being worked out right now. Try again in a few minutes.`}
                 </AlertDescription>
               </Alert>
             )}

@@ -18,7 +18,7 @@ import { TableSkeleton } from "@/components/dashboard/table-skeleton";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { dash, dateTime } from "../../format.js";
+import { businessDate, dash, dateTime } from "../../format.js";
 import type { SettlementBatchDetailDto, SettlementBatchTransactionDto } from "../../types.js";
 
 type LoadState =
@@ -155,11 +155,11 @@ export function SettlementBatchDetailPage() {
   return (
     <>
       <PageHeader
-        title={`Settlement batch ${batch.batchDate}`}
+        title={`Settlement batch ${businessDate(batch.batchDate)}`}
         description={
           <span className="inline-flex flex-wrap items-center gap-2">
             <StatusBadge status={batch.status} />
-            <span>Bahrain business date {batch.batchDate}</span>
+            <span>Bahrain business date {businessDate(batch.batchDate)}</span>
           </span>
         }
         actions={<BackButton />}
@@ -193,7 +193,7 @@ export function SettlementBatchDetailPage() {
               </span>
             </DetailRow>
             <DetailRow label="Batch date">
-              <span className="font-mono">{batch.batchDate}</span>
+              <span>{businessDate(batch.batchDate)}</span>
             </DetailRow>
             <DetailRow label="Status">
               <StatusBadge status={batch.status} />
