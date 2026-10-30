@@ -34,6 +34,13 @@ interface TransactionReportQueryRow {
   occurred_at: Date;
 }
 
+/** BUG-089: a plain `YYYY-MM-DD` is a Bahrain business day (starts 21:00 UTC
+ *  the day before); Postgres would read it as UTC midnight. Full timestamps
+ *  carry their own offset and pass through unchanged. */
+function bahrainDayBoundary(value: string): string {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T00:00:00+03:00` : value;
+}
+
 export async function runTransactionsReport(
   pool: Pool,
   filter: TransactionReportFilter,
@@ -45,11 +52,11 @@ export async function runTransactionsReport(
     conditions.push(`status = $${params.length}`);
   }
   if (filter.from) {
-    params.push(filter.from);
+    params.push(bahrainDayBoundary(filter.from));
     conditions.push(`occurred_at >= $${params.length}`);
   }
   if (filter.to) {
-    params.push(filter.to);
+    params.push(bahrainDayBoundary(filter.to));
     conditions.push(`occurred_at < $${params.length}`);
   }
 
