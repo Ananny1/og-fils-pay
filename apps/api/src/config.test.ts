@@ -49,3 +49,20 @@ test("production refuses to boot with OTP_DEV_EXPOSE turned on", () => {
     /OTP_DEV_EXPOSE/,
   );
 });
+
+test("SMTP is off unless SMTP_HOST is set, and its settings are read when it is (ENH-001)", () => {
+  assert.equal(loadConfig({ DATABASE_URL }).smtpHost, "");
+  const config = loadConfig({
+    DATABASE_URL,
+    SMTP_HOST: "smtp.gmail.com",
+    SMTP_PORT: "465",
+    SMTP_SECURE: "true",
+    SMTP_USER: "sender@example.test",
+    MAIL_FROM: "FilsPay <sender@example.test>",
+  });
+  assert.equal(config.smtpHost, "smtp.gmail.com");
+  assert.equal(config.smtpPort, 465);
+  assert.equal(config.smtpSecure, true);
+  assert.equal(config.smtpUser, "sender@example.test");
+  assert.equal(config.mailFrom, "FilsPay <sender@example.test>");
+});

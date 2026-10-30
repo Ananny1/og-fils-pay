@@ -6,8 +6,8 @@
 | **Area** | Security · UX |
 | **Related** | BUG-031 (the code no longer appears in the reply or the logs), ENH-008 (email verification at signup), ENH-002 (authenticator app) |
 | **Approved by** | Ebrahim, 2026-10-30: add as an enhancement, after the required bug fixes |
-| **Commit** | — |
-| **Status** | ✔️ approved (after Tiers 2–6) |
+| **Commit** | `feat(ENH-001): send the login OTP by email over SMTP` |
+| **Status** | ✅ done (2026-10-30; hosted Gmail check still to do) |
 
 ## Summary
 
@@ -57,19 +57,52 @@ at any time without changing the Gmail password.
 
 | File | Change |
 |---|---|
-| `apps/api/package.json` | Add `nodemailer` |
-| `apps/api/src/config.ts` | Optional `SMTP_*` / `MAIL_FROM` settings; no SMTP host configured = today's behaviour (log only) |
-| `apps/api/src/lib/mail.ts` (new) | `sendMail()`, the VirtuThinko pattern |
-| `apps/api/src/auth/notifier.ts`, `adminAuth/notifier.ts` | Email the code when SMTP is configured (never log it) |
-| `ops/docker-compose.yml` | `mailpit` service (ports 1025 / 8025) for local runs |
-| `ops/.env.dev` | `SMTP_HOST=mailpit`, `SMTP_PORT=1025` |
-| `ops/.env.docker.example` | `smtp.gmail.com`, `465`, `SMTP_SECURE=true`, empty user / password placeholders |
+| `apps/api/package.json`, `package-lock.json` | Add `nodemailer` 6.9.16 and `@types/nodemailer` 6.4.17 (exact versions; lock file made with the image's npm) |
+| `apps/api/src/config.ts` | Optional `SMTP_HOST`, `SMTP_PORT` (default 587), `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD`, `MAIL_FROM`. No `SMTP_HOST` = today's behaviour (log only) |
+| `apps/api/src/index.ts` | In production with no `SMTP_HOST`: a loud warning at boot ("nobody can log in"). Not fatal: checkout and API keys still work |
+| `apps/api/src/lib/mail.ts` (new) | `sendMail()`, the VirtuThinko pattern. One transport per process, made on first send (nodemailer is loaded only then). `requireTLS` in production. Connect, greeting and socket timeouts plus an overall limit of 10 s per send |
+| `apps/api/src/auth/notifier.ts`, `adminAuth/notifier.ts` | Now `async`. When `SMTP_HOST` is set: email the code to the user (code, how many minutes it is valid (`OTP_TTL_MINUTES` / `ADMIN_OTP_TTL_MINUTES`, default 5), "if this wasn't you, ignore this email"). A failed or slow send is logged without the code and never thrown, so the login still answers and the user can press "resend". The `OTP_DEV_EXPOSE` log line is unchanged |
+| `apps/api/src/routes/auth.ts`, `routes/adminAuth.ts` | `await` the notifier (login and resend) |
+| `ops/docker-compose.yml` | `mailpit` service (`axllent/mailpit:v1.21`, inbox at http://localhost:8025, SMTP 1025 on the compose network only); `api` starts after it |
+| `ops/.env.dev` | `SMTP_HOST=mailpit`, `SMTP_PORT=1025`, `SMTP_SECURE=false`, `MAIL_FROM` |
+| `ops/.env.docker.example`, `ops/.env.prod.example` | Gmail values: `smtp.gmail.com`, `465`, `SMTP_SECURE=true`, empty `SMTP_USER` / `SMTP_PASSWORD` ("Gmail app password; never commit"), `MAIL_FROM` |
 
-## 6. Proof (to do)
+`ops/docker-compose.prod.yml` needs no change: every service there reads `ops/.env.prod` through `env_file`.
 
-- Unit test: with SMTP set, the notifier sends one email with the code and logs no code.
-- Real run: log in locally and see the code in Mailpit at :8025.
-- Hosted: log in and receive the code in a real inbox.
+**Hosted box settings** (in the env file that is never committed: `ops/.env.prod` for the prod stack, `ops/.env.docker` for the laptop-style stack):
+
+| Variable | Value |
+|---|---|
+| `SMTP_HOST` | `smtp.gmail.com` |
+| `SMTP_PORT` | `465` |
+| `SMTP_SECURE` | `true` |
+| `SMTP_USER` | the Gmail address that sends the codes |
+| `SMTP_PASSWORD` | that account's 16-character app password |
+| `MAIL_FROM` | `FilsPay <the same Gmail address>` (Gmail rewrites any other sender) |
+
+With the laptop-style stack, `ops/.env.dev` sets `SMTP_HOST=mailpit`, so a hosted `ops/.env.docker` **must** set `SMTP_HOST` itself, or the codes go to the local Mailpit.
+
+## 6. Proof
+
+**Tests** (`npm test` on its own database): api suite **442/442** (435 before + 7 new); all other suites green; `npm run typecheck` clean.
+
+| Test | Shows |
+|---|---|
+| `auth/notifier.test.ts` (4 new) | With SMTP set, the merchant and the admin notifier each send exactly one mail, to the right address, containing the code, and log no code. Without `SMTP_HOST` nothing is sent. A failing send is logged (without the code), not thrown |
+| `routes/auth.otpEmail.test.ts` (new, 2) | SMTP pointing at a closed port (real nodemailer, real DB): merchant and admin login still answer 200 |
+| `config.test.ts` (1 new) | SMTP is off by default; the settings are read when set |
+
+**Real run** (one-off Mailpit + one-off api on port 3201, `OTP_DEV_EXPOSE=false`, seeded owner of Delta Wholesale):
+
+| Step | Result |
+|---|---|
+| `POST /v1/auth/login` | 200 `{"otpRequired":true,...}`, no `devOtpCode` |
+| Mailpit API | 1 message, from `no-reply@filspay.local` to `owner@deltawholesale.example`, subject "Your FilsPay login code", body "Your FilsPay login code is: 707745 · It is valid for 5 minutes. · If this wasn't you, ignore this email and change your password." |
+| `POST /v1/auth/otp/verify` with that code | 200 `{"authenticated":true,...}`; then `GET /v1/auth/me` 200 |
+| api log | `otp code generated`, without the code (0 log lines contain it) |
+| Mailpit stopped, login again | 200 after 10.07 s; log `otp email not sent: mail send timed out after 10000 ms` |
+
+**Still to do:** hosted run with the Gmail app password, receiving the code in a real inbox.
 
 ## 7. Follow-ups
 

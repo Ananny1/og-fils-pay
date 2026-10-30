@@ -105,6 +105,17 @@ services:
     depends_on:
       migrate:
         condition: service_completed_successfully
+      mailpit:
+        condition: service_started
+
+  # Fake inbox for local runs (ENH-001): the api sends login codes here over
+  # SMTP (port 1025, compose network only). Read them at http://localhost:8025.
+  # No email leaves the laptop. A hosted box points SMTP_HOST at a real server
+  # in ops/.env.docker instead.
+  mailpit:
+    image: axllent/mailpit:v1.21
+    ports:
+      - "127.0.0.1:8025:8025"
 
   settlement:
     build:

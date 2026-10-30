@@ -88,7 +88,7 @@ export async function adminAuthRoutes(app: FastifyInstance): Promise<void> {
       return { code: challenge.code, expiresAt: challenge.expiresAt, rawToken: session.rawToken };
     });
 
-    sendAdminOtpCode(request.log, app.config, { adminUserId: user.id, email: user.email }, code);
+    await sendAdminOtpCode(request.log, app.config, { adminUserId: user.id, email: user.email }, code);
 
     reply.setCookie(app.config.adminCookieName, rawToken, {
       httpOnly: true,

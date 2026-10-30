@@ -30,6 +30,17 @@ export interface Config {
   otpMaxAttempts: number;
   otpDevExpose: boolean;
 
+  /** OTP delivery by email (ENH-001). Empty `smtpHost` = no email is sent;
+   *  the notifiers only log, as before. Locally this is Mailpit; hosted, an
+   *  SMTP server such as Gmail with an app password. */
+  smtpHost: string;
+  smtpPort: number;
+  /** true = TLS from the first byte (port 465); false = plain/STARTTLS (587, 1025). */
+  smtpSecure: boolean;
+  smtpUser: string;
+  smtpPassword: string;
+  mailFrom: string;
+
   argon2MemoryKib: number;
   argon2TimeCost: number;
   argon2Parallelism: number;
@@ -226,6 +237,13 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     otpCodeLength: parseIntEnv(env.OTP_CODE_LENGTH, 6),
     otpMaxAttempts: parseIntEnv(env.OTP_MAX_ATTEMPTS, 5),
     otpDevExpose,
+
+    smtpHost: env.SMTP_HOST ?? "",
+    smtpPort: parseIntEnv(env.SMTP_PORT, 587),
+    smtpSecure: parseBoolEnv(env.SMTP_SECURE, false),
+    smtpUser: env.SMTP_USER ?? "",
+    smtpPassword: env.SMTP_PASSWORD ?? "",
+    mailFrom: env.MAIL_FROM || "FilsPay <no-reply@filspay.local>",
 
     argon2MemoryKib: parseIntEnv(env.ARGON2_MEMORY_KIB, 19_456),
     argon2TimeCost: parseIntEnv(env.ARGON2_TIME_COST, 2),
