@@ -55,7 +55,7 @@ export function FilterChips<T extends string>({
             <Button
               variant="outline"
               className={cn(
-                "h-9 w-52 justify-between gap-2 bg-background px-3 font-normal shadow-xs dark:bg-input/20",
+                "h-9 w-52 justify-between gap-2 border-input bg-background px-3 text-sm font-normal normal-case tracking-normal shadow-xs hover:border-foreground/20 hover:bg-background hover:text-foreground dark:bg-input/20 dark:hover:bg-input/20",
                 selected.length > 0 && "border-primary/40 bg-primary/[0.04]",
               )}
             />
