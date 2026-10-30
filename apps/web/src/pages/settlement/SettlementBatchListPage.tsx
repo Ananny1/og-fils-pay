@@ -200,8 +200,8 @@ export function SettlementBatchListPage() {
                   <TableHead className="text-right">Gross</TableHead>
                   <TableHead className="text-right">Fee</TableHead>
                   <TableHead className="text-right">Net payout</TableHead>
-                  <TableHead>Closed</TableHead>
-                  <TableHead>Paid</TableHead>
+                  <TableHead className="hidden md:table-cell">Closed</TableHead>
+                  <TableHead className="hidden md:table-cell">Paid</TableHead>
                 </TableRow>
               </TableHeader>
               {initialLoading ? (
@@ -230,8 +230,8 @@ export function SettlementBatchListPage() {
                       <TableCell className="text-right">
                         <Money fils={batch.netPayoutFils} className="font-medium" />
                       </TableCell>
-                      <TableCell className="text-muted-foreground">{dateTime(batch.closedAt)}</TableCell>
-                      <TableCell className="text-muted-foreground">{dateTime(batch.paidAt)}</TableCell>
+                      <TableCell className="hidden text-muted-foreground md:table-cell">{dateTime(batch.closedAt)}</TableCell>
+                      <TableCell className="hidden text-muted-foreground md:table-cell">{dateTime(batch.paidAt)}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

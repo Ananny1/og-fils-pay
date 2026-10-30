@@ -203,11 +203,11 @@ export function TransactionListPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Occurred</TableHead>
-                  <TableHead>Reference</TableHead>
+                  <TableHead className="hidden md:table-cell">Reference</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Authorized</TableHead>
                   <TableHead className="text-right">Captured</TableHead>
-                  <TableHead>Acquirer ref</TableHead>
+                  <TableHead className="hidden md:table-cell">Acquirer ref</TableHead>
                 </TableRow>
               </TableHeader>
               {initialLoading ? (
@@ -224,7 +224,7 @@ export function TransactionListPage() {
                           {dateTime(txn.occurredAt)}
                         </Link>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden md:table-cell">
                         <span className="font-mono text-xs">{dash(txn.reference)}</span>
                       </TableCell>
                       <TableCell>
@@ -236,7 +236,7 @@ export function TransactionListPage() {
                       <TableCell className="text-right tabular-nums">
                         <Money fils={txn.capturedFils} />
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden md:table-cell">
                         <span className="inline-flex items-center gap-1">
                           <span className="font-mono text-xs" title={txn.acquirerReference}>
                             {truncateMiddle(txn.acquirerReference, 20)}
