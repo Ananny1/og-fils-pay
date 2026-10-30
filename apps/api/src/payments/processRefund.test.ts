@@ -18,6 +18,7 @@ import { issueApiKey } from "../apiKeys/issue.js";
 import { recordKycReview } from "../onboarding/review.js";
 import type { AcquirerOutcome, AcquirerRefundResult, AcquirerSimulator } from "../acquirer/types.js";
 import { processRefund } from "./processRefund.js";
+import { initiateMerchantRefund } from "../refunds/initiateMerchantRefund.js";
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) {
@@ -479,4 +480,45 @@ test("unknown transaction ids answer 404", async () => {
   });
   assert.equal(result.statusCode, 404);
   assert.deepEqual(result.body, { error: "transaction_not_found" });
+});
+
+// BUG-036 (R3): the transaction is looked up by id only, so a merchant can
+// refund another merchant's sale by sending its id.
+test("refunding another merchant's transaction answers 404 and moves no money", async () => {
+  const victim = await createApprovedMerchantWithApiKey("refund-idor-victim");
+  const attacker = await createApprovedMerchantWithApiKey("refund-idor-attacker");
+  const txn = await capturedTransaction(victim.rawKey, 6_000);
+  const attackerActor = await apiKeyActor(attacker.merchantId);
+
+  const direct = await processRefund(pool, approvingAcquirer, {
+    transactionId: txn.id,
+    merchantId: attacker.merchantId,
+    amountFils: toFils(6_000),
+    idempotencyKey: randomUUID(),
+    actor: attackerActor,
+  });
+  assert.equal(direct.statusCode, 404, JSON.stringify(direct.body));
+
+  await assert.rejects(
+    initiateMerchantRefund(pool, approvingAcquirer, {
+      merchantId: attacker.merchantId,
+      transactionId: txn.id,
+      amountFils: toFils(6_000),
+      idempotencyKey: randomUUID(),
+      actor: attackerActor,
+    }),
+    (err: Error) => err.message === "transaction_not_found",
+  );
+
+  const refunds = await pool.query<{ c: number }>(
+    `SELECT COUNT(*)::int AS c FROM refunds WHERE transaction_id = $1`,
+    [txn.id],
+  );
+  assert.equal(refunds.rows[0]!.c, 0);
+  const row = await pool.query<{ status: string; refunded_fils: string }>(
+    `SELECT status, refunded_fils FROM transactions WHERE id = $1`,
+    [txn.id],
+  );
+  assert.equal(row.rows[0]!.status, "captured");
+  assert.equal(Number(row.rows[0]!.refunded_fils), 0);
 });
