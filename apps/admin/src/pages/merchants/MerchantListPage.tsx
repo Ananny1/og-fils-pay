@@ -8,6 +8,7 @@ import { date } from "../../format.js";
 import type { AdminMerchantSummary, MerchantOnboardingStatus } from "../../types.js";
 import { CheckedForm } from "../../components/CheckedForm.js";
 import { openRowLink } from "../../rowLink.js";
+import { visibleSelection } from "../../selection.js";
 
 const ONBOARDING_STATUSES: MerchantOnboardingStatus[] = [
   "submitted",
@@ -79,9 +80,12 @@ export function MerchantListPage() {
    *  search/status filters. */
   function toggleSelectAllLoaded(): void {
     setSelectedIds((previous) =>
-      previous.size === merchants.length ? new Set() : new Set(merchants.map((m) => m.id)),
+      visibleSelection(previous, merchants).length === merchants.length ? new Set() : new Set(merchants.map((m) => m.id)),
     );
   }
+
+  // Only the ticked rows still on screen (BUG-094), not ticks from an earlier search.
+  const selectedVisible = visibleSelection(selectedIds, merchants);
 
   // only approves the under_review ones (filtered) — am
   // FH: sends every selected id, the server doesn't check status
@@ -90,7 +94,7 @@ export function MerchantListPage() {
     setError(null);
     setBulkNotice(null);
     try {
-      const result = await bulkApproveKyc([...selectedIds]);
+      const result = await bulkApproveKyc(selectedVisible);
       setBulkNotice(`Approved KYC for ${result.approvedCount} merchant(s).`);
       setSelectedIds(new Set());
       await load(null);
@@ -101,7 +105,7 @@ export function MerchantListPage() {
     }
   }
 
-  const allLoadedSelected = merchants.length > 0 && selectedIds.size === merchants.length;
+  const allLoadedSelected = merchants.length > 0 && selectedVisible.length === merchants.length;
 
   return (
     <section>
@@ -143,9 +147,9 @@ export function MerchantListPage() {
       {error ? <p className="admin-error">{error}</p> : null}
       {bulkNotice ? <p className="admin-muted">{bulkNotice}</p> : null}
 
-      {selectedIds.size > 0 ? (
+      {selectedVisible.length > 0 ? (
         <div className="admin-form admin-form-inline">
-          <span>{selectedIds.size} selected</span>
+          <span>{selectedVisible.length} selected</span>
           <RequireRole allow={["finance", "super_admin"]}>
             <button type="button" disabled={bulkBusy} onClick={() => void approveSelected()}>
               Bulk approve KYC
