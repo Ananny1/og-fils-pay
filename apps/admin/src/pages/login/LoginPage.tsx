@@ -18,7 +18,7 @@ type Step =
  * repeats it verbatim rather than guessing at something more specific.
  */
 export function LoginPage() {
-  const { status, refresh } = useAdminAuth();
+  const { status, reason, refresh } = useAdminAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -76,6 +76,9 @@ export function LoginPage() {
       <h1>FilsPay Admin</h1>
       <p className="admin-muted">Internal operations console.</p>
 
+      {reason === "expired" && !error && step.kind === "credentials" ? (
+        <p className="admin-notice" role="status">Your session ended. Please sign in again.</p>
+      ) : null}
       {error ? <p className="admin-error">{error}</p> : null}
 
       {step.kind === "credentials" ? (

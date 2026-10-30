@@ -37,6 +37,15 @@ export class ApiError extends Error {
  * start/end impersonation), and Fastify rejects a request that declares a
  * JSON content type while carrying an empty body (`FST_ERR_CTP_EMPTY_JSON_BODY`).
  */
+/** Called on a `401` from any non-auth route: the session ended (expired,
+ *  revoked, logged out elsewhere). AdminAuthContext registers it to drop back
+ *  to the login screen instead of leaving a dead page. */
+let onUnauthorized: (() => void) | null = null;
+
+export function setUnauthorizedHandler(handler: (() => void) | null): void {
+  onUnauthorized = handler;
+}
+
 export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const hasBody = init?.body !== undefined && init.body !== null;
   const res = await fetch(`${API_BASE_URL}${path}`, {
@@ -48,6 +57,9 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   });
   const body = await res.json().catch(() => null);
   if (!res.ok) {
+    if (res.status === 401 && !path.startsWith("/v1/admin/auth/")) {
+      onUnauthorized?.();
+    }
     throw new ApiError(res.status, (body as ApiErrorBody) ?? { error: "unknown_error" });
   }
   return body as T;
@@ -63,12 +75,29 @@ export async function requestNoContent(path: string, init?: RequestInit): Promis
 /** Human-readable text for anything thrown by `request` — used by every
  *  page's error banner so a failure (including a server-side `403` from a
  *  role gate) is always *shown*, never silently swallowed. */
+const AUTH_MESSAGES: Record<string, string> = {
+  invalid_credentials: "Email or password is wrong.",
+  invalid_code: "That code is not right. Check it and try again.",
+  otp_expired: "That code has expired. Go back and sign in again to get a new one.",
+  resend_too_soon: "Please wait a moment before asking for another code.",
+  no_pending_session: "Your sign-in timed out. Go back and enter your email and password again.",
+  unauthenticated: "Your session ended. Please sign in again.",
+};
+
 export function describeError(err: unknown): string {
   if (err instanceof ApiError) {
     if (err.statusCode === 403) {
       return `Not permitted (${err.code}) — your admin role does not allow this action.`;
     }
+    const known = AUTH_MESSAGES[err.code];
+    if (known) return known;
+    if (err.statusCode === 429) return "Too many requests. Wait a minute and try again.";
+    if (err.statusCode >= 500) return "FilsPay had a problem on its side. Try again in a moment.";
     return err.body.message ?? err.code;
+  }
+  // fetch() rejects with a TypeError when the network or the API is down.
+  if (err instanceof TypeError) {
+    return "Can't reach FilsPay right now. Check your connection and try again.";
   }
   if (err instanceof Error) return err.message;
   return "Something went wrong.";

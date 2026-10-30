@@ -1,6 +1,7 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { logout as logoutRequest, me as fetchMe } from "../api/auth.js";
+import { setUnauthorizedHandler } from "../api/client.js";
 import {
   clearActiveImpersonation,
   endImpersonation,
@@ -14,6 +15,8 @@ export type AdminAuthStatus = "loading" | "authenticated" | "anonymous";
 
 export interface AdminAuthValue {
   status: AdminAuthStatus;
+  /** "expired" when the console was signed out by a 401 mid-session. */
+  reason: "expired" | null;
   /** Non-null exactly when `status === "authenticated"`. */
   admin: AdminMe | null;
   /** Re-runs `GET /v1/admin/auth/me` — called after a successful OTP step. */
@@ -41,6 +44,9 @@ const AdminAuthReactContext = createContext<AdminAuthValue | null>(null);
 export function AdminAuthProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<AdminAuthStatus>("loading");
   const [admin, setAdmin] = useState<AdminMe | null>(null);
+  const [reason, setReason] = useState<"expired" | null>(null);
+  const statusRef = useRef(status);
+  statusRef.current = status;
   const [impersonation, setImpersonation] = useState<ActiveImpersonation | null>(() =>
     readActiveImpersonation(),
   );
@@ -49,6 +55,7 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
     try {
       const current = await fetchMe();
       setAdmin(current);
+      setReason(null);
       setStatus("authenticated");
     } catch {
       // Any failure — 401, a revoked session, the API being down — lands the
@@ -61,6 +68,17 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  // A 401 from any admin route mid-session: go back to the login screen
+  // (RequireAdminAuth redirects) and say why, instead of a dead page.
+  useEffect(() => {
+    setUnauthorizedHandler(() => {
+      if (statusRef.current === "authenticated") setReason("expired");
+      setAdmin(null);
+      setStatus("anonymous");
+    });
+    return () => setUnauthorizedHandler(null);
+  }, []);
 
   // An impersonation grant has a short, server-enforced lifetime
   // (config.impersonationTtlMinutes, default 15). Re-read the local record
@@ -108,6 +126,7 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
   const value = useMemo<AdminAuthValue>(
     () => ({
       status,
+      reason,
       admin,
       refresh,
       signOut,
@@ -115,7 +134,7 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
       rememberImpersonation,
       exitImpersonation,
     }),
-    [status, admin, refresh, signOut, impersonation, rememberImpersonation, exitImpersonation],
+    [status, reason, admin, refresh, signOut, impersonation, rememberImpersonation, exitImpersonation],
   );
 
   return <AdminAuthReactContext.Provider value={value}>{children}</AdminAuthReactContext.Provider>;
