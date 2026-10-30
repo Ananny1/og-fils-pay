@@ -103,8 +103,11 @@ export function verifySignature(
   const parsed = parseSignatureHeader(header);
   if (!parsed) return { valid: false, reason: "malformed_header" };
 
+  // A receiver verifies the raw body it got (BUG-023): a string is used as
+  // the exact bytes; an object is serialised the way the dispatcher sends it.
+  const body = typeof payload === "string" ? payload : canonicalJson(payload);
   const expected = createHmac("sha256", secret)
-    .update(`${parsed.timestamp}.${canonicalJson(payload)}`)
+    .update(`${parsed.timestamp}.${body}`)
     .digest("hex");
 
   if (!timingSafeEqualHex(expected, parsed.signature)) {

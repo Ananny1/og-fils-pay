@@ -9,7 +9,7 @@ import (
 // Postgres. The tier threshold (2,000,000,000 fils) sits 7% below int32 max
 // (2,147,483,647), so the counter wraps negative soon after the tier is
 // reached and the bonus silently switches off again.
-func TestRecordPlatformProcessedVolume_PastInt32Max(t *testing.T) {
+func TestRecordPlatformProcessedVolume_PastInt32Max_Fix(t *testing.T) {
 	pool := mustPool(t)
 	ctx := context.Background()
 

@@ -160,7 +160,11 @@ test("BUG-005: slow first capture outlives the reservation -> second payer canno
   assert.equal(captured[0]!.id, ok.transactionId);
 });
 
-test("BUG-005: slow first authorize outlives the reservation -> late payer is refused and its hold voided", async () => {
+test("BUG-005: while a slow first payment is in progress, a second payer is refused at once and only one charge happens", async () => {
+  // Merged design (one connection + a non-waiting lock per link): the second
+  // payer never starts a second card authorization, so there is no stray hold
+  // to void. (Sayed's original version of this test checked a takeover after
+  // the reservation timed out, which this design never allows.)
   const { merchantId, link } = await createMerchantWithLink(8_000);
   const acquirer = slowAcquirer({ op: "authorize", callIndex: 0, ms: 2_500 });
 
@@ -170,28 +174,28 @@ test("BUG-005: slow first authorize outlives the reservation -> late payer is re
     idempotencyKey: randomUUID(),
   });
   await sleep(1_300);
+  const started = Date.now();
   const second = await payPaymentLink(pool, acquirer, SHORT_RESERVATION, {
     token: link.token,
     card: APPROVED_CARD,
     idempotencyKey: randomUUID(),
   });
-  assert.equal(second.statusCode, 200, JSON.stringify(second.body));
-  const late = await first;
-  assert.equal(late.statusCode, 409, JSON.stringify(late.body));
+  assert.equal(second.statusCode, 409, JSON.stringify(second.body));
+  assert.ok(Date.now() - started < 1_000, "refused at once, not after waiting");
+  const firstResult = await first;
+  assert.equal(firstResult.statusCode, 200, JSON.stringify(firstResult.body));
 
   const captured = await capturedTransactions(merchantId);
   assert.equal(captured.length, 1);
-  assert.equal(captured[0]!.id, (second.body as { transactionId: string }).transactionId);
+  assert.equal(captured[0]!.id, (firstResult.body as { transactionId: string }).transactionId);
 
-  // The late payer's authorization must not leave a hold on their card.
-  const leftover = await pool.query<{ status: string; hold_status: string }>(
-    `SELECT t.status, h.status AS hold_status FROM transactions t JOIN holds h ON h.transaction_id = t.id
-      WHERE t.merchant_id = $1 AND t.captured_fils = 0`,
+  // No authorization was started for the refused payer: no hold on their card.
+  const leftover = await pool.query(
+    `SELECT 1 FROM transactions t JOIN holds h ON h.transaction_id = t.id
+      WHERE t.merchant_id = $1 AND t.captured_fils = 0 AND h.status = 'active'`,
     [merchantId],
   );
-  assert.equal(leftover.rows.length, 1);
-  assert.equal(leftover.rows[0]!.status, "voided");
-  assert.equal(leftover.rows[0]!.hold_status, "released");
+  assert.equal(leftover.rows.length, 0);
 });
 
 test("BUG-005: the database itself refuses a second captured transaction for one link", async () => {

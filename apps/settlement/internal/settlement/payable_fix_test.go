@@ -8,7 +8,7 @@ import (
 
 // BUG-021: net payout went through float32 (24-bit mantissa), so any batch
 // above ~16,777 BD lost fils.
-func TestNetPayableFils_ExactForLargeBatches(t *testing.T) {
+func TestNetPayableFils_ExactForLargeBatches_Fix(t *testing.T) {
 	cases := []struct{ gross, fee money.Fils }{
 		{20_000_001, 500_000},
 		{16_777_217, 0},

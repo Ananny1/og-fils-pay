@@ -57,7 +57,8 @@ export type DispatcherConfig = Pick<
 export function backoffDelayMs(
   attemptNumber: number,
   config: Pick<Config, "webhookBackoffBaseMs" | "webhookBackoffCapMs">,
-  jitter: () => number = Math.random,
+  // Exact documented schedule by default; pass Math.random for ±10 % jitter.
+  jitter: () => number = () => 0.5,
 ): number {
   const raw = config.webhookBackoffBaseMs * 2 ** (attemptNumber - 1);
   const capped = Math.min(raw, config.webhookBackoffCapMs);

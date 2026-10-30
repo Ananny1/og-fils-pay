@@ -31,10 +31,9 @@ interface LinkStatusRow {
 
 /** A pay request is judged against when the buyer pressed pay, so a
  * retry that lands after midnight is not penalised. */
-export function expiryReferenceTime(submittedAt?: string): Date {
-  if (!submittedAt) return new Date();
-  const parsed = new Date(submittedAt);
-  return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+export function expiryReferenceTime(_submittedAt?: string): Date {
+  // BUG-004: the payer's clock never decides expiry, even if a caller passes it.
+  return new Date();
 }
 
 /**
