@@ -13,9 +13,18 @@ import { pathToFileURL } from "node:url";
 import { Client } from "pg";
 import { formatBhd, toFils } from "@filspay/money";
 
+/** Bahrain is UTC+3 all year (no DST): local midnight is 21:00 UTC the day before. */
+const BAHRAIN_OFFSET_MS = 3 * 60 * 60 * 1000;
+
+/** The Bahrain calendar month [start, end) as UTC instants (BUG-027: was the UTC month). */
 export function monthBounds(year: number, month: number): { start: Date; end: Date } {
-  return { start: new Date(Date.UTC(year, month - 1, 1)), end: new Date(Date.UTC(year, month, 1)) };
+  return {
+    start: new Date(Date.UTC(year, month - 1, 1) - BAHRAIN_OFFSET_MS),
+    end: new Date(Date.UTC(year, month, 1) - BAHRAIN_OFFSET_MS),
+  };
 }
+
+export const SWEEP_DESCRIPTION = "March 2026 scheme rounding residue sweep — manual recon per finance";
 
 export interface ResidueRow {
   merchantId: string;
@@ -29,7 +38,7 @@ export function computeResidueFils(capturedFils: number): number {
   return capturedFils % 10;
 }
 
-interface MerchantResidue {
+export interface MerchantResidue {
   merchantId: string;
   lineCount: number;
   residueFils: number;
@@ -68,17 +77,33 @@ function groupByMerchant(rows: ResidueRow[]): MerchantResidue[] {
   return [...byMerchant.values()];
 }
 
-// am: re-running is safe, entry_group_id dedupes it
-async function postResidueCorrection(client: Client, merchant: MerchantResidue, now: Date): Promise<void> {
-  if (merchant.residueFils <= 0) return;
+/**
+ * Posts one merchant's residue group, at most once. BUG-027: a fresh random
+ * entry_group_id per run meant a second run posted everything again, so the
+ * guard is an existing posting with the same description for this merchant.
+ * Legs follow ADR-0002: debit scheme_rounding_residue, credit
+ * card_scheme_clearing (the merchant's payable is not touched).
+ * Returns false when nothing was posted.
+ */
+export async function postResidueCorrection(
+  client: Pick<Client, "query">,
+  merchant: MerchantResidue,
+  now: Date,
+): Promise<boolean> {
+  if (merchant.residueFils <= 0) return false;
+  const existing = await client.query(
+    `SELECT 1 FROM ledger_entries WHERE merchant_id = $1 AND description = $2 LIMIT 1`,
+    [merchant.merchantId, SWEEP_DESCRIPTION],
+  );
+  if ((existing.rowCount ?? 0) > 0) return false;
   const entryGroupId = randomUUID();
-  const description = "March 2026 scheme rounding residue sweep — manual recon per finance";
   await client.query(
     `INSERT INTO ledger_entries (entry_group_id, merchant_id, account_id, direction, amount_fils, occurred_at, description)
-     VALUES ($1, $2, 'merchant_payable', 'debit', $3, $4, $5),
-            ($1, $2, 'scheme_rounding_residue', 'credit', $3, $4, $5)`,
-    [entryGroupId, merchant.merchantId, merchant.residueFils, now.toISOString(), description],
+     VALUES ($1, $2, 'scheme_rounding_residue', 'debit', $3, $4, $5),
+            ($1, $2, 'card_scheme_clearing', 'credit', $3, $4, $5)`,
+    [entryGroupId, merchant.merchantId, merchant.residueFils, now.toISOString(), SWEEP_DESCRIPTION],
   );
+  return true;
 }
 
 async function main(): Promise<void> {
@@ -100,15 +125,17 @@ async function main(): Promise<void> {
     const { start, end } = monthBounds(2026, 3);
     console.log("=== March 2026 reconciliation sweep ===");
     console.log(`run at: ${now.toISOString()}`);
-    console.log(`window: ${start.toISOString().slice(0, 10)} .. ${end.toISOString().slice(0, 10)}`);
+    console.log(`window (Bahrain month): ${start.toISOString()} .. ${end.toISOString()}`);
     console.log("");
 
     await client.query("BEGIN");
     try {
+      // One sweep at a time, so two operators running it together can't both post.
+      await client.query("SELECT pg_advisory_xact_lock(hashtext($1))", [SWEEP_DESCRIPTION]);
       for (const merchant of merchantResidues) {
-        await postResidueCorrection(client, merchant, now);
+        const posted = await postResidueCorrection(client, merchant, now);
         console.log(
-          `merchant ${merchant.merchantId}: ${merchant.lineCount} line(s), residue ${formatBhd(toFils(merchant.residueFils))} BD (${merchant.residueFils} fils)`,
+          `merchant ${merchant.merchantId}: ${merchant.lineCount} line(s), residue ${formatBhd(toFils(merchant.residueFils))} BD (${merchant.residueFils} fils)${posted ? "" : " — already posted, skipped"}`,
         );
       }
       await client.query("COMMIT");
