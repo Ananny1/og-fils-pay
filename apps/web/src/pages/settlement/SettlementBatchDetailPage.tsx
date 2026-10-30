@@ -1,4 +1,4 @@
-import { ArrowLeft, Banknote, FileSearch, Hash, Percent, Wallet } from "lucide-react";
+import { ArrowLeft, Banknote, FileSearch, Hash, Percent, Wallet, Undo2 } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
@@ -100,9 +100,10 @@ export function SettlementBatchDetailPage() {
     return (
       <>
         <PageHeader title="Payout day" description={<Skeleton className="h-4 w-48" />} actions={<BackButton />} />
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
           <StatCard label="Gross" loading />
           <StatCard label="Fee" loading />
+          <StatCard label="Refunds" loading />
           <StatCard label="Net payout" loading />
           <StatCard label="Transactions" loading />
         </div>
@@ -167,10 +168,21 @@ export function SettlementBatchDetailPage() {
       />
 
       <FadeContent trigger="mount" duration={0.5} delay={0.05}>
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
           <StatCard label="Gross" fils={batch.grossFils} icon={Wallet} hint="Everything customers paid" />
           <StatCard label="Fee" fils={batch.feeFils} icon={Percent} hint="What FilsPay kept" />
-          <StatCard label="Net payout" fils={batch.netPayoutFils} icon={Banknote} hint="Sales minus the fee" />
+          <StatCard
+            label="Refunds"
+            fils={-batch.refundsFils}
+            icon={Undo2}
+            hint={batch.refundsFils > 0 ? "Refunded to customers, minus the fee given back" : "No refunds in this batch"}
+          />
+          <StatCard
+            label="Net payout"
+            fils={batch.netPayoutFils}
+            icon={Banknote}
+            hint={batch.refundsFils > 0 ? "Sales minus the fee and refunds" : "Sales minus the fee"}
+          />
           <StatCard
             label="Transactions"
             count={batch.includedTransactionCount}

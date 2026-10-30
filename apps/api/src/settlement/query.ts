@@ -11,6 +11,8 @@ export interface SettlementBatchDto {
   status: string;
   grossFils: number;
   feeFils: number;
+  /** Refund cost (refund − fee given back) this batch took off (FP-300.3). */
+  refundsFils: number;
   netPayoutFils: number;
   closedAt: string | null;
   paidAt: string | null;
@@ -55,13 +57,20 @@ function toBatchDateString(d: Date): string {
  * only for a batch with no refunds.
  */
 function serializeBatch(row: SettlementBatchRow): SettlementBatchDto {
+  const grossFils = Number(row.gross_fils);
+  const feeFils = Number(row.fee_fils);
+  const netPayoutFils = Number(row.net_payout_fils);
   return {
     id: row.id,
     batchDate: toBatchDateString(row.batch_date),
     status: row.status,
-    grossFils: Number(row.gross_fils),
-    feeFils: Number(row.fee_fils),
-    netPayoutFils: Number(row.net_payout_fils),
+    grossFils,
+    feeFils,
+    // From the invariant above, not a per-row query: the totals are frozen at
+    // close, so this is exact for a closed or paid batch. An open batch has
+    // no frozen totals yet.
+    refundsFils: row.status === "open" ? 0 : grossFils - feeFils - netPayoutFils,
+    netPayoutFils,
     closedAt: row.closed_at ? row.closed_at.toISOString() : null,
     paidAt: row.paid_at ? row.paid_at.toISOString() : null,
   };
