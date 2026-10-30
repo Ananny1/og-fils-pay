@@ -33,7 +33,21 @@ export function signPayload(
   secret: string,
   timestamp: number = Math.floor(Date.now() / 1000),
 ): SignedPayload {
-  const signedString = `${timestamp}.${canonicalJson(payload)}`;
+  return signRawBody(canonicalJson(payload), secret, timestamp);
+}
+
+/**
+ * Signs `${timestamp}.${rawBody}` over the exact string the caller will put
+ * on the wire (BUG-023 / FP-240). Senders must serialize once, sign that
+ * string with this function, and send the same string as the HTTP body, so
+ * a receiver can verify the raw bytes it got without re-parsing.
+ */
+export function signRawBody(
+  rawBody: string,
+  secret: string,
+  timestamp: number = Math.floor(Date.now() / 1000),
+): SignedPayload {
+  const signedString = `${timestamp}.${rawBody}`;
   const signature = createHmac("sha256", secret).update(signedString).digest("hex");
   return { timestamp, signature: `t=${timestamp},v1=${signature}` };
 }

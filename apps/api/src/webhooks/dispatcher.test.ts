@@ -7,7 +7,7 @@
  * point at a real, migrated Postgres (run `npm run migrate` first).
  */
 import assert from "node:assert/strict";
-import { randomUUID } from "node:crypto";
+import { createHmac, randomUUID } from "node:crypto";
 import { test } from "node:test";
 import { Pool } from "pg";
 import { enqueueEvent } from "@filspay/events";
@@ -170,6 +170,14 @@ test("one active endpoint, 2xx response: exact headers/body sent, delivery marke
   // some signature-shaped string was sent.
   const verifyResult = verifySignature(body, req.headers[WEBHOOK_SIGNATURE_HEADER]!, endpoint.secret);
   assert.deepEqual(verifyResult, { valid: true });
+
+  // BUG-023: a real receiver HMACs the raw bytes it received, without
+  // re-parsing or re-sorting. The signature must match those exact bytes.
+  const [tPart, v1Part] = req.headers[WEBHOOK_SIGNATURE_HEADER]!.split(",");
+  const rawExpected = createHmac("sha256", endpoint.secret)
+    .update(`${tPart!.slice(2)}.${req.body}`)
+    .digest("hex");
+  assert.equal(v1Part!.slice(3), rawExpected, "signature must cover the exact bytes sent (raw body)");
 
   const delivery = await getDelivery(String(outboxEvent.id), endpoint.id);
   assert.equal(delivery.status, "succeeded");
