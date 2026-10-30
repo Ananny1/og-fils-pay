@@ -202,6 +202,30 @@ test("BUG-011: an OTP resend keeps the guess budget already spent", async () => 
   assert.equal(row.rows[0]!.attempt_count, 3, "a resend reset the guess budget");
 });
 
+// ------------------------------------------------------------ BUG-032
+
+test("BUG-032: OTP verify re-issues the session cookie with the full session lifetime", async () => {
+  const password = "cookie-lifetime-password-1!";
+  const { merchantId, email } = await signup("cookie-ttl", password);
+  const { cookie, code, res: loginRes } = await login(merchantId, email, password);
+  assert.match(String(loginRes.headers["set-cookie"]), /Max-Age=600/, "pending cookie is short-lived");
+
+  const verify = await app.inject({
+    method: "POST",
+    url: "/v1/auth/otp/verify",
+    headers: { cookie },
+    payload: { code },
+  });
+  assert.equal(verify.statusCode, 200, verify.body);
+  const setCookie = verify.headers["set-cookie"];
+  assert.ok(setCookie, "verify must re-set the cookie, or the browser drops it after the 10-minute pending window");
+  const header = String(Array.isArray(setCookie) ? setCookie[0] : setCookie);
+  assert.ok(header.startsWith(`${cookie}`), "same token, re-issued");
+  assert.match(header, new RegExp(`Max-Age=${config.sessionTtlHours * 3600}`));
+  assert.match(header, /HttpOnly/);
+  assert.match(header, /SameSite=Lax/);
+});
+
 // ------------------------------------------------------------ BUG-002
 
 test("BUG-002: with the same email at two merchants, the OTP and session belong to the merchant that logged in", async () => {

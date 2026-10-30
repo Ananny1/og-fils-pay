@@ -190,6 +190,17 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
         throw new Error("otp/verify: merchant_users row disappeared mid-transaction");
       }
 
+      // Re-set the cookie at the full session TTL, as the admin verify does.
+      // Without this the browser keeps the login-step cookie's 10-minute
+      // Max-Age and drops a 12h session after 10 minutes.
+      reply.setCookie(app.config.cookieName, rawToken, {
+        httpOnly: true,
+        path: "/",
+        sameSite: "lax",
+        secure: app.config.cookieSecure,
+        maxAge: app.config.sessionTtlHours * 3_600,
+      });
+
       reply.code(200).send({
         authenticated: true,
         merchantId: merchantUserResult.merchant_id,
