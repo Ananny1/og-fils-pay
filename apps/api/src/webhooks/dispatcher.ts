@@ -50,16 +50,22 @@ export type DispatcherConfig = Pick<
   | "webhookSecretEncryptionKey"
 >;
 
-/** Exponential backoff with a cap and ±10 % jitter. attemptNumber is the
- *  attempt that just failed (1-indexed). */
+/** Exponential backoff with a cap: base * 2^(attempt-1), never above cap.
+ *  attemptNumber is the attempt that just failed (1-indexed).
+ *
+ *  Deterministic by default (BUG-052): the retry schedule is documented and
+ *  tested as exact values, and Math.random jitter made it unpredictable and
+ *  could exceed the cap by 10 %. ±10 % jitter is opt-in via `jitter`
+ *  (returns [0,1)), and the result is still clamped to the cap. */
 export function backoffDelayMs(
   attemptNumber: number,
   config: Pick<Config, "webhookBackoffBaseMs" | "webhookBackoffCapMs">,
-  jitter: () => number = Math.random,
+  jitter?: () => number,
 ): number {
   const raw = config.webhookBackoffBaseMs * 2 ** (attemptNumber - 1);
   const capped = Math.min(raw, config.webhookBackoffCapMs);
-  return Math.round(capped * (0.9 + jitter() * 0.2));
+  if (!jitter) return capped;
+  return Math.min(Math.round(capped * (0.9 + jitter() * 0.2)), config.webhookBackoffCapMs);
 }
 
 interface DueEventRow {
