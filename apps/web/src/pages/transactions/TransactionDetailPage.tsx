@@ -126,7 +126,8 @@ export function TransactionDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [state, setState] = useState<LoadState>({ kind: "loading" });
   const [events, setEvents] = useState<TransactionEventDto[]>([]);
-  const [actionError, setActionError] = useState<string | null>(null);
+  // Capture dialog's own inline error. One-click actions (void) use a toast.
+  const [captureError, setCaptureError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [captureOpen, setCaptureOpen] = useState(false);
   const [captureAmount, setCaptureAmount] = useState("");
@@ -160,7 +161,7 @@ export function TransactionDetailPage() {
     event.preventDefault();
     if (!id) return;
     setSubmitting(true);
-    setActionError(null);
+    setCaptureError(null);
     try {
       const trimmed = captureAmount.trim();
       // Left blank, `amountFils` is omitted entirely and capture.ts captures
@@ -177,9 +178,8 @@ export function TransactionDetailPage() {
       // row server-side, so the timeline is stale, not merely shorter.
       await load();
     } catch (err) {
-      const message = describeError(err);
-      setActionError(message);
-      toast.error("Capture failed", { description: message });
+      // Shown inline in the still-open dialog only.
+      setCaptureError(describeError(err));
     } finally {
       setSubmitting(false);
     }
@@ -191,7 +191,6 @@ export function TransactionDetailPage() {
   async function handleVoid(): Promise<void> {
     if (!id) return;
     setSubmitting(true);
-    setActionError(null);
     try {
       // An already-voided transaction also answers `200` with the voided row —
       // indistinguishable from a first void on the wire, and correctly so:
@@ -200,9 +199,7 @@ export function TransactionDetailPage() {
       toast.success("Authorization voided");
       await load();
     } catch (err) {
-      const message = describeError(err);
-      setActionError(message);
-      toast.error("Void failed", { description: message });
+      toast.error("Void failed", { description: describeError(err) });
     } finally {
       setSubmitting(false);
       setVoidOpen(false);
@@ -308,7 +305,13 @@ export function TransactionDetailPage() {
                 boundary. */}
             <RequireRole allow={["owner", "finance"]}>
               {capturable ? (
-                <Button disabled={submitting} onClick={() => setCaptureOpen(true)}>
+                <Button
+                  disabled={submitting}
+                  onClick={() => {
+                    setCaptureError(null);
+                    setCaptureOpen(true);
+                  }}
+                >
                   <Banknote />
                   Capture
                 </Button>
@@ -323,8 +326,6 @@ export function TransactionDetailPage() {
           </>
         }
       />
-
-      <ErrorAlert message={actionError} title="Action failed" />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Authorized" fils={txn.amountFils} icon={ShieldCheck} hint={`Occurred ${dateTime(txn.occurredAt)}`} />
@@ -458,7 +459,7 @@ export function TransactionDetailPage() {
                 autoFocus
               />
               <FieldDescription>Leave blank to capture everything still outstanding.</FieldDescription>
-              {actionError ? <FieldError>{actionError}</FieldError> : null}
+              {captureError ? <FieldError>{captureError}</FieldError> : null}
             </Field>
             <DialogFooter>
               <DialogClose render={<Button variant="outline" disabled={submitting} />}>Cancel</DialogClose>

@@ -62,7 +62,6 @@ export function PaymentLinkDetailPage() {
   const merchantId = me?.merchant.id;
 
   const [state, setState] = useState<LoadState>({ kind: "loading" });
-  const [actionError, setActionError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   const load = useCallback(async () => {
@@ -84,7 +83,6 @@ export function PaymentLinkDetailPage() {
   async function handleCancel(): Promise<void> {
     if (!merchantId || !id) return;
     setSubmitting(true);
-    setActionError(null);
     try {
       await cancelPaymentLink(merchantId, id);
       toast.success("Payment link canceled");
@@ -92,9 +90,7 @@ export function PaymentLinkDetailPage() {
     } catch (err) {
       // Includes `409 not_cancelable` for a link that is paid, already
       // canceled, or `reserved` mid-payment-attempt.
-      const message = describeError(err);
-      setActionError(message);
-      toast.error(message);
+      toast.error("Could not cancel the link", { description: describeError(err) });
     } finally {
       setSubmitting(false);
     }
@@ -199,8 +195,6 @@ export function PaymentLinkDetailPage() {
           </>
         }
       />
-
-      <ErrorAlert message={actionError} title="Could not cancel the link" />
 
       <FadeContent trigger="mount" duration={0.5} className="flex flex-col gap-6">
         <Card>

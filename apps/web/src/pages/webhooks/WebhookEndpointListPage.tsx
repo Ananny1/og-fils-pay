@@ -80,16 +80,13 @@ export function WebhookEndpointListPage() {
   async function handleToggle(endpoint: WebhookEndpointDto): Promise<void> {
     if (!merchantId) return;
     setBusyId(endpoint.id);
-    setError(null);
     const next = endpoint.status === "active" ? "disabled" : "active";
     try {
       await updateWebhookEndpoint(merchantId, endpoint.id, { status: next });
       toast.success(next === "active" ? "Endpoint enabled" : "Endpoint disabled");
       await load();
     } catch (err) {
-      const message = describeError(err);
-      setError(message);
-      toast.error(message);
+      toast.error("Could not update the endpoint", { description: describeError(err) });
     } finally {
       setBusyId(null);
     }
@@ -102,15 +99,12 @@ export function WebhookEndpointListPage() {
   async function handleDelete(endpoint: WebhookEndpointDto): Promise<void> {
     if (!merchantId) return;
     setBusyId(endpoint.id);
-    setError(null);
     try {
       await deleteWebhookEndpoint(merchantId, endpoint.id);
       toast.success("Endpoint deleted");
       await load();
     } catch (err) {
-      const message = describeError(err);
-      setError(message);
-      toast.error(message);
+      toast.error("Could not delete the endpoint", { description: describeError(err) });
     } finally {
       setBusyId(null);
     }

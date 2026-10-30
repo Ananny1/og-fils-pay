@@ -130,7 +130,6 @@ export function WebhookEndpointDetailPage() {
   async function handleReplay(delivery: WebhookDeliveryDto): Promise<void> {
     if (!merchantId || !id) return;
     setBusyId(delivery.id);
-    setError(null);
     try {
       await replayDelivery(merchantId, id, delivery.id);
       toast.success("Replay queued");
@@ -142,9 +141,7 @@ export function WebhookEndpointDetailPage() {
     } catch (err) {
       // `409 endpoint_disabled` is a real race: someone disabled the endpoint
       // between this page loading and the click.
-      const message = describeError(err);
-      setError(message);
-      toast.error(message);
+      toast.error("Replay failed", { description: describeError(err) });
     } finally {
       setBusyId(null);
     }
@@ -154,7 +151,6 @@ export function WebhookEndpointDetailPage() {
   async function handleToggleEnabled(enabled: boolean): Promise<void> {
     if (!merchantId || !endpoint) return;
     setSettingsBusy(true);
-    setError(null);
     try {
       await updateWebhookEndpoint(merchantId, endpoint.id, {
         status: enabled ? "active" : "disabled",
@@ -162,9 +158,7 @@ export function WebhookEndpointDetailPage() {
       toast.success(enabled ? "Endpoint enabled" : "Endpoint disabled");
       await loadEndpoint();
     } catch (err) {
-      const message = describeError(err);
-      setError(message);
-      toast.error(message);
+      toast.error("Could not update the endpoint", { description: describeError(err) });
     } finally {
       setSettingsBusy(false);
     }
@@ -175,15 +169,12 @@ export function WebhookEndpointDetailPage() {
   async function handleDelete(): Promise<void> {
     if (!merchantId || !endpoint) return;
     setSettingsBusy(true);
-    setError(null);
     try {
       await deleteWebhookEndpoint(merchantId, endpoint.id);
       toast.success("Endpoint deleted");
       navigate("/dashboard/webhooks", { replace: true });
     } catch (err) {
-      const message = describeError(err);
-      setError(message);
-      toast.error(message);
+      toast.error("Could not delete the endpoint", { description: describeError(err) });
       setSettingsBusy(false);
     }
   }
