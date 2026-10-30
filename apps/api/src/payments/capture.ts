@@ -11,35 +11,12 @@ import { ConflictError, UnprocessableEntityError } from "../lib/errors.js";
 import { getEffectiveMdrBps } from "../fees/feeSchedule.js";
 import { getVolumeTierBonusBps } from "../fees/platformVolumeTier.js";
 
-async function recordCaptureMetric(
-  client: import("pg").PoolClient,
-  merchantId: string,
-  amountFils: Fils,
-  capturedAt: Date,
-): Promise<void> {
-  const dateStr = capturedAt.toISOString().slice(0, 10);
-  const existing = await client.query(
-    `SELECT merchant_id FROM merchant_daily_volume WHERE merchant_id = $1 AND volume_date = $2`,
-    [merchantId, dateStr],
-  );
-  if (existing.rows[0]) {
-    await client.query(
-      `UPDATE merchant_daily_volume
-          SET captured_count = captured_count + 1, captured_gross_fils = captured_gross_fils + $3
-        WHERE merchant_id = $1 AND volume_date = $2`,
-      [merchantId, dateStr, amountFils],
-    );
-  } else {
-    await client.query(
-      `INSERT INTO merchant_daily_volume (merchant_id, volume_date, captured_count, captured_gross_fils, voided_count)
-       VALUES ($1, $2, 1, $3, 0)
-       ON CONFLICT (merchant_id, volume_date)
-       DO UPDATE SET captured_count = merchant_daily_volume.captured_count + 1,
-                     captured_gross_fils = merchant_daily_volume.captured_gross_fils + $3`,
-      [merchantId, dateStr, amountFils],
-    );
-  }
-}
+// BUG-037: a never-called recordCaptureMetric() used to live here. It wrote
+// merchant_daily_volume bucketed by UTC date (toISOString().slice(0, 10)).
+// That table is owned by the reporting consumer (apps/reporting
+// applyEvent.ts), which buckets transaction.captured events by Asia/Bahrain
+// date; writing it from capture as well would double-count and put
+// 21:00-24:00 UTC captures on the wrong day. Removed rather than wired in.
 
 const ENDPOINT = "transactions.capture";
 
@@ -54,6 +31,11 @@ export interface CaptureInput {
    *  call captureTransaction() directly. routes/transactions.ts's capture
    *  route always supplies a real session/API-key actor. */
   actor: { type: "merchant_session" | "merchant_api_key" | "system"; id: string };
+  /** Payment-link checkout only (BUG-005). The capture runs only while this
+   *  reservation still owns the link, checked under a row lock on the link
+   *  that is held through the acquirer call; the link is marked paid in the
+   *  same database transaction as the capture. */
+  paymentLink?: { id: string; reservationId: string };
 }
 
 export interface CaptureResult {
@@ -150,8 +132,8 @@ export async function captureTransaction(
       return { statusCode: 422, body };
     }
 
-    const merchantResult = await client.query<{ mdr_bps: number }>(
-      `SELECT mdr_bps FROM merchants WHERE id = $1`,
+    const merchantResult = await client.query<{ mdr_bps: number; negotiated_discount_bps: number }>(
+      `SELECT mdr_bps, negotiated_discount_bps FROM merchants WHERE id = $1`,
       [input.merchantId],
     );
     const merchant = merchantResult.rows[0];
@@ -166,6 +148,24 @@ export async function captureTransaction(
     // inside the same locked transaction that computes and journals the fee.
     const effectiveMdrBps = await getEffectiveMdrBps(client, input.merchantId, new Date(), merchant.mdr_bps);
     const volumeTierBonusBps = await getVolumeTierBonusBps(client);
+
+    // BUG-005: a payment-link capture may only proceed while its own
+    // reservation still holds the link. The FOR UPDATE lock is kept through
+    // the acquirer call, so a second payer's claim UPDATE waits for us and
+    // then sees 'paid'; a payer whose reservation was taken over stops here,
+    // before any money moves.
+    if (input.paymentLink) {
+      const linkResult = await client.query<{ status: string; reservation_id: string | null }>(
+        `SELECT status, reservation_id FROM payment_links WHERE id = $1 FOR UPDATE`,
+        [input.paymentLink.id],
+      );
+      const linkRow = linkResult.rows[0];
+      if (!linkRow || linkRow.status !== "reserved" || linkRow.reservation_id !== input.paymentLink.reservationId) {
+        const body = { error: "payment_link_reservation_lost", linkStatus: linkRow?.status ?? null };
+        await completeIdempotencyKey(client, claim.row.id, { statusCode: 409, body });
+        return { statusCode: 409, body };
+      }
+    }
 
     // Call the acquirer — awaited here, with the row lock from above still
     // held (same client, same open transaction). No other process can
@@ -193,7 +193,12 @@ export async function captureTransaction(
 
     // outcome === 'approved'. Integer math throughout — no float ever
     // enters this path.
-    const feeFils = applyRateFils(requestedAmount, Math.max(0, effectiveMdrBps - volumeTierBonusBps));
+    // BUG-036: same order as apps/settlement's ComputeSettlementFee
+    // (discounted_fee.go): the negotiated discount comes off the amount,
+    // then MDR applies, so the ledger fee equals the batch fee to the fils.
+    const discountBps = merchant.negotiated_discount_bps;
+    const discountedAmount = subtractFils(requestedAmount, applyRateFils(requestedAmount, discountBps));
+    const feeFils = applyRateFils(discountedAmount, Math.max(0, effectiveMdrBps - volumeTierBonusBps));
     const newCapturedFils = addFils(capturedSoFar, requestedAmount);
     const newStatus = compareFils(newCapturedFils, amountAuthorized) === 0 ? "captured" : "partially_captured";
 
@@ -204,6 +209,16 @@ export async function captureTransaction(
     const updatedTxn = updateResult.rows[0];
     if (!updatedTxn) {
       throw new Error("captureTransaction: update to transactions returned no row");
+    }
+
+    if (input.paymentLink) {
+      // Still holding the link row lock taken above, so this always matches.
+      await client.query(
+        `UPDATE payment_links
+            SET status = 'paid', paid_at = now(), transaction_id = $2, reserved_at = NULL, reservation_id = NULL
+          WHERE id = $1`,
+        [input.paymentLink.id, txn.id],
+      );
     }
 
     // Double-entry journaling. One entry_group_id per capture event; the
@@ -255,7 +270,9 @@ export async function captureTransaction(
       eventType: newStatus === "captured" ? "captured" : "partially_captured",
       amountFils: requestedAmount,
       actor: input.actor,
-      metadata: { feeFils, acquirerReference: acquirerResult.acquirerReference },
+      // discountBps marks feeFils as already net of the negotiated discount,
+      // so applyCaptureDiscountAdjustment must not rebate it again.
+      metadata: { feeFils, discountBps, acquirerReference: acquirerResult.acquirerReference },
     });
 
     const body = serializeTransaction(updatedTxn);
