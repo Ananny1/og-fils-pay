@@ -7,7 +7,8 @@ Details for each ID are in `ANALYSIS.md`; the live checkpoint is `PROGRESS.md`.
 
 **Status:** ⬜ todo · ⏳ in progress · ✅ done · ⏭ skipped (say why)
 **Points:** ★★★ critical (security / money lost or duplicated) · ★★ wrong money · ★ reliability / reporting
-**Evidence:** S1 security brief · S2 FP-300 sheet · S3 finance & ops weekly · S4 support tickets (`evidence/`)
+**Evidence:** S1 security brief · S2 FP-300 sheet · S3 finance & ops weekly · S4 support tickets · S5 **judging rubric** (`evidence/`)
+**Scoring:** 170 points: Correctness 100 · Capacity 20 · Hosting 10 · AI usage 10 · UI/UX 10 · Technical defence 20. See `RUBRIC.md`: every task must earn points in one of these.
 
 Paths are relative to the repo root. `api/` = `apps/api/src/`, `stl/` = `apps/settlement/internal/`.
 
@@ -94,11 +95,20 @@ the screens (Tier 7) and hand-in (Tier 8).
 | **Tier 7** | | **Screens** (Phase F, details below) | | | | |
 | 7.1 | F1–F13 | Frontend fixes (refund drawer, checkout, login, read-only impersonation, 3 decimals, …) | ★ | S2 "timeline" | per item | ⬜ |
 | 7.2 | T5 | Page checklist: every page × every state | ★ | — | 7.1 | ⬜ |
-| **Tier 8** | | **Hand-in** | | | | |
+| **Tier 8** | | **Hand-in** (rubric: Capacity 20 · Hosting 10 · AI 10 · Defence 20, see `RUBRIC.md`) | | | | |
+| 8.0 | UX-0 | **"Before" screenshots** of checkout, merchant dashboard, admin console (every main page), taken **before** any Tier 7 change | ★★ | S5 UI/UX "before and after evidence" | — | ⬜ |
+| 8.0a | HOST-1 | Production compose: API 0.5 vCPU / 512 MB, whole stack ≤ 1 vCPU / 2 GB, `restart: unless-stopped`, health checks, compiled API (no `tsx`), static web/admin (no Vite dev servers) | ★★★ | S5 Hosting + Capacity | Tiers 1–6 | ⬜ |
+| 8.0b | CAP-1 | Load test the **checkout** scenario locally under the same limits (k6 or autocannon); find the max users that stay fast and correct | ★★ | S5 Capacity | HOST-1 | ⬜ |
+| 8.0c | CAP-2 | **Turn away excess** quickly (429/503 + `Retry-After`) instead of queueing until timeouts: in-flight / rate limit (was ENH-005) | ★★ | S5 Capacity | CAP-1 | ⬜ |
+| 8.0d | CAP-3 | Crash and overload drills: kill the API / Postgres mid-checkout → restarts, **no lost or doubled payments** | ★★ | S5 Capacity | CAP-2 | ⬜ |
+| 8.0e | CAP-4 | Write and send our **capacity estimate** (number + how measured) | ★★ | S5 Capacity "send us your estimate" | CAP-3 | ⬜ |
 | 8.1 | T2–T4 | Full suite green, API smoke script, frontend tests | — | — | Tiers 1–7 | ⬜ |
 | 8.2 | D4, D5, D7 | Rotate leaked secret; no public DB / internal ports; `readyz` checks DB | ★★ | — | — | ⬜ |
 | 8.3 | DEPLOY | Live on Dilmune Cloud. **🔔 Before starting, ask Ebrahim Q-7** (demo data: load once or on every restart?) **and set up ENH-001's Gmail app password on the box** | ★★★ | S1, S2 | 8.2 | ⬜ |
 | 8.4 | T6, T7 | Fresh-clone check; final read of every write-up | — | — | 8.3 | ⬜ |
+| 8.5 | REPORT | **Findings report**: every bug's root cause in one document (built from `docs/bugs/`) | ★★★ | S5 Correctness | Tiers 1–6 | ⬜ |
+| 8.6 | AI-1 | Submission document: AI setup files + **3 annotated transcript excerpts showing how we checked the AI** (candidates in `RUBRIC.md`) | ★★ | S5 AI usage | — | ⬜ |
+| 8.7 | DEF-1 | Slide deck (from `PRESENTATION.md`) + live demo script + **brief Sayed on every fix** (judges pick who answers) | ★★★ | S5 Technical defence | 8.5 | ⬜ |
 
 **Later (low points):** A12 API keys bypass role gates (documented) · B4 "Adjust balance" is
 cache-only · S10 daemon closes on boot · S11 rebuild vs CloseBatch race · W8 replay keeps delivery
@@ -128,7 +138,7 @@ separate, optional decision.
 | ENH-002 | Authenticator-app second factor (TOTP, e.g. Microsoft Authenticator) | Tier 1 | No code sent at all; strongest option | Enrolment flow, secret storage, recovery codes, UI, migration | 💡 |
 | ENH-003 | Proper CORS allowlist on the API for production (instead of the dev proxy) | F12, DEPLOY | Dashboards hosted on another origin can call the API safely | Small API plugin + config | 💡 |
 | ENH-004 | `scripts/lib/sqlFilter.ts`: refuse an empty filter, or delete it (now unused) | BUG-009 | Removes a footgun that turned "delete these" into "delete all" | Tiny | 💡 |
-| ENH-005 | Rate limiting on login, OTP resend and pending-session lookups | BUG-011 | Slows brute force and resend abuse beyond the per-challenge attempt limit | Small middleware | 💡 (may become a bug if BUG-011 shows it's exploitable) |
+| ENH-005 | Rate limiting on login, OTP resend and pending-session lookups (**overload part promoted to CAP-2**, rubric Capacity) | BUG-011 | Slows brute force and resend abuse beyond the per-challenge attempt limit | Small middleware | 💡 (may become a bug if BUG-011 shows it's exploitable) |
 | ENH-006 | Per-service database roles + TLS to Postgres | D5, DEPLOY | Least privilege; one leaked service can't touch everything | Migration + compose | 💡 |
 | ENH-008 | **Email verification at signup** (confirm the owner email before the shop can log in) | BUG-037 | Stops anyone attaching someone else's email to a new shop; pairs with ENH-001 (email delivery) | Signup flow + token table + email | 💡 |
 | ENH-007 | Delete the now-unused `apps/api/src/auth/users.ts` (`findOtpRecipient`) | BUG-002 | A trap-shaped helper nobody calls | Tiny (a file deletion; approved 2026-10-30) | ✅ |

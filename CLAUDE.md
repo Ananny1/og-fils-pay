@@ -28,7 +28,8 @@ and ask before doing it. Frontend / UI work (`apps/web`, `apps/admin`) belongs t
 ## Read before doing anything
 
 0. `docs/challenge/PROGRESS.md` — what is in progress right now (resume from here)
-1. `docs/challenge/GUIDE.md` — the case, trust order, rules, workflow, write-up format
+1. `docs/challenge/RUBRIC.md` — **how we're judged (170 points)**; every task must earn points there
+   `docs/challenge/GUIDE.md` — the case, trust order, rules, workflow, write-up format
    (`docs/challenge/SETUP.md` — how to run everything; `docs/challenge/TEAM.md` — who does what)
 2. `docs/challenge/PLAN.md` — **Master order**: every task in priority order with its status
    (`docs/challenge/WORKFLOW.md` — the 8 steps every task goes through)
