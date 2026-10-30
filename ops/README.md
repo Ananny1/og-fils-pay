@@ -70,3 +70,20 @@ limited to 512 MB. Postgres defaults are fine at this size. The settlement
 image is built on the box with `go build` from `Dockerfile.go`.
 
 > **AM:** first build on the box filled the disk (go build cache). cleared it and it went through on the second try
+
+## Hosted stack (`docker-compose.prod.yml`)
+
+The public server does **not** run this laptop stack. It runs
+`docker-compose.prod.yml` (HOST-1, see `docs/bugs/HOST-1-production-compose.md`):
+
+```
+cp ops/.env.prod.example ops/.env.prod      # fill in every secret
+docker compose --env-file ops/.env.prod -f ops/docker-compose.prod.yml up -d --build
+```
+
+- One public port (nginx, `PUBLIC_PORT`): `/` shop app + checkout, `/admin/` staff console,
+  `/v1` and `/healthz` proxied to the api. Postgres and the api are not published.
+- Bundled JavaScript (no tsx), static front-end builds, `restart: unless-stopped`, health checks.
+- Caps: api 0.5 vCPU / 512 MB; whole stack 1.0 vCPU / 1.6 GB (target box: 1 vCPU / 2 GB).
+- migrate runs on every start (idempotent); the seed runs **only on an empty database**.
+- Pass `--env-file ops/.env.prod` to every `docker compose` command for this file.

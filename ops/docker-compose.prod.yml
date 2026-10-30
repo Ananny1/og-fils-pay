@@ -1,0 +1,178 @@
+# Hosted FilsPay stack: the whole system on ONE server (1 vCPU / 2 GB RAM).
+# The laptop stack stays in ops/docker-compose.yml (dev servers, live reload).
+#
+#   cp ops/.env.prod.example ops/.env.prod      # fill in the secrets
+#   docker compose --env-file ops/.env.prod -f ops/docker-compose.prod.yml up -d --build
+#
+# What is different from the laptop stack:
+#   - one public port only (nginx, ${PUBLIC_PORT}); Postgres and the api are
+#     reachable only on the private compose network
+#   - api / reporting / migrate / seed run bundled JavaScript (no tsx, no dev
+#     dependencies); shop app and staff console are static production builds
+#   - order on boot: postgres healthy -> migrate -> seed-once -> services
+#   - every long-running service restarts by itself (restart: unless-stopped)
+#   - CPU / memory caps: api 0.5 vCPU / 512 MB (rubric); all long-running
+#     services together = 1.0 vCPU / 1.6 GB
+#   - data on named volumes (pgdata, kyc), so a restart or rebuild keeps it
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+x-app: &app
+  build:
+    context: ..
+    dockerfile: ops/Dockerfile.node.prod
+    target: app
+  image: filspay-app:prod
+  # tini as PID 1: forwards SIGTERM for a clean shutdown, and a crashed node
+  # process really exits the container, so `restart:` brings it back.
+  init: true
+  env_file:
+    - path: .env.prod
+      required: true
+  logging: *logging
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: filspay
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in ops/.env.prod}
+      POSTGRES_DB: filspay
+    # Small-box settings. synchronous_commit stays ON: a committed payment
+    # survives a crash or a container kill.
+    command:
+      - postgres
+      - -c
+      - max_connections=40
+      - -c
+      - shared_buffers=128MB
+      - -c
+      - effective_cache_size=384MB
+      - -c
+      - work_mem=4MB
+    # No `ports:` on purpose. Postgres is never published to the host.
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U filspay -d filspay"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    cpus: 0.3
+    mem_limit: 640m
+    logging: *logging
+
+  # One-off: apply db/migrations (idempotent; tracked in schema_migrations).
+  migrate:
+    <<: *app
+    command: ["node", "dist/migrate.mjs"]
+    restart: "no"
+    environment:
+      DATABASE_URL: postgres://filspay:${POSTGRES_PASSWORD}@postgres:5432/filspay
+    depends_on:
+      postgres:
+        condition: service_healthy
+    cpus: 0.5
+    mem_limit: 384m
+
+  # One-off: seed only when the database has no merchants yet (Q-7: seed
+  # once). The raw seed truncates tables, so it must never run on a live DB.
+  seed:
+    <<: *app
+    command: ["node", "dist/seed-once.mjs"]
+    restart: "no"
+    environment:
+      DATABASE_URL: postgres://filspay:${POSTGRES_PASSWORD}@postgres:5432/filspay
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    cpus: 0.5
+    mem_limit: 384m
+
+  api:
+    <<: *app
+    command: ["node", "dist/api.mjs"]
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgres://filspay:${POSTGRES_PASSWORD}@postgres:5432/filspay
+      SETTLEMENT_INTERNAL_URL: http://settlement:8091
+      KYC_UPLOAD_DIR: /app/data/kyc
+      # Leave head-room under the 512 MB cap for buffers and native modules.
+      NODE_OPTIONS: --max-old-space-size=384
+    volumes:
+      - kyc:/app/data/kyc
+    depends_on:
+      seed:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/healthz').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 15s
+    cpus: 0.5
+    mem_limit: 512m
+
+  settlement:
+    build:
+      context: ..
+      dockerfile: ops/Dockerfile.go
+    image: filspay-settlement:prod
+    init: true
+    command: ["./settlement", "daemon"]
+    restart: unless-stopped
+    env_file:
+      - path: .env.prod
+        required: true
+    environment:
+      DATABASE_URL: postgres://filspay:${POSTGRES_PASSWORD}@postgres:5432/filspay?sslmode=disable
+    depends_on:
+      seed:
+        condition: service_completed_successfully
+    cpus: 0.05
+    mem_limit: 128m
+    logging: *logging
+
+  reporting:
+    <<: *app
+    command: ["node", "dist/reporting.mjs"]
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgres://filspay:${POSTGRES_PASSWORD}@postgres:5432/filspay
+      NODE_OPTIONS: --max-old-space-size=192
+    depends_on:
+      seed:
+        condition: service_completed_successfully
+    cpus: 0.1
+    mem_limit: 256m
+
+  # The only public port: static shop app (/) + staff console (/admin/),
+  # /v1 proxied to the api. Answers 503 + Retry-After while the api is down.
+  web:
+    build:
+      context: ..
+      dockerfile: ops/Dockerfile.node.prod
+      target: web
+    image: filspay-web:prod
+    restart: unless-stopped
+    ports:
+      - "${PUBLIC_PORT:-80}:80"
+    depends_on:
+      - api
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    cpus: 0.05
+    mem_limit: 64m
+    logging: *logging
+
+volumes:
+  pgdata:
+  kyc:

@@ -11,3 +11,4 @@ npm-debug.log*
 .env.*
 !ops/.env.docker.example
 !ops/.env.dev
+!ops/.env.prod.example
