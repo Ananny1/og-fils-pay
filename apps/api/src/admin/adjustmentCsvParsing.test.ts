@@ -5,6 +5,21 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { parseAdjustmentAmountFils, parseAdjustmentCsv } from "./adjustmentCsvParsing.js";
 
+// BUG-014: BD has 3 decimals (1 BD = 1000 fils). The parser used to read
+// 2 decimals (cents) and truncate, so "4.75" became 475 and "4.755" 4750.
+test("BUG-014: amounts are parsed as BD with 3 decimals into fils", () => {
+  assert.equal(parseAdjustmentAmountFils("4.75"), 4750);
+  assert.equal(parseAdjustmentAmountFils("4.750"), 4750);
+  assert.equal(parseAdjustmentAmountFils("4.755"), 4755);
+  assert.equal(parseAdjustmentAmountFils("4"), 4000);
+  assert.equal(parseAdjustmentAmountFils("0.001"), 1);
+  assert.equal(parseAdjustmentAmountFils("-1.250"), -1250);
+});
+
+test("BUG-014: more than 3 decimals is rejected, never silently truncated", () => {
+  assert.throws(() => parseAdjustmentAmountFils("4.7551"), /could not parse amount/);
+});
+
 test("a non-numeric amount throws", () => {
   assert.throws(() => parseAdjustmentAmountFils("not-a-number"), /could not parse amount/);
 });

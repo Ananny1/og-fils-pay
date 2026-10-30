@@ -1,8 +1,9 @@
+import { createHash } from "node:crypto";
 import type { Pool } from "pg";
 import { addFils, toFils, ZERO_FILS, type Fils } from "@filspay/money";
 import { insertAdminAuditLog } from "../adminAudit/log.js";
 import { withTransaction } from "../db/withTransaction.js";
-import { BadRequestError } from "../lib/errors.js";
+import { BadRequestError, ConflictError } from "../lib/errors.js";
 import { parseAdjustmentAmountFils } from "./adjustmentCsvParsing.js";
 import { postLedgerAdjustment } from "./ledgerAdjustments.js";
 
@@ -37,6 +38,21 @@ async function postAdjustmentToLedgerAndCache(
 }
 
 /**
+ * SHA-256 of the parsed rows (merchant id, amount in fils, reason), so the
+ * same corrections are recognised whatever the filename or the way the
+ * amount was written ("4.75" and "4.750" are the same 4750 fils). BUG-029.
+ * Rows are sorted first, so reordering the CSV gives the same hash. The
+ * unique index is per Bahrain day (content_day, migration 0088), so the
+ * same rows are refused only on the same settlement day.
+ */
+function importContentHash(rows: AdjustmentImportRow[]): string {
+  const canonical = rows
+    .map((row) => JSON.stringify([row.merchantId.toLowerCase(), parseAdjustmentAmountFils(row.amount), row.reason ?? ""]))
+    .sort();
+  return createHash("sha256").update(JSON.stringify(canonical)).digest("hex");
+}
+
+/**
  * Applies one uploaded CSV in a single transaction: every row's amount is
  * parsed, posted to the ledger, and recorded in adjustment_import_rows with
  * its original text preserved alongside the integer that was posted. The
@@ -51,17 +67,27 @@ export async function applyAdjustmentImport(
     throw new BadRequestError("empty_import", "the CSV must contain at least one row");
   }
 
+  const contentHash = importContentHash(input.rows);
+
   return withTransaction(pool, async (client) => {
-    const importRow = await client.query<{ id: string }>(
-      `INSERT INTO adjustment_imports (uploaded_by_admin_user_id, original_filename, row_count)
-       VALUES ($1, $2, $3) RETURNING id`,
-      [input.adminUserId, input.originalFilename, input.rows.length],
-    );
+    // BUG-029: the unique index on (content_hash, content_day) rejects a
+    // second apply of the same rows on the same Bahrain day; a concurrent
+    // double-click waits here and then fails.
+    const importRow = await client
+      .query<{ id: string }>(
+        `INSERT INTO adjustment_imports (uploaded_by_admin_user_id, original_filename, row_count, content_hash)
+         VALUES ($1, $2, $3, $4) RETURNING id`,
+        [input.adminUserId, input.originalFilename, input.rows.length, contentHash],
+      )
+      .catch((err: unknown) => {
+        if ((err as { code?: string }).code === "23505") {
+          throw new ConflictError("duplicate_import", "this CSV has already been applied today");
+        }
+        throw err;
+      });
     const importId = importRow.rows[0]!.id;
 
     let total = ZERO_FILS;
-    // FH: claude says nothing here stops the same CSV being applied twice. intended? (asked in #fp-backend 14/8, no answer)
-    // re-upload is blocked by the unique original_filename i think — am
     for (let i = 0; i < input.rows.length; i++) {
       const row = input.rows[i]!;
       const amountFils = parseAdjustmentAmountFils(row.amount);

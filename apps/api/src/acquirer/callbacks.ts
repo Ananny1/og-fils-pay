@@ -1,7 +1,7 @@
 import type { Pool } from "pg";
 import { NotFoundError } from "../lib/errors.js";
 
-/** @property outcome Validated against the two allowed values by the route schema. */
+/** @property outcome Validated against the two allowed values in routes/acquirerCallbacks.ts (BUG-007). */
 export interface AcquirerCallbackInput {
   callbackId: string;
   type: "fraud_review.completed";
@@ -24,10 +24,9 @@ interface TransactionMerchantRow {
  * transactions.status or the ledger; a confirmed-fraud outcome still needs
  * a human decision to void/refund, exactly as today.
  *
- * Idempotent per callbackId (BUG-006): the acquirer redelivers on timeout
- * and withCallbackRetry may re-run this, so a repeat is a silent no-op
- * (uq_acquirer_callback_notes_callback_id, migration 0081) and the route
- * still answers 200 so the acquirer stops retrying.
+ * Idempotent per callback_id (BUG-006): a redelivery of the same callback,
+ * sequential or concurrent, is a no-op thanks to the unique index from
+ * migration 0084 — there is no processed_events table.
  */
 export async function applyAcquirerCallback(pool: Pool, callback: AcquirerCallbackInput): Promise<void> {
   const txnResult = await pool.query<TransactionMerchantRow>(

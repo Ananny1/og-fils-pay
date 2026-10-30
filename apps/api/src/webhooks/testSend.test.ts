@@ -5,7 +5,7 @@
  * `npm run migrate` first).
  */
 import assert from "node:assert/strict";
-import { randomUUID } from "node:crypto";
+import { createHmac, randomUUID } from "node:crypto";
 import { test } from "node:test";
 import { Pool } from "pg";
 import { loadConfig } from "../config.js";
@@ -103,10 +103,15 @@ test("the signature this call site produces verifies against the endpoint's own 
   assert.equal(payload.type, "test.ping");
   assert.equal(payload.id, `test_${endpoint.id}`);
 
-  const verified = verifySignature(request.body, header, endpoint.secret);
+  const verified = verifySignature(payload, header, endpoint.secret);
   assert.equal(verified.valid, true, `signature must verify: ${verified.reason ?? ""}`);
 
-  const wrongSecret = verifySignature(request.body, header, "whsec_not_the_right_secret");
+  // BUG-023: the signature covers the exact bytes sent (raw body).
+  const [tPart, v1Part] = header.split(",");
+  const rawExpected = createHmac("sha256", endpoint.secret).update(`${tPart!.slice(2)}.${request.body}`).digest("hex");
+  assert.equal(v1Part!.slice(3), rawExpected, "signature must cover the exact bytes sent");
+
+  const wrongSecret = verifySignature(payload, header, "whsec_not_the_right_secret");
   assert.equal(wrongSecret.valid, false);
 });
 

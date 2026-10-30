@@ -108,7 +108,8 @@ async function signupLoginAndVerify(emailPrefix: string) {
   });
   assert.equal(verifyRes.statusCode, 200, verifyRes.body);
 
-  return { merchantId, email, password, cookie };
+  // The session token is rotated at OTP verify (BUG-032): use the cookie it sets.
+  return { merchantId, email, password, cookie: parseCookie(verifyRes.headers["set-cookie"]) };
 }
 
 function buildMultipart(

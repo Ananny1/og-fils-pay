@@ -5,8 +5,8 @@ import (
 )
 
 // NetPayableFils derives the net payout from frozen gross and fee totals.
-// Integer fils only (ADR-0001): a float32 round-trip lost fils above
-// ~16,777 BD (BUG-021).
+// BUG-021: plain integer fils subtraction. The old float32 BD maths lost
+// fils above ~16,777 BD (float32 has a 24-bit mantissa).
 func NetPayableFils(grossFils, feeFils money.Fils) money.Fils {
 	return grossFils - feeFils
 }

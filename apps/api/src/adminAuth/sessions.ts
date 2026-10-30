@@ -60,21 +60,22 @@ export async function createPendingAdminSession(
 /**
  * Promotes a pending admin session to authenticated. The *only* place in
  * the codebase that ever sets `admin_sessions.authenticated = true` — always
- * at OTP verification success, never at token issuance.
+ * at OTP verification success, never at token issuance. It also **rotates the
+ * token**, so the pre-OTP cookie stops working (fixation, BUG-032); the caller
+ * must set the returned token as the new cookie.
  */
-// YA: token not rotated on promote -> fixation. FP-198 (repro: copy the pending cookie into a 2nd browser before OTP)
-// MK: the 2nd browser still needs the OTP. unresolved
 export async function promoteAdminSession(
   client: PoolClient,
   adminSessionId: string,
   sessionTtlHours: number,
-): Promise<Date> {
+): Promise<{ expiresAt: Date; rawToken: string }> {
   const expiresAt = new Date(Date.now() + sessionTtlHours * 3_600_000);
+  const rawToken = randomToken(32);
   await client.query(
-    `UPDATE admin_sessions SET authenticated = true, authenticated_at = now(), expires_at = $2 WHERE id = $1`,
-    [adminSessionId, expiresAt],
+    `UPDATE admin_sessions SET authenticated = true, authenticated_at = now(), last_seen_at = now(), expires_at = $2, token_hash = $3 WHERE id = $1`,
+    [adminSessionId, expiresAt, sha256Hex(rawToken)],
   );
-  return expiresAt;
+  return { expiresAt, rawToken };
 }
 
 /**
@@ -101,6 +102,8 @@ export interface AuthenticatedAdminSessionLookup {
  * true AND revoked_at IS NULL AND expires_at > now()`, plus the joined
  * `admin_users.status = 'active'` so disabling a staff account kills its
  * live sessions on the next request rather than at their next expiry.
+ * SEC-2 adds the idle check (`last_seen_at` within `idleMinutes`) and a touch
+ * of `last_seen_at` throttled to once a minute.
  */
 // MK: authenticated = true is mandatory here (0012). don't drop it
 // FH: claude flagged authenticated = true as redundant with expires_at since pending sessions only live 10 min.
@@ -109,6 +112,7 @@ export interface AuthenticatedAdminSessionLookup {
 export async function lookupAdminSession(
   pool: Pool,
   rawToken: string,
+  idleMinutes: number,
 ): Promise<AuthenticatedAdminSessionLookup | null> {
   const tokenHash = sha256Hex(rawToken);
   const result = await pool.query<{
@@ -116,19 +120,28 @@ export async function lookupAdminSession(
     admin_user_id: string;
     email: string;
     role: AdminRole;
+    needs_touch: boolean;
   }>(
-    `SELECT s.id AS admin_session_id, s.admin_user_id, au.email, au.role
+    `SELECT s.id AS admin_session_id, s.admin_user_id, au.email, au.role,
+            s.last_seen_at < now() - interval '1 minute' AS needs_touch
        FROM admin_sessions s
        JOIN admin_users au ON au.id = s.admin_user_id
       WHERE s.token_hash = $1
         AND s.authenticated = true
         AND s.revoked_at IS NULL
         AND s.expires_at > now()
+        AND s.last_seen_at > now() - make_interval(mins => $2)
         AND au.status = 'active'`,
-    [tokenHash],
+    [tokenHash, idleMinutes],
   );
   const row = result.rows[0];
   if (!row) return null;
+  if (row.needs_touch) {
+    await pool.query(
+      `UPDATE admin_sessions SET last_seen_at = now() WHERE id = $1 AND last_seen_at < now() - interval '1 minute'`,
+      [row.admin_session_id],
+    );
+  }
   return {
     adminSessionId: row.admin_session_id,
     adminUserId: row.admin_user_id,

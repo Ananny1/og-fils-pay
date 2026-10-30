@@ -96,7 +96,7 @@ test("BUG-001: a pending (password ok, OTP not yet verified) cookie authenticate
   assert.equal(keys.statusCode, 401, `pre-OTP cookie issued an API key: ${keys.body}`);
 });
 
-test("BUG-001: the same cookie works once the OTP is verified", async () => {
+test("BUG-001: after the OTP the new session cookie works and the pre-OTP one does not", async () => {
   const password = "pending-session-password-2!";
   const { merchantId, email } = await signup("promoted", password);
   const { cookie, code } = await login(merchantId, email, password);
@@ -109,7 +109,10 @@ test("BUG-001: the same cookie works once the OTP is verified", async () => {
   });
   assert.equal(verify.statusCode, 200, verify.body);
 
-  const me = await app.inject({ method: "GET", url: "/v1/auth/me", headers: { cookie } });
+  // The token is rotated at verify (BUG-032, fixation): the pre-OTP cookie is dead.
+  const old = await app.inject({ method: "GET", url: "/v1/auth/me", headers: { cookie } });
+  assert.equal(old.statusCode, 401);
+  const me = await app.inject({ method: "GET", url: "/v1/auth/me", headers: { cookie: parseCookie(verify.headers["set-cookie"]) } });
   assert.equal(me.statusCode, 200, me.body);
   assert.equal(me.json().merchant.id, merchantId);
 });
@@ -220,7 +223,7 @@ test("BUG-032: OTP verify re-issues the session cookie with the full session lif
   const setCookie = verify.headers["set-cookie"];
   assert.ok(setCookie, "verify must re-set the cookie, or the browser drops it after the 10-minute pending window");
   const header = String(Array.isArray(setCookie) ? setCookie[0] : setCookie);
-  assert.ok(header.startsWith(`${cookie}`), "same token, re-issued");
+  assert.ok(!header.startsWith(`${cookie};`), "a new token, not the pre-OTP one (fixation)");
   assert.match(header, new RegExp(`Max-Age=${config.sessionTtlHours * 3600}`));
   assert.match(header, /HttpOnly/);
   assert.match(header, /SameSite=Lax/);
@@ -253,7 +256,7 @@ test("BUG-002: with the same email at two merchants, the OTP and session belong 
   assert.equal(verify.statusCode, 200, verify.body);
   assert.equal(verify.json().merchantId, b.merchantId, "verified into the wrong merchant");
 
-  const me = await app.inject({ method: "GET", url: "/v1/auth/me", headers: { cookie } });
+  const me = await app.inject({ method: "GET", url: "/v1/auth/me", headers: { cookie: parseCookie(verify.headers["set-cookie"]) } });
   assert.equal(me.statusCode, 200, me.body);
   assert.equal(me.json().merchant.id, b.merchantId);
   assert.equal(me.json().merchantUserId, b.ownerUserId);

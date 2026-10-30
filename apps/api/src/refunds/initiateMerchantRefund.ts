@@ -60,8 +60,10 @@ export async function initiateMerchantRefund(
   await assertRefundsNotOnHold(pool, input.merchantId);
 
   const result = await pool.query<{ id: string; merchant_id: string }>(
-    `SELECT id, merchant_id FROM transactions WHERE id = $1`,
-    [input.transactionId],
+    // Scoped to the caller: another merchant's transaction is "not found",
+    // never refunded on that merchant's behalf (BUG-036).
+    `SELECT id, merchant_id FROM transactions WHERE id = $1 AND merchant_id = $2`,
+    [input.transactionId, input.merchantId],
   );
   const txn = result.rows[0];
   if (!txn) {

@@ -53,6 +53,41 @@ func TestRecordPlatformProcessedVolume_SmallValuesExact(t *testing.T) {
 	}
 }
 
+// BUG-022: the counter must keep counting past int32 max (2,147,483,647
+// fils = 2,147,483.647 BD), just above the 2,000,000,000 fils tier threshold.
+func TestRecordPlatformProcessedVolume_PastInt32Max(t *testing.T) {
+	pool := mustPool(t)
+	ctx := context.Background()
+	resetPlatformStats(t, pool)
+
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		t.Fatalf("begin: %v", err)
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+
+	if _, err := tx.Exec(ctx, `UPDATE platform_stats SET total_processed_fils = 2147483000 WHERE id = 1`); err != nil {
+		t.Fatalf("seed counter: %v", err)
+	}
+	current, err := ReadAndLockPlatformProcessedFils(ctx, tx)
+	if err != nil {
+		t.Fatalf("ReadAndLockPlatformProcessedFils: %v", err)
+	}
+	if err := RecordPlatformProcessedVolume(ctx, tx, current, 1_000_000); err != nil {
+		t.Fatalf("RecordPlatformProcessedVolume: %v", err)
+	}
+	var got int64
+	if err := tx.QueryRow(ctx, `SELECT total_processed_fils FROM platform_stats WHERE id = 1`).Scan(&got); err != nil {
+		t.Fatalf("read back total: %v", err)
+	}
+	if got != 2_148_483_000 {
+		t.Fatalf("total_processed_fils = %d, want 2148483000", got)
+	}
+	if bonus := VolumeTierMdrBonusBps(current + 1_000_000); bonus != 15 {
+		t.Fatalf("tier bonus past int32 max = %d, want 15", bonus)
+	}
+}
+
 // TestVolumeTierMdrBonusBps_BelowAndAtThreshold proves the tier comparison
 // is correct on both sides of the threshold.
 // MK: no test above the threshold, or near int32 max. TODO

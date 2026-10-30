@@ -10,6 +10,8 @@ import (
 // processed-volume counter with a row lock, so two batches closing
 // concurrently for different merchants serialize on this single shared
 // counter row instead of racing a lost update. Returns the current value
+// BUG-022: int64 (BIGINT column, migration 0090); int32 wrapped negative
+// past 2,147,483,647 fils.
 func ReadAndLockPlatformProcessedFils(ctx context.Context, tx pgx.Tx) (int64, error) {
 	var current int64
 	err := tx.QueryRow(ctx, `
@@ -23,7 +25,6 @@ func ReadAndLockPlatformProcessedFils(ctx context.Context, tx pgx.Tx) (int64, er
 // happens here rather than as SQL `SET x = x + $2` so the value written is
 // derived from exactly the value this batch's fee calculation read.
 func RecordPlatformProcessedVolume(ctx context.Context, tx pgx.Tx, current int64, batchGrossFils int64) error {
-	// int64 end to end (BUG-022): an int32 wrapped negative just past the tier threshold.
 	updated := current + batchGrossFils
 	_, err := tx.Exec(ctx, `
 		UPDATE platform_stats SET total_processed_fils = $1, updated_at = now() WHERE id = 1

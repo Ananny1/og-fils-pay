@@ -58,16 +58,16 @@ test("applyAdjustmentImport records the batch and its rows", async () => {
   });
 
   assert.equal(result.rowCount, 2);
-  assert.equal(result.totalPostedFils, 600);
+  assert.equal(result.totalPostedFils, 6000);
 
   const rows = await getAdjustmentImportRows(pool, result.importId);
   assert.equal(rows.length, 2);
   assert.equal(rows[0]!.rowNumber, 1);
   assert.equal(rows[0]!.rawAmountText, "4.75");
-  assert.equal(rows[0]!.parsedAmountFils, 475);
+  assert.equal(rows[0]!.parsedAmountFils, 4750);
   assert.equal(rows[0]!.reason, "statement correction");
   assert.equal(rows[1]!.rawAmountText, "1.25");
-  assert.equal(rows[1]!.parsedAmountFils, 125);
+  assert.equal(rows[1]!.parsedAmountFils, 1250);
   assert.equal(rows[1]!.reason, null);
 });
 
@@ -122,8 +122,8 @@ test("applyAdjustmentImport reverses leg direction for a negative amount", async
   assert.deepEqual(
     legs.rows.map((r) => [r.account_id, r.direction, Number(r.amount_fils)]),
     [
-      ["manual_balance_adjustment_contra", "credit", 350],
-      ["merchant_payable", "debit", 350],
+      ["manual_balance_adjustment_contra", "credit", 3500],
+      ["merchant_payable", "debit", 3500],
     ],
   );
 });
@@ -145,7 +145,7 @@ test("applyAdjustmentImport updates the merchant balance cache", async () => {
     `SELECT cached_payable_fils FROM merchant_balances WHERE merchant_id = $1`,
     [merchantId],
   );
-  assert.equal(Number(balance.rows[0]!.cached_payable_fils), 500);
+  assert.equal(Number(balance.rows[0]!.cached_payable_fils), 5000);
 });
 
 test("applyAdjustmentImport links each row to its ledger group", async () => {
@@ -248,4 +248,93 @@ test("listAdjustmentImports returns newest first and paginates", async () => {
 test("getAdjustmentImportRows returns an empty list for an unknown import", async () => {
   const rows = await getAdjustmentImportRows(pool, randomUUID());
   assert.deepEqual(rows, []);
+});
+
+// BUG-029: a double-click or a re-upload of the same file must not post the
+// money twice. The same content (same merchants, amounts and reasons) is
+// rejected the second time, even under a different filename.
+test("BUG-029: the same CSV content applied twice is rejected the second time", async () => {
+  const adminUserId = await createAdminUser();
+  const merchantId = await createMerchant();
+  const rows = [{ merchantId, amount: "4.750", reason: "statement correction" }];
+
+  await applyAdjustmentImport(pool, { adminUserId, originalFilename: "once.csv", rows });
+  await assert.rejects(
+    applyAdjustmentImport(pool, {
+      adminUserId,
+      originalFilename: "once (1).csv",
+      rows: [{ merchantId, amount: "4.75", reason: "statement correction" }],
+    }),
+    /already been applied/,
+  );
+
+  const groups = await pool.query<{ n: string }>(
+    `SELECT COUNT(DISTINCT entry_group_id)::text AS n FROM ledger_entries WHERE merchant_id = $1`,
+    [merchantId],
+  );
+  assert.equal(Number(groups.rows[0]!.n), 1, "the second upload must not post a second ledger group");
+});
+
+test("BUG-029: two simultaneous submits of the same CSV post once", async () => {
+  const adminUserId = await createAdminUser();
+  const merchantId = await createMerchant();
+  const input = { adminUserId, originalFilename: "dbl.csv", rows: [{ merchantId, amount: "2.000" }] };
+
+  const results = await Promise.allSettled([applyAdjustmentImport(pool, input), applyAdjustmentImport(pool, input)]);
+  assert.equal(results.filter((r) => r.status === "fulfilled").length, 1);
+
+  const balance = await pool.query<{ cached_payable_fils: string }>(
+    `SELECT cached_payable_fils FROM merchant_balances WHERE merchant_id = $1`,
+    [merchantId],
+  );
+  assert.equal(Number(balance.rows[0]!.cached_payable_fils), 2000);
+});
+
+// BUG-029 review: the guard must not depend on row order (reordering the
+// CSV used to bypass it) ...
+test("BUG-029: the same rows in a different order are rejected the second time", async () => {
+  const adminUserId = await createAdminUser();
+  const merchantA = await createMerchant();
+  const merchantB = await createMerchant();
+
+  await applyAdjustmentImport(pool, {
+    adminUserId,
+    originalFilename: "ab.csv",
+    rows: [
+      { merchantId: merchantA, amount: "1.000", reason: "fix" },
+      { merchantId: merchantB, amount: "2.000", reason: "fix" },
+    ],
+  });
+  await assert.rejects(
+    applyAdjustmentImport(pool, {
+      adminUserId,
+      originalFilename: "ba.csv",
+      rows: [
+        { merchantId: merchantB, amount: "2.000", reason: "fix" },
+        { merchantId: merchantA, amount: "1.000", reason: "fix" },
+      ],
+    }),
+    /already been applied/,
+  );
+});
+
+// ... and must not refuse the same legitimate correction forever: it is
+// scoped to one Asia/Bahrain day, so the same rows next month are accepted.
+test("BUG-029: the same rows on a later Bahrain day are accepted", async () => {
+  const adminUserId = await createAdminUser();
+  const merchantId = await createMerchant();
+  const rows = [{ merchantId, amount: "3.000", reason: "monthly correction" }];
+
+  const first = await applyAdjustmentImport(pool, { adminUserId, originalFilename: "sep.csv", rows });
+  // Pretend the first import was applied last month.
+  await pool.query(`UPDATE adjustment_imports SET content_day = content_day - 30 WHERE id = $1`, [first.importId]);
+
+  const second = await applyAdjustmentImport(pool, { adminUserId, originalFilename: "oct.csv", rows });
+  assert.notEqual(second.importId, first.importId);
+
+  const balance = await pool.query<{ cached_payable_fils: string }>(
+    `SELECT cached_payable_fils FROM merchant_balances WHERE merchant_id = $1`,
+    [merchantId],
+  );
+  assert.equal(Number(balance.rows[0]!.cached_payable_fils), 6000);
 });

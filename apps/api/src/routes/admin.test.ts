@@ -141,7 +141,8 @@ async function loginAdmin(email: string): Promise<string> {
     payload: { code: loginBody.devOtpCode },
   });
   assert.equal(verifyRes.statusCode, 200, verifyRes.body);
-  return cookie;
+  // The session token is rotated at OTP verify (BUG-032): use the cookie it sets.
+  return parseCookie(verifyRes.headers["set-cookie"], config.adminCookieName);
 }
 
 async function signedInAdmin(role: AdminRole, label: string) {
@@ -795,9 +796,8 @@ test("GET /v1/admin/merchants/:id 404s for an unknown or malformed id", async ()
 
 // -------------------------------------------------- API key rotation
 
-// "previous key stays active" — grace period for merchants to deploy the new key. intended (am, 2026-05)
-// YA: there was never a grace period in the design. rotation = revoke
-// BUG-012: this test used to assert the grace period; rotation now revokes the old key.
+// BUG-012: rotation = revoke (0037, issue.ts, ADMIN.md has no grace period). This test used to
+// assert the old key stays active, which encoded the bug.
 test("API key rotation issues a new key atomically, revokes the previous key and audits it", async () => {
   const finance = await signedInAdmin("finance", "rotate");
   const { merchantId, ownerUserId } = await createMerchant("rotate");
@@ -824,13 +824,13 @@ test("API key rotation issues a new key atomically, revokes the previous key and
   assert.ok(rotated.rawKey.startsWith("fp_test_"));
   assert.equal(rotated.prefix, rotated.rawKey.slice(0, 16));
 
-  // The previous key is cut off by the rotation itself.
+  // The previous key is cut off at once.
   const after = await app.inject({
     method: "GET",
     url: "/v1/transactions",
     headers: { authorization: `Bearer ${original.rawKey}` },
   });
-  assert.equal(after.statusCode, 401, "the rotated-out key must stop authenticating");
+  assert.equal(after.statusCode, 401, "the previous key no longer authenticates after rotation");
 
   // The new key works too.
   const withNew = await app.inject({

@@ -10,7 +10,12 @@ export interface TransactionsExportFilters {
 }
 
 function csvEscape(value: string): string {
-  if (value.includes(",") || value.includes('"') || value.includes("\n")) {
+  // BUG-030: a cell starting with = + - @ TAB or CR runs as a formula in
+  // Excel/Sheets; a leading ' makes the spreadsheet treat it as text (OWASP).
+  if (/^[=+\-@\t\r]/.test(value)) {
+    value = `'${value}`;
+  }
+  if (value.includes(",") || value.includes('"') || value.includes("\n") || value.includes("\r")) {
     return `"${value.replace(/"/g, '""')}"`;
   }
   return value;

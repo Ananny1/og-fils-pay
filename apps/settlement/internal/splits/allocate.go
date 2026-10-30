@@ -6,6 +6,7 @@ package splits
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -105,10 +106,10 @@ func PayoutSplitBatch(ctx context.Context, db *pgxpool.Pool, batchID uuid.UUID) 
 	}
 	rows.Close()
 
-	// Largest-remainder allocation: the children add up to netPayout
-	// exactly, so no fils are left behind in the parent's payable (BUG-016).
-	for i, allocated := range ChildShares(money.Fils(netPayout), weights) {
-		shares[i].AllocatedFils = allocated
+	// BUG-016: allocate the whole net with largest remainder, so the shares
+	// sum to netPayout exactly (per-child rounding lost or invented fils).
+	for i, amount := range ChildShares(money.Fils(netPayout), weights) {
+		shares[i].AllocatedFils = amount
 	}
 
 	var totalAllocated money.Fils
@@ -141,8 +142,12 @@ func PayoutSplitBatch(ctx context.Context, db *pgxpool.Pool, batchID uuid.UUID) 
 	// Bring the parent's cached balance down by what the legs above actually
 	// debited from its merchant_payable account, same as PayoutBatch does
 	// for a non-split merchant.
-	// am: should pass netPayout here not totalAllocated, otherwise the cache drifts from the batch
-	if err := balances.ApplyPayout(ctx, tx, parentMerchantID, batchID, totalAllocated); err != nil {
+	// BUG-016: shares now sum to netPayout, so this is the same figure
+	// PayoutBatch uses and the cache cannot drift from the batch.
+	if netPayout > 0 && totalAllocated != money.Fils(netPayout) {
+		return SplitPayoutResult{}, fmt.Errorf("splits: batch %s allocated %d of net %d", batchID, totalAllocated, netPayout)
+	}
+	if err := balances.ApplyPayout(ctx, tx, parentMerchantID, batchID, money.Fils(netPayout)); err != nil {
 		return SplitPayoutResult{}, err
 	}
 

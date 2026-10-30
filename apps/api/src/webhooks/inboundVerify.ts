@@ -43,15 +43,10 @@ export interface VerifyAcquirerCallbackResult {
 }
 
 /**
- * Verifies the acquirer callback signature (BUG-007). Always required: this
- * header is the endpoint's only authentication, so a missing header, an
- * unset secret, a wrong MAC or a stale timestamp are all rejections.
- *
- * `rawBody` must be the exact bytes received, never a re-serialisation of
- * the parsed object, whose key order / whitespace / number formatting need
- * not match what the acquirer signed. The compare is constant-time and the
- * timestamp (which is inside the MAC) must be within `toleranceSeconds` of
- * now, so a captured callback can't be replayed later.
+ * Verifies the acquirer callback signature. Always required: no header, no
+ * configured secret, a stale timestamp or a wrong HMAC are all failures.
+ * The HMAC covers `${t}.${rawBody}` — the exact bytes the acquirer sent,
+ * never a re-serialisation of the parsed JSON (BUG-007).
  */
 export function verifyAcquirerCallbackSignature(
   rawBody: string,

@@ -18,6 +18,7 @@ import { issueApiKey } from "../apiKeys/issue.js";
 import { recordKycReview } from "../onboarding/review.js";
 import type { AcquirerOutcome, AcquirerRefundResult, AcquirerSimulator } from "../acquirer/types.js";
 import { processRefund } from "./processRefund.js";
+import { initiateMerchantRefund } from "../refunds/initiateMerchantRefund.js";
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) {
@@ -145,13 +146,15 @@ test("a full refund of a fully captured transaction lands on refunded", async ()
   assert.equal(row.rows[0]!.status, "refunded");
   assert.equal(Number(row.rows[0]!.refunded_fils), 10_000);
 
-  const refunds = await pool.query<{ amount_fils: string; fee_reversed_fils: string; status: string }>(
-    `SELECT amount_fils, fee_reversed_fils, status FROM refunds WHERE transaction_id = $1`,
+  const refunds = await pool.query<{ amount_fils: string; fee_reversed_fils: string; status: string; reason: string }>(
+    `SELECT amount_fils, fee_reversed_fils, status, reason FROM refunds WHERE transaction_id = $1`,
     [txn.id],
   );
   assert.equal(refunds.rows.length, 1);
   assert.equal(Number(refunds.rows[0]!.amount_fils), 10_000);
   assert.equal(refunds.rows[0]!.status, "succeeded");
+  // BUG-061: no reason given → the 0070 default, never NULL.
+  assert.equal(refunds.rows[0]!.reason, "unspecified");
 
   const events = await pool.query<{ event_type: string; amount_fils: string | null }>(
     `SELECT event_type, amount_fils FROM transaction_events WHERE transaction_id = $1 ORDER BY id`,
@@ -477,4 +480,202 @@ test("unknown transaction ids answer 404", async () => {
   });
   assert.equal(result.statusCode, 404);
   assert.deepEqual(result.body, { error: "transaction_not_found" });
+});
+
+// BUG-036 (R3): the transaction is looked up by id only, so a merchant can
+// refund another merchant's sale by sending its id.
+test("refunding another merchant's transaction answers 404 and moves no money", async () => {
+  const victim = await createApprovedMerchantWithApiKey("refund-idor-victim");
+  const attacker = await createApprovedMerchantWithApiKey("refund-idor-attacker");
+  const txn = await capturedTransaction(victim.rawKey, 6_000);
+  const attackerActor = await apiKeyActor(attacker.merchantId);
+
+  const direct = await processRefund(pool, approvingAcquirer, {
+    transactionId: txn.id,
+    merchantId: attacker.merchantId,
+    amountFils: toFils(6_000),
+    idempotencyKey: randomUUID(),
+    actor: attackerActor,
+  });
+  assert.equal(direct.statusCode, 404, JSON.stringify(direct.body));
+
+  await assert.rejects(
+    initiateMerchantRefund(pool, approvingAcquirer, {
+      merchantId: attacker.merchantId,
+      transactionId: txn.id,
+      amountFils: toFils(6_000),
+      idempotencyKey: randomUUID(),
+      actor: attackerActor,
+    }),
+    (err: Error) => err.message === "transaction_not_found",
+  );
+
+  const refunds = await pool.query<{ c: number }>(
+    `SELECT COUNT(*)::int AS c FROM refunds WHERE transaction_id = $1`,
+    [txn.id],
+  );
+  assert.equal(refunds.rows[0]!.c, 0);
+  const row = await pool.query<{ status: string; refunded_fils: string }>(
+    `SELECT status, refunded_fils FROM transactions WHERE id = $1`,
+    [txn.id],
+  );
+  assert.equal(row.rows[0]!.status, "captured");
+  assert.equal(Number(row.rows[0]!.refunded_fils), 0);
+});
+
+// BUG-035 (R2): the ceiling was authorized - refunded, not captured - refunded.
+test("a refund can never exceed what was captured", async () => {
+  const merchant = await createApprovedMerchantWithApiKey("refund-over-capture");
+  const txn = await capturedTransaction(merchant.rawKey, 10_000, 4_000);
+  const actor = await apiKeyActor(merchant.merchantId);
+
+  const tooMuch = await processRefund(pool, approvingAcquirer, {
+    transactionId: txn.id,
+    merchantId: merchant.merchantId,
+    amountFils: toFils(10_000),
+    idempotencyKey: randomUUID(),
+    actor,
+  });
+  assert.equal(tooMuch.statusCode, 422, JSON.stringify(tooMuch.body));
+  assert.deepEqual(tooMuch.body, { ok: false, code: "refund_exceeds_refundable", refundableFils: 4_000 });
+
+  // Omitting the amount refunds only what was captured.
+  const all = await processRefund(pool, approvingAcquirer, {
+    transactionId: txn.id,
+    merchantId: merchant.merchantId,
+    idempotencyKey: randomUUID(),
+    actor,
+  });
+  assert.equal(all.statusCode, 200, JSON.stringify(all.body));
+  assert.equal((all.body as { amountFils: number }).amountFils, 4_000);
+
+  // Nothing is left: a further 1 fil is refused.
+  const more = await processRefund(pool, approvingAcquirer, {
+    transactionId: txn.id,
+    merchantId: merchant.merchantId,
+    amountFils: toFils(1),
+    idempotencyKey: randomUUID(),
+    actor,
+  });
+  assert.equal(more.statusCode, 422, JSON.stringify(more.body));
+
+  const row = await pool.query<{ refunded_fils: string }>(`SELECT refunded_fils FROM transactions WHERE id = $1`, [
+    txn.id,
+  ]);
+  assert.equal(Number(row.rows[0]!.refunded_fils), 4_000);
+});
+
+// BUG-034 (R1, FP-209): two refunds with different keys at the same moment
+// both validated against refunded_fils = 0 and both went through.
+test("two refunds at the same moment cannot together exceed the captured amount", async () => {
+  const merchant = await createApprovedMerchantWithApiKey("refund-race");
+  const txn = await capturedTransaction(merchant.rawKey, 10_000);
+  const actor = await apiKeyActor(merchant.merchantId);
+
+  // A slow acquirer widens the window between validation and journal.
+  const slowAcquirer: AcquirerSimulator = {
+    ...approvingAcquirer,
+    async refund(req): Promise<AcquirerRefundResult> {
+      await new Promise((resolve) => setTimeout(resolve, 150));
+      return { outcome: "approved", acquirerReference: req.acquirerReference, latencyMs: 150 };
+    },
+  };
+
+  const results = await Promise.all(
+    [1, 2].map(() =>
+      processRefund(pool, slowAcquirer, {
+        transactionId: txn.id,
+        merchantId: merchant.merchantId,
+        amountFils: toFils(6_000),
+        idempotencyKey: randomUUID(),
+        actor,
+      }),
+    ),
+  );
+  const codes = results.map((r) => r.statusCode).sort();
+  assert.deepEqual(codes, [200, 422], JSON.stringify(results));
+
+  const row = await pool.query<{ refunded_fils: string }>(`SELECT refunded_fils FROM transactions WHERE id = $1`, [
+    txn.id,
+  ]);
+  assert.equal(Number(row.rows[0]!.refunded_fils), 6_000);
+  const refunds = await pool.query<{ total: string }>(
+    `SELECT COALESCE(SUM(amount_fils), 0)::text AS total FROM refunds WHERE transaction_id = $1`,
+    [txn.id],
+  );
+  assert.equal(Number(refunds.rows[0]!.total), 6_000);
+});
+
+/** Net (debit - credit) per account for every ledger leg of one transaction. */
+async function ledgerNetByAccount(transactionId: string): Promise<Map<string, number>> {
+  const result = await pool.query<{ account_id: string; net: string }>(
+    `SELECT account_id,
+            SUM(CASE WHEN direction = 'debit' THEN amount_fils ELSE -amount_fils END)::text AS net
+       FROM ledger_entries
+      WHERE transaction_id = $1
+      GROUP BY account_id`,
+    [transactionId],
+  );
+  return new Map(result.rows.map((r) => [r.account_id, Number(r.net)]));
+}
+
+// FP-300.2: a full refund must bring every account back to exactly zero for
+// that sale. With a negotiated discount, capture charges the MDR fee and then
+// gives part of it back; the refund read only the gross fee credit and so
+// reversed more fee than the merchant actually paid.
+test("a full refund nets every ledger account to zero, even with a negotiated discount", async () => {
+  const merchant = await createApprovedMerchantWithApiKey("refund-ledger-discount", 250);
+  await pool.query(`UPDATE merchants SET negotiated_discount_bps = 1000 WHERE id = $1`, [merchant.merchantId]);
+  const txn = await capturedTransaction(merchant.rawKey, 10_000);
+  const actor = await apiKeyActor(merchant.merchantId);
+
+  const before = await ledgerNetByAccount(txn.id);
+  const netFeePaid = -(before.get("platform_fee_revenue") ?? 0);
+  assert.ok(netFeePaid > 0 && netFeePaid < 250, `discount should lower the fee, got ${netFeePaid}`);
+
+  const result = await processRefund(pool, approvingAcquirer, {
+    transactionId: txn.id,
+    merchantId: merchant.merchantId,
+    idempotencyKey: randomUUID(),
+    actor,
+  });
+  assert.equal(result.statusCode, 200, JSON.stringify(result.body));
+  assert.equal((result.body as { feeReversedFils: number }).feeReversedFils, netFeePaid);
+
+  const after = await ledgerNetByAccount(txn.id);
+  for (const [account, net] of after) {
+    assert.equal(net, 0, `${account} should net to 0 after a full refund, got ${net}`);
+  }
+});
+
+// BUG-056 (R4): each partial refund rounded its own fee share, so the parts
+// could add up to more than the fee charged (fee 2 on 3 fils, 3 x 1 fil
+// refunds -> 1 + 1 + 1 = 3 reversed).
+test("partial refunds never reverse more fee in total than was charged", async () => {
+  const merchant = await createApprovedMerchantWithApiKey("refund-fee-sum", 6_667);
+  const txn = await capturedTransaction(merchant.rawKey, 3);
+  const actor = await apiKeyActor(merchant.merchantId);
+
+  const feeCharged = -((await ledgerNetByAccount(txn.id)).get("platform_fee_revenue") ?? 0);
+  assert.equal(feeCharged, 2, "precondition: 6667 bps on 3 fils charges a 2 fils fee");
+
+  const reversed: number[] = [];
+  for (let i = 0; i < 3; i += 1) {
+    const result = await processRefund(pool, approvingAcquirer, {
+      transactionId: txn.id,
+      merchantId: merchant.merchantId,
+      amountFils: toFils(1),
+      idempotencyKey: randomUUID(),
+      actor,
+    });
+    assert.equal(result.statusCode, 200, JSON.stringify(result.body));
+    reversed.push((result.body as { feeReversedFils: number }).feeReversedFils);
+    const soFar = reversed.reduce((a, b) => a + b, 0);
+    assert.ok(soFar <= feeCharged, `after refund ${i + 1} reversed ${soFar} > fee ${feeCharged}`);
+  }
+  assert.equal(reversed.reduce((a, b) => a + b, 0), feeCharged);
+
+  for (const [account, net] of await ledgerNetByAccount(txn.id)) {
+    assert.equal(net, 0, `${account} should net to 0 after refunding everything, got ${net}`);
+  }
 });

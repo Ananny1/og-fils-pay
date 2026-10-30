@@ -9,6 +9,11 @@ import { createFetchTransport } from "./webhooks/transport.js";
 async function main(): Promise<void> {
   const config = loadConfig(process.env);
   console.log(`[index] booting, date=${formatIsoDate(new Date())}`);
+  if (config.nodeEnv === "production" && config.smtpHost === "") {
+    // Not fatal (ENH-001): the api still serves checkout and the API keys,
+    // but nobody can receive a login code until SMTP_HOST is set.
+    console.warn("[index] WARNING: SMTP_HOST is not set, login OTP codes are not delivered; nobody can log in");
+  }
   const pool = createPool(config);
   // One transport per process: the dispatcher's background pass and the
   // merchant-facing "send test event" route both run on this same instance.

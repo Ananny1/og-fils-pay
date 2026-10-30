@@ -7,7 +7,9 @@ npm-debug.log*
 .DS_Store
 .claude/*
 !.claude/settings.json
+!.claude/agents/
 .env.*
 !ops/.env.docker.example
+!ops/.env.dev
 .playwright-mcp/
 !ops/.env.prod.example

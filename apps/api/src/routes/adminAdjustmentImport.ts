@@ -40,7 +40,11 @@ export async function adminAdjustmentImportRoutes(app: FastifyInstance): Promise
    */
   app.post<{ Body: CreateImportBody }>(
     "/",
-    { preHandler: [requireAdminSession, requireAdminRole("finance", "super_admin")] },
+    {
+      // A CSV can be bigger than the 1 MiB default (SEC-3).
+      bodyLimit: app.config.adjustmentImportBodyLimitBytes,
+      preHandler: [requireAdminSession, requireAdminRole("finance", "super_admin")],
+    },
     async (request, reply) => {
       const adminAuth = request.adminAuth;
       if (!adminAuth) throw new UnauthorizedError("unauthenticated");
@@ -53,9 +57,8 @@ export async function adminAdjustmentImportRoutes(app: FastifyInstance): Promise
         throw new BadRequestError("invalid_request", "originalFilename, if given, must be a string");
       }
 
-      // am: no dry run and no idempotency key — uploading the same csv twice posts it twice
-      // MK: finance checks the spreadsheet before uploading. fine for now
-      // FH: parseAdjustmentCsv handles 3dp BD amounts correctly (4.750 -> 4750 fils), Claude checked
+      // BUG-029: applying the same rows twice is rejected (409 duplicate_import).
+      // BUG-014: amounts are BD with up to 3 decimals, parsed with parseBhdToFils (4.75 -> 4750 fils)
       const rows = parseAdjustmentCsv(csvContent);
       for (const row of rows) {
         if (!UUID_RE.test(row.merchantId)) {

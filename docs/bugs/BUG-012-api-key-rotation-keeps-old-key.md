@@ -1,98 +1,88 @@
-# BUG-012 — API key rotation leaves the old key working
+# BUG-012 — Rotating an API key leaves the old key working
 
 | | |
 |---|---|
 | **Severity** | High |
-| **Area** | Security |
+| **Area** | Security (credentials) |
 | **Analysis ID** | A11 |
-| **Clue** | Handout: "key rotation flow doesn't do what you'd expect"; FH's note in `0037_api_keys_admin_rotation.sql`; YA's note in `admin.test.ts` |
-| **Decision** | — |
-| **Commit** | see `git log --grep "BUG-012"` |
+| **Clue** | "key rotation flow doesn't do what you'd expect"; FH's note in `0037_api_keys_admin_rotation.sql` |
+| **Owner** | Ebrahim (sprint stream S1) |
 | **Status** | ✅ fixed |
 
-## 1. The issue — what was wrong
+## Summary (the short note)
 
-When a merchant's API key leaks, ops uses **Rotate API key** in the admin
-console. A new key is issued — but the old (leaked) key kept working forever.
-Whoever had it could still authorize card payments, capture, void and read
-the merchant's transactions.
+- **What's wrong:** When staff rotate a shop's API key (usually because it leaked), the new key is made but the **old key keeps working forever**.
+- **Why:** `rotateApiKeyAsAdmin` only inserts the new key. Nothing sets `revoked_at` on the old one.
+- **What it breaks:** A leaked key stays usable after the "fix". Whoever has it can still list transactions, create payment links, capture and void.
 
-Reproduce: `POST /v1/admin/merchants/:id/api-keys/:keyId/rotate`, then call
-`GET /v1/transactions` with the old key → 200.
+## 1. The issue
 
-## 2. Why it happened — the root cause
-
-`apps/api/src/admin/apiKeys.ts rotateApiKeyAsAdmin` locked the old row,
-issued a new key pointing back at it (`rotated_from_key_id`) and wrote the
-audit row — but never revoked the old key. 0037 says "one transaction revokes
-the old key with reason 'rotated' and issues the replacement", and
-`IssueApiKeyInput.rotatedFromKeyId` says "that key is revoked in the same
-transaction". Neither was true.
-
-`0056_api_keys_revoke_after.sql` added `revoke_after` "revoked by a sweep job"
-— there is no sweep job, nothing sets the column, and
-`apps/api/src/apiKeys/verify.ts` never checked it:
-
-```ts
-// before
-SELECT id, merchant_id FROM api_keys WHERE key_hash = $1 AND revoked_at IS NULL
+```
+POST /v1/admin/merchants/<m>/api-keys/<old>/rotate   -> 201 new key
+GET  /v1/transactions   Bearer <old key>             -> 200   (expected 401)
+api_keys old row: revoked_at = NULL, revoked_reason = NULL
 ```
 
-The "24h grace period (see ADMIN.md)" claim is false: ADMIN.md says nothing
-about a grace period, and YA notes "there was never a grace period in the
-design. rotation = revoke". The existing test `admin.test.ts` asserted the bug
-("the previous key stays active").
+## 2. Why it happened
+
+`apps/api/src/admin/apiKeys.ts` `rotateApiKeyAsAdmin` locks the old row, checks it isn't revoked,
+issues the new key and writes the audit row, but never revokes the old row.
+
+Every design source says rotation **is** revoke:
+
+- `0037_api_keys_admin_rotation.sql`: "one transaction revokes the old key with reason 'rotated' and issues the replacement".
+- `apiKeys/issue.ts`: "the admin rotation path revokes the old key … in the same transaction".
+- `routes/adminMerchants.ts`: "Atomic rotate: revoke + reissue + audit in one transaction."
+
+False claims that hid it (traps):
+
+| Where | Claim | Truth |
+|---|---|---|
+| `db/migrations/0037_api_keys_admin_rotation.sql` (end) | AM: "that's the 24h grace period (see ADMIN.md)" | `docs/ADMIN.md` has no grace period; nothing ever revokes the key, not even after 24h |
+| `apps/api/src/apiKeys/issue.ts` above `revokeApiKey` | am: "it does [call revoke], around line 47" | `admin/apiKeys.ts` never revoked anything |
+| `apps/api/src/routes/admin.test.ts` rotation test | "previous key stays active — grace period … intended (am, 2026-05)" | YA's reply right under it: "there was never a grace period in the design" |
+
+`0056_api_keys_revoke_after.sql` (a "scheduled revocation" column) is a v2 migration number
+reserved by ADR-0005; no code reads or writes `revoke_after`, so it is not a grace period either.
 
 ## 3. Who was affected
 
 | Party | How | How bad |
 |---|---|---|
-| Customers (cardholders) | A leaked key could keep charging/capturing | High |
-| Merchants | No way to cut off a leaked key through ops | High |
-| FilsPay (finance / ops) | Incident response step silently did nothing | High |
-| Acquirer / card scheme / partners | Fraudulent authorisations | Medium |
+| Merchants | A leaked key can't be killed by rotation | High: attacker keeps API access |
+| FilsPay | Support tells the shop "rotated, you're safe" when it isn't | High |
+| Customers | Attacker with the key can void/capture their payments | Medium |
 
 ## 4. The fix
 
 | File | Change |
 |---|---|
-| `apps/api/src/admin/apiKeys.ts` | in the rotation transaction: `UPDATE api_keys SET revoked_at = now(), revoked_reason = 'rotated'` on the old key |
-| `apps/api/src/apiKeys/verify.ts` | also require `revoke_after IS NULL OR revoke_after > now()` |
-| `apps/api/src/routes/admin.test.ts` | rotation test now asserts the old key gets 401 and is revoked with reason `rotated` |
+| `apps/api/src/admin/apiKeys.ts` | In the same transaction, `UPDATE api_keys SET revoked_at = now(), revoked_reason = 'rotated'` on the old key before issuing the new one |
+| `apps/api/src/routes/admin.test.ts` | The rotation test asserted the bug (old key 200, `revoked_at` NULL). Now it expects 401 and `revoked_reason = 'rotated'` |
 
-```ts
-// after — verify.ts
-WHERE key_hash = $1
-  AND revoked_at IS NULL
-  AND (revoke_after IS NULL OR revoke_after > now())
-```
-
-The revoke happens in the same transaction as the new key and the audit row,
-so either all three happen or none. The `revoke_after` check makes the 0056
-column honest: if anyone schedules a revocation, it takes effect on time
-without a sweep job.
+`verifyApiKey` already rejects rows with `revoked_at` set, so no change is needed there. The audit
+failure test still proves the whole rotation (revoke included) rolls back together.
 
 ## 5. Options considered (ranked)
 
 | Rank | Option | Pros | Cons | Chosen? |
 |---|---|---|---|---|
-| 1 | Revoke immediately at rotation + honour `revoke_after` in verify | Matches 0037 design; leaked key dies now | Merchant must deploy the new key first (same as any revoke) | ✅ |
-| 2 | Set `revoke_after = now() + 24h` and check it | Gives an overlap window | A leaked key works for another day; design never had a grace period | |
-| 3 | Add a sweep job for `revoke_after` | — | More moving parts; still late | |
+| 1 | Revoke the old key in the rotation transaction (`revoked_reason = 'rotated'`) | Matches 0037, issue.ts and route docs; one statement; atomic | Shop must switch to the new key at once | ✅ |
+| 2 | Call `revokeApiKey()` from `issue.ts` | Reuses a helper | It takes a `Pool`, not the open transaction, so it isn't atomic with the insert and audit | |
+| 3 | Real grace period: set `revoke_after = now() + 24h` and check it in `verifyApiKey` (creative) | Zero-downtime switch for the shop | No doc asks for it; 0056 is a reserved v2 number (ADR-0005); a leaked key works for another day | |
 
-**Why we chose #1:** rotation exists for leaked keys; the design says rotation = revoke.
+**Why #1:** the design says rotation = revoke, and a rotation is usually done because a key leaked.
 
 ## 6. Proof — tests
 
 | Test | File | Before fix | After fix |
 |---|---|---|---|
-| `BUG-012: after an admin rotation the old key no longer authenticates` | `apps/api/src/apiKeys/verify.new.test.ts` | ❌ old key still verified | ✅ null; new key works; row revoked `rotated` |
-| `BUG-012: a key past its scheduled revoke_after no longer authenticates` | same | ❌ still verified | ✅ |
-| `API key rotation ... revokes the previous key and audits it` | `apps/api/src/routes/admin.test.ts` | asserted the bug | ✅ |
+| `API key rotation issues a new key atomically, revokes the previous key and audits it` | `apps/api/src/routes/admin.test.ts` | ❌ `200 !== 401` (old key still works) | ✅ passes |
+| `a forced audit-write failure rolls back an API key rotation entirely` | same | ✅ | ✅ |
+| Whole file | same | | ✅ 41/41 |
 
 ```bash
-cd apps/api && npx tsx --test src/apiKeys/verify.new.test.ts src/routes/admin.test.ts
+npx tsx --test apps/api/src/routes/admin.test.ts
 ```
 
-Existing tests changed: `admin.test.ts` rotation test — it asserted the old
-key stays active (the bug). Now it asserts 401 and `revoked_reason = 'rotated'`.
+Existing tests changed: the rotation test above, because it encoded the bug (the "intended grace period" claim was false).

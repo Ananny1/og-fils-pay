@@ -8,7 +8,15 @@
 | **Clue** | Handout sheet / ticket / incident that pointed here |
 | **Decision** | D-xxx in `IMPLEMENTATION.md` |
 | **Commit** | `<hash>` |
+| **Owner** | Ebrahim / Sayed |
+| **Evidence** | S1–S4 line (see PLAN.md → Evidence coverage) |
 | **Status** | ⬜ planned · ⏳ in progress · ✅ fixed |
+
+## Summary (the short note)
+
+- **What's wrong:** one sentence a non-developer understands.
+- **Why:** one sentence naming the exact cause in the code.
+- **What it breaks:** one sentence on who loses what.
 
 ## 1. The issue — what was wrong
 

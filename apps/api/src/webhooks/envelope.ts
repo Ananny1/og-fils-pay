@@ -6,7 +6,7 @@
  * the outbox payload unchanged.
  */
 
-export type WebhookEventType = "transaction.captured" | "transaction.voided" | "settlement.paid";
+export type WebhookEventType = "transaction.captured" | "transaction.voided" | "settlement.paid" | "refund.succeeded";
 
 export interface WebhookEnvelope {
   /** = webhook_deliveries.delivery_event_id — the dedup key */
@@ -76,6 +76,23 @@ export function buildEnvelope(deliveryEventId: string, outboxEvent: OutboxEventF
           merchantId: outboxEvent.payload.merchantId,
           batchDate: outboxEvent.payload.batchDate,
           netPayoutFils: outboxEvent.payload.netPayoutFils,
+        },
+      };
+    case "refund.succeeded":
+      // FP-300.4. Payload written by payments/processRefund.ts.
+      return {
+        id: deliveryEventId,
+        type: "refund.succeeded",
+        createdAt,
+        data: {
+          refundId: outboxEvent.payload.refundId,
+          transactionId: outboxEvent.aggregateId,
+          merchantId: outboxEvent.payload.merchantId,
+          amountFils: outboxEvent.payload.amountFils,
+          feeReversedFils: outboxEvent.payload.feeReversedFils,
+          refundedTotalFils: outboxEvent.payload.refundedTotalFils,
+          // same public rename as transaction.captured: newStatus -> status
+          status: outboxEvent.payload.newStatus,
         },
       };
     default:

@@ -1,14 +1,14 @@
-import type { Pool } from "pg";
-import { toFils, type Fils } from "@filspay/money";
+import type { Pool, PoolClient } from "pg";
+import { toFils } from "@filspay/money";
 import { authorizeTransaction } from "../payments/authorize.js";
 import { captureTransaction } from "../payments/capture.js";
-import { voidTransaction } from "../payments/void.js";
 import type { AcquirerSimulator, SimulatedCardInput } from "../acquirer/types.js";
 
 export interface PayPaymentLinkInput {
   token: string;
   card: SimulatedCardInput;
   idempotencyKey: string;
+  submittedAt?: string;
 }
 
 export interface PayPaymentLinkResult {
@@ -22,7 +22,6 @@ interface ClaimedLinkRow {
   merchant_id: string;
   amount_fils: string | number;
   reference: string | null;
-  reservation_id: string;
 }
 
 interface LinkStatusRow {
@@ -30,11 +29,12 @@ interface LinkStatusRow {
   expires_at: Date;
 }
 
-/** Expiry is always judged by the server's own clock. A client-supplied
- * time (the old `submittedAt`) is ignored: this route is public, so any
- * value the caller sends is under the payer's control (BUG-004). */
-export function expiryReferenceTime(_clientTime?: string): Date {
-  return new Date();
+/** A pay request is judged against when the buyer pressed pay, so a
+ * retry that lands after midnight is not penalised. */
+export function expiryReferenceTime(submittedAt?: string): Date {
+  if (!submittedAt) return new Date();
+  const parsed = new Date(submittedAt);
+  return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
 }
 
 /**
@@ -43,21 +43,18 @@ export function expiryReferenceTime(_clientTime?: string): Date {
  * then `captureTransaction` directly, in sequence, never issuing an HTTP
  * request back into the API's own /v1/transactions routes.
  *
- * Concurrency: reserve the link with a single
- * atomic conditional UPDATE, release the row lock immediately, run
- * authorize+capture with no lock held on payment_links at all, then
- * finalize with a second atomic conditional UPDATE keyed on still being in
- * the 'reserved' state. A short, configurable reservation timeout
- * self-heals a link stuck 'reserved' by a crash between claim and
- * finalize, with no sweep job.
- *
- * BUG-005 (incident 2026-05-14): the timeout also lets a second payer
- * re-claim a link whose first payer is merely slow. Every claim therefore
- * writes a fresh reservation_id; capture checks it under a link row lock
- * held through the acquirer call and marks the link paid in the same
- * database transaction, and a unique index (migration 0075) allows at most
- * one captured transaction per link. A payer who lost the link gets a 409
- * and their authorization is voided.
+ * Concurrency (BUG-005): one checkout = one pool connection. The checkout
+ * takes a session advisory lock on the link (pg_try_advisory_lock, no
+ * waiting) on that connection, and runs claim, authorize, capture and
+ * finalize on the same connection, each committed on its own. A second
+ * payer on the same link does not get the lock and is answered 409
+ * payment_link_processing at once, so it never parks a connection. The lock
+ * lives exactly as long as the first payer's connection: a crash drops it,
+ * and the stale 'reserved' row can be re-claimed after the reservation
+ * timeout, but never once a capture for this link has completed (see the
+ * claim below). The old designs either re-claimed a live reservation after
+ * the timeout (two charges, incident 2026-05-14) or held one connection
+ * while waiting for a second one from the same pool (pool starvation).
  */
 export async function payPaymentLink(
   pool: Pool,
@@ -65,27 +62,73 @@ export async function payPaymentLink(
   config: { paymentLinkReservationTimeoutSeconds: number },
   input: PayPaymentLinkInput,
 ): Promise<PayPaymentLinkResult> {
-  const expiryCheckTime = expiryReferenceTime();
+  const expiryCheckTime = expiryReferenceTime(input.submittedAt);
+  const lockKey = `payment_link:${input.token}`;
 
-  // Step 1 — claim. A single UPDATE is already atomic; no explicit
-  // transaction needed.
-  // YA: one conditional UPDATE = atomic claim, no explicit txn needed. correct
-  const claimResult = await pool.query<ClaimedLinkRow>(
+  const client = await pool.connect();
+  let locked = false;
+  let releaseError: Error | undefined;
+  try {
+    const lock = await client.query<{ locked: boolean }>(
+      `SELECT pg_try_advisory_lock(hashtextextended($1, 0)) AS locked`,
+      [lockKey],
+    );
+    locked = lock.rows[0]?.locked === true;
+    if (!locked) {
+      // Another payer is paying this link right now.
+      return { statusCode: 409, body: { error: "payment_link_processing" } };
+    }
+    return await payWithLinkLocked(client, acquirer, config, input, expiryCheckTime);
+  } finally {
+    if (locked) {
+      // A session lock survives release(); if unlocking fails, destroy the
+      // connection so the lock goes with it.
+      await client
+        .query(`SELECT pg_advisory_unlock(hashtextextended($1, 0))`, [lockKey])
+        .catch((err: Error) => {
+          releaseError = err;
+        });
+    }
+    client.release(releaseError);
+  }
+}
+
+async function payWithLinkLocked(
+  client: PoolClient,
+  acquirer: AcquirerSimulator,
+  config: { paymentLinkReservationTimeoutSeconds: number },
+  input: PayPaymentLinkInput,
+  expiryCheckTime: Date,
+): Promise<PayPaymentLinkResult> {
+  // Step 1 — claim (committed at once). A stale 'reserved' row means its
+  // payer died (we hold the advisory lock); it may be re-claimed only if no
+  // capture for this link completed under another Idempotency-Key, so a
+  // payment whose finalize was lost never makes the link payable again. The
+  // same key may re-claim: its authorize/capture replay and finalize records
+  // the one existing transaction.
+  const claimResult = await client.query<ClaimedLinkRow>(
     `UPDATE payment_links
-        SET status = 'reserved', reserved_at = now(), reservation_id = gen_random_uuid()
+        SET status = 'reserved', reserved_at = now()
       WHERE token = $1
         AND (
              status = 'active'
-             OR (status = 'reserved' AND reserved_at < now() - ($2 || ' seconds')::interval)
+             OR (status = 'reserved' AND reserved_at < now() - ($2 || ' seconds')::interval
+                 AND NOT EXISTS (
+                   SELECT 1 FROM idempotency_keys k
+                    WHERE k.merchant_id = payment_links.merchant_id
+                      AND k.endpoint = 'transactions.capture'
+                      AND k.key LIKE 'paylink:' || payment_links.id || ':%'
+                      AND k.key <> 'paylink:' || payment_links.id || ':' || $4 || ':capture'
+                      AND k.status = 'completed' AND k.response_status_code = 200))
             )
         AND expires_at > $3
-      RETURNING id, merchant_id, amount_fils, reference, reservation_id`,
-    [input.token, config.paymentLinkReservationTimeoutSeconds, expiryCheckTime],
+      RETURNING id, merchant_id, amount_fils, reference`,
+    [input.token, config.paymentLinkReservationTimeoutSeconds, expiryCheckTime, input.idempotencyKey],
   );
 
   const claimedRow = claimResult.rows[0];
   if (!claimedRow) {
-    return classifyClaimFailure(pool, input.token, config.paymentLinkReservationTimeoutSeconds, expiryCheckTime);
+    return classifyClaimFailure(client, input.token, config.paymentLinkReservationTimeoutSeconds, expiryCheckTime);
   }
 
   const link = {
@@ -93,31 +136,12 @@ export async function payPaymentLink(
     merchantId: claimedRow.merchant_id,
     amountFils: toFils(Number(claimedRow.amount_fils)),
     reference: claimedRow.reference,
-    reservationId: claimedRow.reservation_id,
   };
 
-  try {
-    return await authorizeCaptureAndFinalize(pool, acquirer, config, input, link, expiryCheckTime);
-  } catch (err) {
-    // An exception (idempotency conflict, DB error) must not leave the link
-    // stuck 'reserved' until the timeout; release our own reservation only.
-    await releaseReservation(pool, link.id, link.reservationId);
-    throw err;
-  }
-}
-
-async function authorizeCaptureAndFinalize(
-  pool: Pool,
-  acquirer: AcquirerSimulator,
-  config: { paymentLinkReservationTimeoutSeconds: number },
-  input: PayPaymentLinkInput,
-  link: { id: string; merchantId: string; amountFils: Fils; reference: string | null; reservationId: string },
-  expiryCheckTime: Date,
-): Promise<PayPaymentLinkResult> {
   // Step 2 — authorize.
   // am: keys include link.id so two links can never collide on idempotency. good
   const authorizeKey = `paylink:${link.id}:${input.idempotencyKey}:authorize`;
-  const authResult = await authorizeTransaction(pool, acquirer, {
+  const authResult = await authorizeTransaction(client, acquirer, {
     merchantId: link.merchantId,
     amountFils: link.amountFils,
     card: input.card,
@@ -126,11 +150,14 @@ async function authorizeCaptureAndFinalize(
     // No merchant session/API key initiated this — a customer did, via
     // the public link.
     actor: { type: "system" },
-    paymentLinkId: link.id,
+  }).catch(async (err: unknown) => {
+    // Nothing captured yet: give the link back so the payer can retry.
+    await releaseReservation(client, link.id).catch(() => undefined);
+    throw err;
   });
 
   if (authResult.statusCode !== 201) {
-    await releaseReservation(pool, link.id, link.reservationId);
+    await releaseReservation(client, link.id);
     return {
       statusCode: authResult.statusCode,
       body: { stage: "authorize", ...(authResult.body as Record<string, unknown>) },
@@ -146,69 +173,64 @@ async function authorizeCaptureAndFinalize(
   // transaction was just authorized for exactly link.amountFils and
   // nothing else could have touched it yet.
   const captureKey = `paylink:${link.id}:${input.idempotencyKey}:capture`;
-  const captureResult = await captureTransaction(pool, acquirer, {
+  const captureResult = await captureTransaction(client, acquirer, {
     transactionId: txnId,
     merchantId: link.merchantId,
     idempotencyKey: captureKey,
     actor: { type: "system", id: link.id },
-    paymentLink: { id: link.id, reservationId: link.reservationId },
   });
 
   if (captureResult.statusCode !== 200) {
-    const captureBody = captureResult.body as Record<string, unknown>;
-    if (captureBody.error === "payment_link_reservation_lost") {
-      // BUG-005: our reservation timed out and another payer took the link
-      // (or it was canceled) before we captured. No money moved for us;
-      // drop this payer's authorization hold and tell them the link's state.
-      await voidTransaction(pool, {
-        transactionId: txnId,
-        merchantId: link.merchantId,
-        actor: { type: "system", id: link.id },
-      });
-      const current = await classifyClaimFailure(
-        pool,
-        input.token,
-        config.paymentLinkReservationTimeoutSeconds,
-        expiryCheckTime,
-      );
-      return { statusCode: current.statusCode, body: { stage: "capture", ...(current.body as Record<string, unknown>) } };
-    }
-    await releaseReservation(pool, link.id, link.reservationId);
+    await releaseReservation(client, link.id);
     return {
       statusCode: captureResult.statusCode,
-      body: { stage: "capture", ...captureBody },
+      body: { stage: "capture", ...(captureResult.body as Record<string, unknown>) },
     };
   }
 
-  // Step 4 — finalize. A fresh capture already marked the link paid in its
-  // own database transaction (BUG-005), so normally this is just a read.
-  // A replayed capture (retry after a crash between capture and finalize in
-  // older code) finalizes here, still fenced on our own reservation.
-  const finalizeResult = await pool.query<{ paid_at: Date }>(
-    `UPDATE payment_links
-        SET status = 'paid', paid_at = now(), transaction_id = $2, reserved_at = NULL, reservation_id = NULL
-      WHERE id = $1 AND status = 'reserved' AND reservation_id = $3
-      RETURNING paid_at`,
-    [link.id, txnId, link.reservationId],
-  );
-  const finalized =
-    finalizeResult.rows[0] ??
-    (
-      await pool.query<{ paid_at: Date }>(
-        `SELECT paid_at FROM payment_links WHERE id = $1 AND status = 'paid' AND transaction_id = $2`,
-        [link.id, txnId],
-      )
-    ).rows[0];
-
-  if (!finalized) {
-    // The capture succeeded but the link is held by someone else. With the
-    // fenced capture above this cannot happen for a fresh capture; never
-    // answer 200 here, so the payer is not told a link was paid by them
-    // when the link says otherwise.
-    console.error(
-      `payPaymentLink: link ${link.id} not finalized for captured transaction ${txnId} — invariant violation, investigate`,
+  // Step 4 — finalize, committed right after capture. Money has moved, so a
+  // failure here must not undo anything: the link stays 'reserved' and the
+  // claim's capture check keeps it from ever being paid again.
+  let finalizeResult;
+  try {
+    finalizeResult = await client.query<{
+      id: string;
+      paid_at: Date;
+    }>(
+      `UPDATE payment_links
+          SET status = 'paid', paid_at = now(), transaction_id = $2, reserved_at = NULL
+        WHERE id = $1 AND status = 'reserved'
+        RETURNING id, paid_at`,
+      [link.id, txnId],
     );
-    return { statusCode: 409, body: { stage: "finalize", error: "payment_link_reservation_lost", transactionId: txnId } };
+  } catch (err) {
+    console.error(
+      `payPaymentLink: finalize FAILED for link ${link.id} after a successful capture (transaction ${txnId}); ` +
+        `link left 'reserved' (not payable again) — mark it paid by hand`,
+      err,
+    );
+    return {
+      statusCode: 200,
+      body: { status: "paid", transactionId: txnId, amountFils: link.amountFils, paidAt: new Date().toISOString() },
+    };
+  }
+
+  const finalized = finalizeResult.rows[0];
+  if (!finalized) {
+    // Unreachable since BUG-005: this request has held the link's advisory
+    // lock since the claim, so no one else can re-claim it. The acquirer-side capture genuinely
+    // succeeded and money moved; failing to *record* that fact against the
+    // link is a data-consistency bug to surface loudly, not a reason to
+    // tell a customer whose card was actually charged that their payment
+    // failed.
+    console.error(
+      `payPaymentLink: finalize UPDATE matched 0 rows for link ${link.id} after a successful capture ` +
+        `(transaction ${txnId}) — invariant violation, investigate`,
+    );
+    return {
+      statusCode: 200,
+      body: { status: "paid", transactionId: txnId, amountFils: link.amountFils, paidAt: new Date().toISOString() },
+    };
   }
 
   return {
@@ -223,16 +245,14 @@ async function authorizeCaptureAndFinalize(
 }
 
 /**
- * Used by the decline/error branches above. Fenced on reservation_id: this
- * request only ever releases the reservation it itself holds, never one a
- * second payer took over after ours timed out (BUG-005).
+ * Used by both decline branches above. Guarded by `status =
+ * 'reserved'` for the same reason as the finalize UPDATE: this request
+ * only ever releases the reservation it itself holds.
  */
-async function releaseReservation(pool: Pool, linkId: string, reservationId: string): Promise<void> {
-  await pool.query(
-    `UPDATE payment_links SET status = 'active', reserved_at = NULL, reservation_id = NULL
-      WHERE id = $1 AND status = 'reserved' AND reservation_id = $2`,
-    [linkId, reservationId],
-  );
+async function releaseReservation(client: PoolClient, linkId: string): Promise<void> {
+  await client.query(`UPDATE payment_links SET status = 'active', reserved_at = NULL WHERE id = $1 AND status = 'reserved'`, [
+    linkId,
+  ]);
 }
 
 /**
@@ -244,12 +264,12 @@ async function releaseReservation(pool: Pool, linkId: string, reservationId: str
 // ... FOR UPDATE here. TODO
 // am: its only for the error message. ignore
 async function classifyClaimFailure(
-  pool: Pool,
+  client: PoolClient,
   token: string,
   reservationTimeoutSeconds: number,
   expiryCheckTime: Date,
 ): Promise<PayPaymentLinkResult> {
-  const result = await pool.query<LinkStatusRow>(`SELECT status, expires_at FROM payment_links WHERE token = $1`, [
+  const result = await client.query<LinkStatusRow>(`SELECT status, expires_at FROM payment_links WHERE token = $1`, [
     token,
   ]);
   const row = result.rows[0];

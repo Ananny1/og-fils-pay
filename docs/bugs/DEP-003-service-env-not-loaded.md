@@ -9,6 +9,12 @@
 | **Decision** | D-003 |
 | **Status** | ✅ fixed |
 
+## Summary (the short note)
+
+- **What's wrong:** The services never received their settings, so the API ran in development mode and settlement had no token.
+- **Why:** Compose had no `env_file:`; the comment claiming the settings file loads "automatically" was false.
+- **What it breaks:** The hosted API handed out OTP codes in its replies and logs, settlement couldn't start, and Postgres was open to the network.
+
 ## 1. The issue
 
 The settings in `ops/.env.docker` (`NODE_ENV`, `SETTLEMENT_INTERNAL_TOKEN`, signing secrets) never

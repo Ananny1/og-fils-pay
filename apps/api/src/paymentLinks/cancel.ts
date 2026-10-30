@@ -5,11 +5,7 @@ export type CancelPaymentLinkResult =
   | { outcome: "not_found" }
   | { outcome: "not_cancelable"; status: string };
 
-/**
- * Cancels an active payment link by id, scoped to the caller's merchant. A
- * link that belongs to another merchant is reported as not_found — the same
- * answer as a link that does not exist, so ids of other tenants leak nothing.
- */
+/** Cancels an active payment link by id, only if it belongs to `merchantId`. */
 export async function cancelPaymentLink(
   pool: Pool,
   input: { id: string; merchantId: string },

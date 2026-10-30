@@ -23,29 +23,33 @@ export interface SignedPayload {
  * webhook_endpoints.secret_ciphertext (webhooks/secretCrypto.ts) before
  * calling this; sign.ts itself never touches encryption, only signing.
  *
- * Signs `${timestamp}.${body}`, not the payload alone, so a receiver can
- * enforce its own freshness window using only what's in the header — a
- * captured genuine delivery can't be replayed by a third party at an
- * arbitrary later time with a signature that still looks fresh.
- *
- * `payload` given as a string is the exact HTTP body and is signed byte for
- * byte (BUG-023): that is what every sender must do, because a merchant
- * verifies the raw bytes they received. An object is canonicalised first
- * (kept only for callers that never send the bytes).
+ * Signs `${timestamp}.${canonicalJson(payload)}`, not the payload alone,
+ * so a receiver can enforce its own freshness window using only what's in
+ * the header — a captured genuine delivery can't be replayed by a third
+ * party at an arbitrary later time with a signature that still looks fresh.
  */
 export function signPayload(
   payload: unknown,
   secret: string,
   timestamp: number = Math.floor(Date.now() / 1000),
 ): SignedPayload {
-  const signedString = `${timestamp}.${signedBody(payload)}`;
-  const signature = createHmac("sha256", secret).update(signedString).digest("hex");
-  return { timestamp, signature: `t=${timestamp},v1=${signature}` };
+  return signRawBody(canonicalJson(payload), secret, timestamp);
 }
 
-/** A string is the raw body, signed as-is; anything else is canonicalised. */
-function signedBody(payload: unknown): string {
-  return typeof payload === "string" ? payload : canonicalJson(payload);
+/**
+ * Signs `${timestamp}.${rawBody}` over the exact string the caller will put
+ * on the wire (BUG-023 / FP-240). Senders must serialize once, sign that
+ * string with this function, and send the same string as the HTTP body, so
+ * a receiver can verify the raw bytes it got without re-parsing.
+ */
+export function signRawBody(
+  rawBody: string,
+  secret: string,
+  timestamp: number = Math.floor(Date.now() / 1000),
+): SignedPayload {
+  const signedString = `${timestamp}.${rawBody}`;
+  const signature = createHmac("sha256", secret).update(signedString).digest("hex");
+  return { timestamp, signature: `t=${timestamp},v1=${signature}` };
 }
 
 interface ParsedSignatureHeader {
@@ -83,8 +87,7 @@ export interface VerifySignatureResult {
 }
 
 /**
- * Re-derives the expected signature and compares constant-time. Pass the
- * raw received body string, as a merchant's receiver would.
+ * Re-derives the expected signature and compares constant-time
  * (`timingSafeEqualHex`, never `===`). Used by the end-to-end tests (the
  * local receiver checks what the dispatcher actually sent) and meant for a
  * "test your webhook secret" merchant tool.
@@ -101,7 +104,7 @@ export function verifySignature(
   if (!parsed) return { valid: false, reason: "malformed_header" };
 
   const expected = createHmac("sha256", secret)
-    .update(`${parsed.timestamp}.${signedBody(payload)}`)
+    .update(`${parsed.timestamp}.${canonicalJson(payload)}`)
     .digest("hex");
 
   if (!timingSafeEqualHex(expected, parsed.signature)) {

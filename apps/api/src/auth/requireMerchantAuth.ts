@@ -46,7 +46,7 @@ declare module "fastify" {
 export const requireMerchantAuth: preHandlerHookHandler = async (request: FastifyRequest): Promise<void> => {
   const token = request.cookies[request.server.config.cookieName];
   if (token) {
-    const session = await lookupSession(request.server.db, token);
+    const session = await lookupSession(request.server.db, token, request.server.config.sessionIdleMinutes);
     if (session) {
       request.merchantAuth = {
         merchantId: session.merchantId,
@@ -77,18 +77,14 @@ export const requireMerchantAuth: preHandlerHookHandler = async (request: Fastif
   // FH: tried old grant cookie + real merchant session, got the merchant identity as expected. can't see the bug
   // Third and last fallback: an operator's "view as merchant" grant, read from
   // its own cookie (never fp_admin_sid — this function does not know that
-  // cookie's name and never looks at it). The grant resolves to the operator's
-  // standing expressed in the merchant plane's own role vocabulary
-  // (see admin/impersonation.ts), so the existing requireMerchantRole gates
-  // apply to it exactly as they do to a real merchant session — one authority
-  // model, no second "what may impersonation do" allowlist to drift from it.
+  // cookie's name and never looks at it). The grant always resolves to the
+  // merchant role "support" (see admin/impersonation.ts), and it is read-only:
+  // capture, void and saved filters have no role gate, so writes are refused
+  // here for every route at once (BUG-010).
   const impersonationToken = request.cookies[request.server.config.impersonationCookieName];
   if (impersonationToken) {
     const grant = await lookupImpersonationGrant(request.server.db, impersonationToken);
     if (grant) {
-      // A grant is "view as merchant": read-only on every route, including
-      // routes with no role gate (capture, void, saved filters). Writes are
-      // refused here, once, rather than relying on each route's role list.
       if (request.method !== "GET" && request.method !== "HEAD") {
         throw new ForbiddenError("forbidden");
       }

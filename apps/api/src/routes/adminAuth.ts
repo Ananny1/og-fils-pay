@@ -11,6 +11,14 @@ import {
   type AdminRole,
 } from "../adminAuth/sessions.js";
 import { withTransaction } from "../db/withTransaction.js";
+import {
+  adminSubject,
+  clearFailures,
+  confirmFailure,
+  releaseAttempt,
+  reserveAttempt,
+  type ThrottleKey,
+} from "../auth/throttle.js";
 import { BadRequestError, GoneError, TooManyRequestsError, UnauthorizedError } from "../lib/errors.js";
 
 /**
@@ -57,6 +65,10 @@ export async function adminAuthRoutes(app: FastifyInstance): Promise<void> {
       throw new BadRequestError("invalid_request", "email and password are required");
     }
 
+    // Counted before the lookup, for real and unknown accounts alike (SEC-1).
+    const throttleKey: ThrottleKey = { plane: "admin", ipAddress: request.ip, subject: adminSubject(email) };
+    const attemptId = await reserveAttempt(app.db, app.config, throttleKey);
+
     const userResult = await app.db.query<AdminUserRow>(
       `SELECT id, email, role, password_hash FROM admin_users WHERE email = $1 AND status = 'active'`,
       [email],
@@ -68,8 +80,11 @@ export async function adminAuthRoutes(app: FastifyInstance): Promise<void> {
     // The same generic error in every failure case (no row, disabled
     // account, or wrong password) — the response never discloses which.
     if (!user || !passwordOk) {
+      await confirmFailure(app.db, app.config, throttleKey);
       throw new UnauthorizedError("invalid_credentials");
     }
+    // The failure count only resets once the OTP is verified too.
+    await releaseAttempt(app.db, attemptId);
 
     const { code, expiresAt, rawToken } = await withTransaction(app.db, async (client) => {
       const challenge = await issueAdminChallenge(client, {
@@ -88,7 +103,10 @@ export async function adminAuthRoutes(app: FastifyInstance): Promise<void> {
       return { code: challenge.code, expiresAt: challenge.expiresAt, rawToken: session.rawToken };
     });
 
-    sendAdminOtpCode(request.log, app.config, { adminUserId: user.id, email: user.email }, code);
+    // Sent in the background: the reply must not wait for the mail server
+    // (a slow reply only for real accounts would reveal which exist). The
+    // notifier logs its own errors and never throws.
+    void sendAdminOtpCode(request.log, app.config, { adminUserId: user.id, email: user.email }, code);
 
     reply.setCookie(app.config.adminCookieName, rawToken, {
       httpOnly: true,
@@ -122,6 +140,17 @@ export async function adminAuthRoutes(app: FastifyInstance): Promise<void> {
     if (!pending || !pending.otpChallengeId) {
       throw new UnauthorizedError("no_pending_session");
     }
+    const adminEmail = await app.db.query<{ email: string }>(`SELECT email FROM admin_users WHERE id = $1`, [
+      pending.adminUserId,
+    ]);
+    if (!adminEmail.rows[0]) {
+      throw new UnauthorizedError("no_pending_session");
+    }
+    const throttleKey: ThrottleKey = {
+      plane: "admin",
+      ipAddress: request.ip,
+      subject: adminSubject(adminEmail.rows[0].email),
+    };
 
     const challengeResult = await app.db.query<{
       id: string;
@@ -144,45 +173,62 @@ export async function adminAuthRoutes(app: FastifyInstance): Promise<void> {
       throw new GoneError("otp_expired");
     }
 
-    // Same race as the merchant path (the read above is NOT FOR UPDATE):
-    // spend one attempt atomically before comparing, so parallel requests
-    // can never get more than max_attempts guesses.
-    const spent = await app.db.query(
+    // Wrong codes count toward the account lockout, so a new login (new
+    // code, new 5-try budget) can't be used to keep guessing (SEC-1).
+    const attemptId = await reserveAttempt(app.db, app.config, throttleKey);
+
+    // Reserve one attempt before comparing, in one statement, so parallel
+    // guesses can't all read the same count and each get a free try (BUG-011).
+    const reserved = await app.db.query(
       `UPDATE admin_otp_challenges SET attempt_count = attempt_count + 1
-        WHERE id = $1 AND attempt_count < max_attempts
-        RETURNING attempt_count`,
+        WHERE id = $1 AND consumed_at IS NULL AND attempt_count < max_attempts
+        RETURNING id`,
       [challenge.id],
     );
-    if (spent.rowCount === 0) {
+    if (reserved.rowCount === 0) {
+      await releaseAttempt(app.db, attemptId);
+      const now = await app.db.query<{ consumed_at: Date | null }>(
+        `SELECT consumed_at FROM admin_otp_challenges WHERE id = $1`,
+        [challenge.id],
+      );
+      if (now.rows[0]?.consumed_at) {
+        throw new GoneError("otp_expired");
+      }
       await revokeAdminSession(app.db, pending.adminSessionId);
       throw new TooManyRequestsError("too_many_attempts");
     }
 
     const matches = verifyOtpCode(code, challenge.code_salt, challenge.code_hash);
     if (!matches) {
+      await confirmFailure(app.db, app.config, throttleKey);
       throw new UnauthorizedError("invalid_code");
     }
+    await releaseAttempt(app.db, attemptId);
 
     const adminUser = await withTransaction(app.db, async (client) => {
-      await client.query(`UPDATE admin_otp_challenges SET consumed_at = now() WHERE id = $1`, [
-        challenge.id,
-      ]);
-      await promoteAdminSession(client, pending.adminSessionId, app.config.adminSessionTtlHours);
+      const consumed = await client.query(
+        `UPDATE admin_otp_challenges SET consumed_at = now() WHERE id = $1 AND consumed_at IS NULL RETURNING id`,
+        [challenge.id],
+      );
+      if (consumed.rowCount === 0) {
+        throw new GoneError("otp_expired"); // a parallel request already used this code
+      }
+      const promoted = await promoteAdminSession(client, pending.adminSessionId, app.config.adminSessionTtlHours);
       const result = await client.query<{ role: AdminRole }>(
         `SELECT role FROM admin_users WHERE id = $1`,
         [pending.adminUserId],
       );
-      return result.rows[0];
+      const row = result.rows[0];
+      return row ? { role: row.role, sessionToken: promoted.rawToken } : undefined;
     });
     if (!adminUser) {
       throw new Error("admin otp/verify: admin_users row disappeared mid-transaction");
     }
+    await clearFailures(app.db, throttleKey);
 
-    // Re-set the cookie so its browser-side lifetime matches the now-promoted
-    // session's full TTL rather than the short pending window.
-    // YA: why is the cookie set twice (login and verify)? Claude says remove one
-    // FH: the second one re-issues at the full session TTL. the merchant flow should do the same
-    reply.setCookie(app.config.adminCookieName, rawToken, {
+    // Set the rotated session token, with the session's full TTL rather than
+    // the short pending window (the pre-OTP token no longer works: BUG-032).
+    reply.setCookie(app.config.adminCookieName, adminUser.sessionToken, {
       httpOnly: true,
       path: "/",
       sameSite: "lax",

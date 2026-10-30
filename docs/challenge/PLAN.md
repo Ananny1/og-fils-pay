@@ -1,29 +1,217 @@
 # FilsPay — Work Plan
 
-Every known issue, grouped into phases, in the order we fix them. Details for each ID are in
-`ANALYSIS.md`. When a task is done: tick it here, fill the `IMPLEMENTATION.md` register and write
-`docs/bugs/BUG-NNN-*.md`.
+**How to use this file:** the **Master order** below is the one list of every task and the **only
+status that counts**. Work top to bottom (`WORKFLOW.md`); a task whose "Needs" isn't ✅ waits.
+The sections after it hold details (files, test ideas) and are not kept in sync for status.
+Details for each ID are in `ANALYSIS.md`; the live checkpoint is `PROGRESS.md`.
 
 **Status:** ⬜ todo · ⏳ in progress · ✅ done · ⏭ skipped (say why)
 **Points:** ★★★ critical (security / money lost or duplicated) · ★★ wrong money · ★ reliability / reporting
+**Evidence:** S1 security brief · S2 FP-300 sheet · S3 finance & ops weekly · S4 support tickets · S5 **judging rubric** (`evidence/`)
+**Scoring:** 170 points: Correctness 100 · Capacity 20 · Hosting 10 · AI usage 10 · UI/UX 10 · Technical defence 20. See `RUBRIC.md`: every task must earn points in one of these.
 
 Paths are relative to the repo root. `api/` = `apps/api/src/`, `stl/` = `apps/settlement/internal/`.
 
 ---
 
+## ⏱ 4-hour sprint (2026-10-30) — what we do and what we drop
+
+Time left: **4 hours**. The organiser (main Claude session) runs **10 parallel streams**, each an agent in
+its own git worktree with its own test database (`filspay_s1` … `filspay_s8`). Agents commit one bug per
+commit on their worktree branch; the organiser cherry-picks onto `ebrahim/track-b`, runs both suites,
+updates the shared records (IMPLEMENTATION / PLAN / TRAPS / PRESENTATION) and pushes (D-016).
+
+| Stream | Rubric row | Tasks, in order (time-boxed: stop when time is up) |
+|---|---|---|
+| S1 Access | Correctness | BUG-003, BUG-012, BUG-013, BUG-033 |
+| S2 Payment links | Correctness | BUG-004, BUG-005 |
+| S3 Callbacks & payouts | Correctness | BUG-007, BUG-006, BUG-008 |
+| S4 Money (TypeScript) | Correctness | BUG-014, BUG-017, BUG-018, BUG-019, BUG-027, BUG-029 |
+| S5 Money (Go settlement) | Correctness | BUG-020, BUG-021, BUG-016, BUG-022, BUG-015 |
+| S6 Refunds FP-300 | Correctness (the missing feature) | BUG-061, BUG-036, BUG-035, BUG-034, FP-300.1, .2, .4, BUG-056 |
+| S7 Webhooks & reports | Correctness | BUG-023, BUG-059, BUG-060, BUG-030, BUG-026 |
+| S8 Hosting & capacity | Hosting 10 + Capacity 20 | HOST-1, CAP-2, CAP-1 + estimate |
+| S9 Hand-in docs | Correctness report + AI 10 + Defence 20 | REPORT (root cause of **every** bug, fixed or not), AI-1 excerpts, slide outline |
+| S10 Screens | UI/UX 10 | UX-0 before screenshots, F5 3 decimals, F4 read-only banner, F10 no double-click, F9 titles |
+
+**Dropped for now** (documented with root cause in the findings report instead): BUG-015/028/051–055,
+BUG-024/025, BUG-057, FP-300.3/.5/.6 if S6 runs out of time, F1/F3/F6–F8/F11–F13, T5, ENH-*,
+DEPLOY (needs Dilmune access: 🔔 Q-7). Write-ups for sprint fixes use the short form (Summary + fix + proof).
+
+## Master order
+
+Ordered by **what must work first**: you can't test anything if it doesn't run (Tier 0), nobody
+should get in who shouldn't (Tier 1: login is the entry), then who can do what (Tier 2), then money
+coming in (Tier 3), money maths (Tier 4), what shops are told (Tier 5), the missing feature (Tier 6),
+the screens (Tier 7) and hand-in (Tier 8).
+
+| # | ID | Task | ★ | Evidence | Needs | Status |
+|---|---|---|---|---|---|---|
+| **Tier 0** | | **Runs at all** | | | | |
+| 0.1 | DEP-001 | Missing Dockerfiles | ★★★ | S1 "docker compose up" | — | ✅ |
+| 0.2 | DEP-002 | Fresh migrate fails (0054, 0055) | ★★★ | HANDOVER | — | ✅ |
+| 0.3 | DEP-003 | Compose never loads service settings | ★★★ | compose header | — | ✅ |
+| 0.4 | BUG-050 | Poisoned AI instruction files | ★★★ | flag, ANALYSIS §0 | — | ✅ |
+| 0.5 | F0 | Dashboard home URL, not-found / error pages | ★ | found running it | — | ✅ |
+| 0.6 | BUG-009 | `expire_holds` deletes every hold | ★★★ | HANDOVER | — | ✅ |
+| 0.65 | BUG-058 | Built-in dev webhook key invalid (34 bytes) → API and seed crash without a key | ★★ | S1 | — | ✅ |
+| 0.7 | DEP-004 | `docker compose up` **from `ops/`** (the brief's own instruction) must work: migrate before seed before services, no settings file required for local | ★★ | S1 | — | ✅ |
+| 0.75 | DEP-005 | `npm test` never ran the API/reporting suites (Node 20 doesn't expand the test glob) | ★★ | — | — | ✅ |
+| 0.8 | T1 | Test baseline: run `npm test` + `go test ./...`, record what already fails (`TEST-BASELINE.md`) | — | — | 0.75 | ✅ |
+| **Tier 1** | | **Login (the entry point)** | | | | |
+| 1.1 | BUG-001 | Login works without the OTP | ★★★ | S3 group chat | — | ✅ |
+| 1.2 | BUG-002 | OTP binds to another shop's user with the same email | ★★★ | S4 "OTP changed" | 1.1 | ✅ |
+| 1.25 | BUG-037 | Public signup accepts an existing user's email → with BUG-002 an attacker lands in the victim's shop. **Reclassified → ENH-008** after BUG-002: the takeover needed the email-based identity switch, which is gone; shared emails across shops are legitimate (seed data); what remains is unverified email ownership, a missing feature | ★ | investigation | 1.2 | ⏭ |
+| 1.3 | BUG-011 | OTP guessable: parallel attempts bypass the limit; codes from `Math.random` | ★★ | S4 "OTP … still safe?" | 1.1 | ✅ |
+| 1.4 | BUG-031 | OTP returned in the login reply and logged (`otpDevExpose` defaults on) | ★★★ | S4 "OTP … still safe?" | 1.1 | ✅ |
+| 1.5 | BUG-032 | Session not rotated after OTP (fixation, merchant + admin) + merchant cookie dies after 10 min | ★★ | YA handover note | 1.1 | ✅ |
+| **Tier 2** | | **Who can do what** | | | | |
+| 2.1 | BUG-010 | "View as merchant" gives super_admin **owner** powers, and can write | ★★★ | HANDOVER | Tier 1 | ✅ |
+| 2.2 | BUG-003 | Shop A cancels shop B's payment link (IDOR) | ★★★ | S3 group chat | Tier 1 | ✅ |
+| 2.3 | BUG-033 | Admin actions missing role checks: audit every `/v1/admin` route | ★★ | S4 "admin … role checks" | Tier 1 | ✅ |
+| 2.4 | BUG-012 | API key rotation leaves the old key working | ★★ | S4 "key rotation" | Tier 1 | ✅ |
+| 2.5 | BUG-013 | Credit two-person check compares display names | ★★ | — | Tier 1 | ✅ |
+| **Tier 3** | | **Money coming in** | | | | |
+| 3.1 | BUG-004 | Expired payment link still payable (client `submittedAt`) | ★★★ | S4 FP-187 | — | ✅ |
+| 3.2 | BUG-005 | Payment link charged twice (slow payment) | ★★★ | S4 incident 2026-05-14 | 3.1 | ✅ |
+| 3.3 | BUG-007 | Acquirer callback signature optional / re-serialised / no freshness / outcome unchecked | ★★★ | S4 FP-240 "incoming check" | — | ✅ |
+| 3.4 | BUG-006 | Duplicate acquirer callbacks saved twice | ★★★ | S4 FP-201 (reopened) | 3.3 | ✅ |
+| 3.5 | BUG-008 | Duplicate payout notifications + disbursements | ★★★ | S4 incident 2026-08-21 | — | ✅ |
+| **Tier 4** | | **Money maths and settlement** | | | | |
+| 4.1 | BUG-014 | CSV import reads 4.75 BD as 0.475, 4.755 as 4.750 | ★★★ | S3 "10x??" | — | ✅ |
+| 4.2 | BUG-020 | Daily close at 03:00 Bahrain instead of midnight | ★★ | S3, S4 | — | ✅ |
+| 4.3 | BUG-015 | Scheme statement always a few fils over | ★★ | S3 | — | ✅ |
+| 4.4 | BUG-016 | Delta Marketplace split payouts lose fils | ★★★ | S3, S4 | — | ✅ |
+| 4.5 | BUG-017 | "Recalculate cached balances" 135K → 7K | ★★★ | S3, S4 FP-203 | — | ✅ |
+| 4.6 | BUG-018 | MDR recalculation rewrites paid batches | ★★★ | S3 | — | ✅ |
+| 4.7 | BUG-019 | Test merchants paid in the real settlement run | ★★★ | S3, S4 | — | ✅ |
+| 4.8 | BUG-021 | Net payout in float32 | ★★ | — | — | ✅ |
+| 4.9 | BUG-022 | Platform volume counter int32 overflow | ★★ | — | — | ✅ |
+| 4.10 | BUG-028 | Lifetime payout estimate drifts | ★★ | S3 group chat | — | ✅ (Sayed) |
+| 4.11 | BUG-027 | March sweep doubles the gap when run twice | ★★ | S3 | — | ✅ |
+| 4.12 | BUG-029 | Adjustment import has no double-submit guard | ★★ | — | 4.1 | ✅ |
+| 4.13 | BUG-051 | Scheme residue never posted (ADR-0002) | ★★ | ADR-0002 | 4.3 | ✅ (Sayed, his BUG-041) |
+| 4.14 | BUG-052 | Capture fee ignores negotiated discount; settlement applies it | ★★ | — | — | ✅ (Sayed, his BUG-036) |
+| 4.15 | BUG-053 | Split child without a balance row → payout no-op | ★ | — | 4.4 | ⬜ |
+| **Tier 5** | | **What shops are told (webhooks, reports)** | | | | |
+| 5.1 | BUG-023 | Outbound webhook signs different bytes than it sends | ★★★ | S4 FP-240 | — | ✅ |
+| 5.2 | BUG-024 | Settlement summary double-counts and is slow | ★★ | S4 "reporting … slow" | — | ✅ (Sayed) |
+| 5.3 | BUG-025 | Large export: all in memory; streaming version skips rows | ★★ | S4 "large export" | — | ⬜ |
+| 5.4 | BUG-030 | CSV export formula injection | ★ | — | 5.3 | ✅ |
+| 5.5 | BUG-026 | Dashboard fee 245 vs 225 bps | ★★ | S3 | — | ✅ |
+| 5.6 | BUG-054 | Reconciliation uses `merchants.mdr_bps` (no sync trigger) | ★ | — | 5.5 | ✅ (Sayed) |
+| 5.65 | BUG-059 | Reporting consumer writes `merchant_id = NULL` into `merchant_daily_volume` (4 reporting tests red) | ★★ | T1 | — | ✅ |
+| 5.66 | BUG-060 | Webhook retry backoff differs from config (test 332 red) | ★ | T1 | — | ✅ |
+| 5.7 | BUG-055 | Rollups / metrics / analytics bucketed by UTC date | ★ | — | 4.2 | ✅ part (Sayed, his BUG-037) |
+| **Tier 6** | | **FP-300 Refunds (the missing feature)** | | | | |
+| 6.0 | BUG-061 | Refund insert violates `chk_refunds_reason_not_null` (11 refund tests red; R8) | ★★ | T1 | — | ✅ |
+| 6.1 | BUG-034 | Two refunds at once both succeed | ★★★ | S4 FP-209 | — | ✅ |
+| 6.2 | BUG-035 | Refund more than was captured | ★★★ | S4 "refund more than charged" | — | ✅ |
+| 6.3 | BUG-036 | Refund another shop's transaction | ★★★ | — | — | ✅ |
+| 6.4 | BUG-056 | Fee reversal across partial refunds can exceed the original fee | ★★ | S2 "fees … right" | — | ✅ |
+| 6.5 | BUG-057 | Status after a full refund of a partial capture | ★ | — | — | ⬜ |
+| 6.6 | FP-300.1 | Refund route + guards + required `Idempotency-Key` | ★★★ | S2 "through the API" | 6.1–6.3 | ✅ |
+| 6.7 | FP-300.2 | Ledger to the fil | ★★★ | S2 "ledger … fils" | 6.6 | ✅ |
+| 6.8 | FP-300.3 | Next settlement batch reduced by refunds (R9) | ★★★ | S2 "payouts" | 6.7 | ✅ |
+| 6.9 | FP-300.4 | `refund.succeeded` webhook (R6) | ★★ | S2 "right webhook" | 5.1, 6.6 | ✅ |
+| 6.10 | FP-300.5 | Timeline, reports, reconciliation (R7, R8) | ★★ | S2 "timeline … reconciliation" | 6.7 | ⬜ |
+| 6.11 | FP-300.6 | End-to-end refund tests | ★★ | S2 | 6.6–6.10 | ⬜ |
+| **Tier 7** | | **Screens** (Phase F, details below) | | | | |
+| 7.1 | F1–F13 | Frontend fixes (refund drawer, checkout, login, read-only impersonation, 3 decimals, …) | ★ | S2 "timeline" | per item | ⬜ |
+| 7.2 | T5 | Page checklist: every page × every state | ★ | — | 7.1 | ⬜ |
+| **Tier 8** | | **Hand-in** (rubric: Capacity 20 · Hosting 10 · AI 10 · Defence 20, see `RUBRIC.md`) | | | | |
+| 8.0 | UX-0 | **"Before" screenshots** of checkout, merchant dashboard, admin console (every main page), taken **before** any Tier 7 change | ★★ | S5 UI/UX "before and after evidence" | — | ✅ |
+| 8.0a | HOST-1 | Production compose: API 0.5 vCPU / 512 MB, whole stack ≤ 1 vCPU / 2 GB, `restart: unless-stopped`, health checks, compiled API (no `tsx`), static web/admin (no Vite dev servers) | ★★★ | S5 Hosting + Capacity | Tiers 1–6 | ✅ |
+| 8.0b | CAP-1 | Load test the **checkout** scenario locally under the same limits (k6 or autocannon); find the max users that stay fast and correct | ★★ | S5 Capacity | HOST-1 | ✅ (HOST-2 re-measure) |
+| 8.0c | CAP-2 | **Turn away excess** quickly (429/503 + `Retry-After`) instead of queueing until timeouts: in-flight / rate limit (was ENH-005) | ★★ | S5 Capacity | CAP-1 | ✅ |
+| 8.0d | CAP-3 | Crash and overload drills: kill the API / Postgres mid-checkout → restarts, **no lost or doubled payments** | ★★ | S5 Capacity | CAP-2 | ✅ |
+| 8.0e | CAP-4 | Write and send our **capacity estimate** (number + how measured) | ★★ | S5 Capacity "send us your estimate" | CAP-3 | ✅ (CAPACITY.md) |
+| 8.1 | T2–T4 | Full suite green, API smoke script, frontend tests | — | — | Tiers 1–7 | ✅ (suite green; frontend tests are Sayed's) |
+| 8.2 | D4, D5, D7 | Rotate leaked secret; no public DB / internal ports; `readyz` checks DB | ★★ | — | — | ✅ (SEC-4 leaked secret refused; HOST-1 no public DB; readyz) |
+| 8.3 | DEPLOY | Live on Dilmune Cloud. **🔔 Before starting, ask Ebrahim Q-7** (demo data: load once or on every restart?) **and set up ENH-001's Gmail app password on the box** | ★★★ | S1, S2 | 8.2 | ⬜ |
+| 8.4 | T6, T7 | Fresh-clone check; final read of every write-up | — | — | 8.3 | ⬜ |
+| 8.5 | REPORT | **Findings report**: every bug's root cause in one document (built from `docs/bugs/`) | ★★★ | S5 Correctness | Tiers 1–6 | ✅ |
+| 8.6 | AI-1 | Submission document: AI setup files + **3 annotated transcript excerpts showing how we checked the AI** (candidates in `RUBRIC.md`) | ★★ | S5 AI usage | — | ✅ |
+| 8.7 | DEF-1 | Slide deck (from `PRESENTATION.md`) + live demo script + **brief Sayed on every fix** (judges pick who answers) | ★★★ | S5 Technical defence | 8.5 | ⏳ (outline + Q&A done; slides + Sayed brief left) |
+
+**Later (low points):** A12 API keys bypass role gates (documented) · B4 "Adjust balance" is
+cache-only · S10 daemon closes on boot · S11 rebuild vs CloseBatch race · W8 replay keeps delivery
+ids? · W9 timestamp check order.
+
+## Task types (how every item is classified)
+
+| Type | ID | What it is | Scored by the brief? | Where it's written up |
+|---|---|---|---|---|
+| **Bug** | `BUG-NNN` | The code does something wrong against the spec (ADRs, HANDOVER, the sheets) or is insecure | ✅ yes (main points) | `docs/bugs/BUG-NNN-*.md` |
+| **Deploy blocker** | `DEP-NNN` | Stops the app from building, migrating, starting or deploying | ✅ (needed for "live on Dilmune Cloud") | `docs/bugs/DEP-NNN-*.md` |
+| **Feature** | `FP-300.x` | The missing feature the brief asks us to finish (Refunds) | ✅ yes | `docs/bugs/` + FP-300 section in `IMPLEMENTATION.md` |
+| **Frontend item** | `F<n>` | A screen that is broken or unclear (some are bugs, some polish) | partly | `docs/bugs/F<n>-*.md` |
+| **Test / QA** | `T<n>` | Baselines, smoke scripts, checklists | supports all | `IMPLEMENTATION.md` step log |
+| **Enhancement** | `ENH-NNN` | Not a bug: an improvement beyond what the spec asks (e.g. email OTP delivery). Done only after approval, and after the tier it supports | ➕ bonus only | `docs/enhancements/ENH-NNN-*.md` |
+| **Idea** | — | Not yet judged; parked in `PROGRESS.md` → Ideas | — | becomes an ENH when approved |
+
+**Rule:** a bug fix is the **smallest** change that removes the root cause. Anything bigger
+("while we're here…") is split off as an `ENH`, so fixes stay small and enhancements are a
+separate, optional decision.
+
+## Enhancements (bonus, after approval)
+
+| ID | Enhancement | Supports | Why | Cost | Status |
+|---|---|---|---|---|---|
+| ENH-001 | **Email OTP delivery**: real email via SMTP; Mailpit inbox at `localhost:8025` for local runs; reuse Ebrahim's "chattrix" (Gmail SMTP + app password, **free**) → [write-up](../enhancements/ENH-001-email-otp-chattrix.md) | BUG-031 | After BUG-031 the code no longer shows on screen; users still need to receive it, and a demo can show the full login | ~1 file per notifier + compose service + 1 dependency | ✔️ approved 2026-10-30 (after Tiers 2–6) |
+| ENH-002 | Authenticator-app second factor (TOTP, e.g. Microsoft Authenticator) | Tier 1 | No code sent at all; strongest option | Enrolment flow, secret storage, recovery codes, UI, migration | 💡 |
+| ENH-003 | Proper CORS allowlist on the API for production (instead of the dev proxy) | F12, DEPLOY | Dashboards hosted on another origin can call the API safely | Small API plugin + config | 💡 |
+| ENH-004 | `scripts/lib/sqlFilter.ts`: refuse an empty filter, or delete it (now unused) | BUG-009 | Removes a footgun that turned "delete these" into "delete all" | Tiny | 💡 |
+| ENH-005 | Rate limiting on login, OTP resend and pending-session lookups (**overload part promoted to CAP-2**, rubric Capacity) | BUG-011 | Slows brute force and resend abuse beyond the per-challenge attempt limit | Small middleware | 💡 (may become a bug if BUG-011 shows it's exploitable) |
+| ENH-006 | Per-service database roles + TLS to Postgres | D5, DEPLOY | Least privilege; one leaked service can't touch everything | Migration + compose | 💡 |
+| ENH-008 | **Email verification at signup** (confirm the owner email before the shop can log in) | BUG-037 | Stops anyone attaching someone else's email to a new shop; pairs with ENH-001 (email delivery) | Signup flow + token table + email | 💡 |
+| ENH-007 | Delete the now-unused `apps/api/src/auth/users.ts` (`findOtpRecipient`) | BUG-002 | A trap-shaped helper nobody calls | Tiny (a file deletion; approved 2026-10-30) | ✅ |
+
+## Evidence coverage (every line of the 4 sheets → a task)
+
+| Sheet | Line | Task |
+|---|---|---|
+| S1 | "Money rule: whole fils only" · "closes at midnight, Bahrain time" | BUG-014, BUG-020, BUG-021, BUG-050 |
+| S1 | "Run `docker compose up` in `ops/`" | DEP-001–004 |
+| S1 | "For each bug, a short note: what's wrong, why, what it breaks" | Summary block in every write-up |
+| S2 | FP-300: through the API · ledger to the fils · fees and payouts · right webhook · timeline, reports, reconciliation · live on Dilmune Cloud | Tier 6, 8.3 |
+| S3 | Scheme statement a few fils over | BUG-015 (+ BUG-051) |
+| S3 | March sweep ran twice, gap doubled | BUG-027 |
+| S3 | Delta Marketplace split payouts short | BUG-016 |
+| S3 | "Recalculate cached balances" 135K → 7K | BUG-017 |
+| S3 | MDR recalculation changed paid batches | BUG-018 |
+| S3 | Dashboard fee 245 vs 225 bps | BUG-026 (+ BUG-054) |
+| S3 | CSV import 4.755 → 4.750, 4.75 → 0.475 | BUG-014 |
+| S3 chat | Daily close at 3am | BUG-020 |
+| S3 chat | Lifetime payout estimate drifts | BUG-028 |
+| S3 chat | Test merchants in the real settlement run | BUG-019 |
+| S3 chat | Login works without the OTP | BUG-001 |
+| S3 chat | Cancelled merchant B's link from A's dashboard | BUG-003 |
+| S4 | FP-187 link paid after expiry | BUG-004 |
+| S4 | FP-201 duplicate acquirer callbacks (reopened) | BUG-006 |
+| S4 | FP-203 balance cache 135K → 7K | BUG-017 |
+| S4 | FP-209 concurrent refund, double money | BUG-034 |
+| S4 | FP-240 webhook signatures rejected; incoming check has problems | BUG-023, BUG-007 |
+| S4 | Incident 2026-05-14 link charged twice | BUG-005 |
+| S4 | Incident 2026-08-21 duplicate payout notifications | BUG-008 |
+| S4 note | Refund more than was charged | BUG-035 |
+| S4 note | Splits a few fils short | BUG-016 |
+| S4 note | Admin actions without the right role checks | BUG-033 (+ BUG-010) |
+| S4 note | Key rotation doesn't do what you'd expect | BUG-012 |
+| S4 note | Daily close timing doesn't match the docs | BUG-020 |
+| S4 note | A reporting query is suspiciously slow | BUG-024 |
+| S4 note | Test merchants when certain admin tools run | BUG-019 |
+| S4 note | OTP implementation changed — still safe? | BUG-001, BUG-002, BUG-011, BUG-031 |
+| S4 note | Uploading a really large export | BUG-025 |
+
+---
+
 ## Team split (2 people)
 
-The work is split **by area of code**, so the two of us almost never edit the same file.
-Each track has about the same number of critical (★★★) bugs. Details per person: `TEAM.md`.
-
-| Person | Takes |
-|---|---|
-| **Sayed** | Track A, FP-300 A steps, API side of Phase T (tests) |
-| **Ebrahim** | Track B, FP-300 B steps, then Phase F (all frontend / UI, last) and its tests |
-
-The split is **by need, not 50/50**: Ebrahim also owns the whole frontend, so three TypeScript
-API items moved from Track B to Sayed (BUG-023 webhook signing, BUG-024 settlement summary,
-BUG-029 import double-submit).
+**Ebrahim is responsible for every task in the Master order** (decided 2026-10-29). The Track A /
+Track B tables below remain as a way to hand work to Sayed: Sayed takes a task only by marking it
+⏳ with his name in the Master order (and in `PROGRESS.md`) first, so the two never work on the
+same task. Frontend (Tier 7) stays with Ebrahim. Details per person: `TEAM.md`.
 
 ### Track A — "Who can get in" (security, TypeScript `apps/api`) — **Sayed**
 
@@ -51,7 +239,7 @@ BUG-029 import double-submit).
 
 | Order | ID | Bug # | What | Main files |
 |---|---|---|---|---|
-| 1 | B6 | BUG-009 | Holds script deletes every hold | `scripts/expire_holds.ts` |
+| 1 ✅ | B6 | BUG-009 | Holds script deletes every hold | `scripts/expire_holds.ts` |
 | 2 | B2 | BUG-014 | CSV import 10× off | `api/admin/adjustmentCsvParsing.ts` |
 | 3 | S1 | BUG-020 | Daily close at 03:00 instead of midnight | `stl/settlement/window.go`, `stl/scheduler/daemon.go` |
 | 4 | S3 | BUG-015 | Scheme file a few fils over | `stl/settlement/scheme_export.go` |
@@ -89,7 +277,7 @@ BUG-029 import double-submit).
 |---|---|
 | Read the brief, sheets, docs, ADRs, history; decode the CTF flag | ✅ |
 | Full audit → `ANALYSIS.md` | ✅ |
-| Replace poisoned agent files, write `GUIDE.md`, `TRAPS.md`, `PLAN.md`, bug template | ✅ |
+| Replace poisoned agent files, write `GUIDE.md`, `TRAPS.md`, `PLAN.md`, bug template (**BUG-050**, write-up + guard test) | ✅ |
 | Block `git push` for agents (`.claude/settings.json`) | ✅ |
 
 ## Phase 1 — Get it running locally (deploy blockers) ✅
@@ -118,8 +306,8 @@ Seen while running: the settlement daemon ran `RunDailyBatch` straight at boot (
 | W2 | BUG-006 | Acquirer callbacks **not deduplicated** (FP-201) | `api/acquirer/callbacks.ts`, `api/routes/acquirerCallbacks.ts`, new migration | same callback twice → one note | ⬜ |
 | W3/W4/W5 | BUG-007 | Callback signature **optional**, re-serialised, no freshness, outcome not validated | `api/webhooks/inboundVerify.ts`, `api/routes/acquirerCallbacks.ts` | no header → 401; tampered body → 401 | ⬜ |
 | W6/W7 | BUG-008 | **Duplicate payout notifications + disbursements** (incident 2026-08-21) | `stl/settlement/payout_notify.go`, `api/webhooks/dispatcher.ts`, new migration | run twice / 2 replicas → one event, one disbursement | ⬜ |
-| B6 | BUG-009 | `expire_holds` **deletes every hold** when nothing expired | `scripts/expire_holds.ts`, `scripts/lib/sqlFilter.ts` | nothing expired → 0 rows touched; status flipped, never deleted | ⬜ |
-| A7/A8 | BUG-010 | Impersonation gives **owner powers** (must be read-only support) | `api/admin/impersonation.ts`, `api/auth/requireMerchantAuth.ts` | impersonated write → 403 | ⬜ |
+| B6 | BUG-009 | `expire_holds` **deletes every hold** when nothing expired | `scripts/expire_holds.ts`, `scripts/lib/sqlFilter.ts` | nothing expired → 0 rows touched; status flipped, never deleted | ✅ |
+| A7/A8 | BUG-010 | Impersonation gives **owner powers** (must be read-only support) | `api/admin/impersonation.ts`, `api/auth/requireMerchantAuth.ts` | impersonated write → 403 | ✅ |
 | A3/A4 | BUG-011 | OTP attempts bypassable in parallel; OTP from `Math.random` | `api/routes/auth.ts`, `api/lib/random.ts` (+ admin OTP: `api/adminAuth/otp.ts`) | 20 parallel guesses → max N counted | ⬜ |
 | A11 | BUG-012 | **Old API key still works** after rotation | `api/admin/apiKeys.ts`, `api/apiKeys/verify.ts`, `0056_api_keys_revoke_after.sql` | old key after rotation → 401 | ⬜ |
 | A9 | BUG-013 | Credit **self-approval** (compares display names) | `api/admin/creditApproval.ts` | same admin, renamed → rejected | ⬜ |

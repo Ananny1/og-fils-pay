@@ -35,4 +35,8 @@ export const router = createBrowserRouter([
     ],
   },
   { path: "*", element: <NotFoundPage /> },
-]);
+], {
+  // "/" in dev; "/admin/" in the hosted build (ops/docker-compose.prod.yml
+  // serves the console under /admin on the same origin as the shop app).
+  basename: import.meta.env.BASE_URL.replace(/\/$/, "") || "/",
+});

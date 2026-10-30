@@ -47,18 +47,22 @@ export async function createPendingSession(
   return { id: row.id, rawToken, expiresAt };
 }
 
-/** Promotes a pending session to authenticated. */
+/** Promotes a pending session to authenticated and **rotates its token**:
+ *  the cookie handed out before the OTP stops working, so a copy of it can't
+ *  ride along into the logged-in session (fixation, BUG-032). The caller must
+ *  set the returned token as the new cookie. */
 export async function promoteSession(
   client: PoolClient,
   sessionId: string,
   sessionTtlHours: number,
-): Promise<Date> {
+): Promise<{ expiresAt: Date; rawToken: string }> {
   const expiresAt = new Date(Date.now() + sessionTtlHours * 3_600_000);
+  const rawToken = randomToken(32);
   await client.query(
-    `UPDATE sessions SET authenticated = true, authenticated_at = now(), expires_at = $2 WHERE id = $1`,
-    [sessionId, expiresAt],
+    `UPDATE sessions SET authenticated = true, authenticated_at = now(), last_seen_at = now(), expires_at = $2, token_hash = $3 WHERE id = $1`,
+    [sessionId, expiresAt, sha256Hex(rawToken)],
   );
-  return expiresAt;
+  return { expiresAt, rawToken };
 }
 
 /** Takes a Pool or a PoolClient so logout can run outside a transaction. */
@@ -74,14 +78,17 @@ export interface AuthenticatedSessionLookup {
   role: "owner" | "finance" | "support";
 }
 
-/**
- * Resolves a session token to its user. The `authenticated = true` predicate
- * is mandatory (0012): `live_sessions` (0058) only filters revoked/expired
- * rows, so without it a pending (pre-OTP) cookie would be a full session.
- */
+/** Resolves a session token to its user. `live_sessions` only drops revoked
+ *  and expired rows, so `authenticated = true` must be checked here (0012):
+ *  a pending, pre-OTP cookie never counts as a login. A session with no
+ *  request for `idleMinutes` is dead too (SEC-2); use moves `last_seen_at`
+ *  forward, at most once a minute so there is no write on every request.
+ *  The merchant must still be active (SEC-RT-2), same as at login, so
+ *  suspending or closing it ends its sessions on the next request. */
 export async function lookupSession(
   pool: Pool,
   rawToken: string,
+  idleMinutes: number,
 ): Promise<AuthenticatedSessionLookup | null> {
   const tokenHash = sha256Hex(rawToken);
   const result = await pool.query<{
@@ -89,16 +96,28 @@ export async function lookupSession(
     merchant_user_id: string;
     merchant_id: string;
     role: "owner" | "finance" | "support";
+    needs_touch: boolean;
   }>(
-    `SELECT s.id AS session_id, s.merchant_user_id, mu.merchant_id, mu.role
+    `SELECT s.id AS session_id, s.merchant_user_id, mu.merchant_id, mu.role,
+            s.last_seen_at < now() - interval '1 minute' AS needs_touch
        FROM live_sessions s
        JOIN merchant_users mu ON mu.id = s.merchant_user_id
+       JOIN merchants m ON m.id = mu.merchant_id
       WHERE s.token_hash = $1
-        AND s.authenticated = true`,
-    [tokenHash],
+        AND s.authenticated = true
+        AND m.status = 'active'
+        AND s.last_seen_at > now() - make_interval(mins => $2)`,
+    [tokenHash, idleMinutes],
   );
   const row = result.rows[0];
   if (!row) return null;
+  if (row.needs_touch) {
+    // The repeated predicate keeps parallel requests from all writing.
+    await pool.query(
+      `UPDATE sessions SET last_seen_at = now() WHERE id = $1 AND last_seen_at < now() - interval '1 minute'`,
+      [row.session_id],
+    );
+  }
   return {
     sessionId: row.session_id,
     merchantUserId: row.merchant_user_id,

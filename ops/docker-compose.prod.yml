@@ -146,12 +146,16 @@ services:
       SETTLEMENT_INTERNAL_URL: http://settlement:8091
       KYC_UPLOAD_DIR: /app/data/kyc
       TRUST_PROXY_HOPS: "1"
+      # SEC-1 login limits read the client IP from X-Forwarded-For only when
+      # TRUST_PROXY is on and the peer is on a private network (nginx here).
+      TRUST_PROXY: "true"
       # Capacity settings (docs/ops/CAPACITY.md explains each number).
       PG_POOL_MAX: ${API_PG_POOL_MAX:-30}
       PG_POOL_CONNECTION_TIMEOUT_MS: "3000"
       PG_STATEMENT_TIMEOUT_MS: "15000"
       PG_IDLE_IN_TRANSACTION_TIMEOUT_MS: "30000"
       MAX_IN_FLIGHT_REQUESTS: ${API_MAX_IN_FLIGHT:-40}
+      API_MAX_IN_FLIGHT: ${API_MAX_IN_FLIGHT:-40}   # CAP-2 load shedding (merged code)
       BODY_LIMIT_BYTES: "1048576"
       HTTP_REQUEST_TIMEOUT_MS: "30000"
       SHUTDOWN_TIMEOUT_MS: "25000"

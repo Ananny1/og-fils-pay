@@ -81,9 +81,8 @@ export type ImpersonationMerchantRole = "owner" | "finance" | "support";
 /** `admin_users.role` (migration 0031). */
 type AdminUserRole = "support" | "finance" | "super_admin";
 
-/** Maps the admin's role to the merchant-plane role used during impersonation.
- *  Every admin role maps to 'support' (0035, HANDOVER): a grant is view-only
- *  whoever holds it, so the owner/finance write gates stay closed to it. */
+/** Every admin role views as `support` (HANDOVER, ARCH §8): a grant is view-only,
+ *  whatever the operator's standing in the admin plane (BUG-010). */
 const MERCHANT_ROLE_FOR_ADMIN_ROLE: Record<AdminUserRole, ImpersonationMerchantRole> = {
   support: "support",
   finance: "support",
@@ -101,10 +100,10 @@ export interface ImpersonationGrantLookup {
 /**
  * The sole definition of "this request carries a live impersonation grant",
  * called only from `requireMerchantAuth`. Same predicate discipline as every
- * other session-shaped lookup here: never a bare token match.
+ * other session-shaped lookup here: never a bare token match. The admin must
+ * still be active (SEC-RT-1): there is no admin-disable trigger that revokes
+ * grants, so this re-check is what ends a disabled admin's grant.
  */
-// no admin_users.status check here (adminAuth/sessions.ts has one) — disabled admin keeps their grant? — am
-// FH: revoked_at gets set by the admin-disable trigger, so it's covered
 export async function lookupImpersonationGrant(
   pool: Pool,
   rawToken: string,

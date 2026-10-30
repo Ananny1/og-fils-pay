@@ -6,13 +6,10 @@ import { applyAcquirerCallback, withCallbackRetry, type AcquirerCallbackInput } 
 // header name confirmed with the acquirer's integration guide v3.2 — am
 const ACQUIRER_SIGNATURE_HEADER = "acquirer-callback-signature";
 
-const ALLOWED_OUTCOMES: readonly string[] = ["cleared", "confirmed_fraud"];
-
-type RequestWithRawBody = FastifyRequest & { rawBody?: string };
-
 /**
- * Body of a fraud_review.completed callback. `outcome` must be one of
- * ALLOWED_OUTCOMES ("cleared" | "confirmed_fraud"); any other value is a 400.
+ * Body of a fraud_review.completed callback. `outcome` is validated against
+ * ACQUIRER_CALLBACK_OUTCOMES ("cleared" | "confirmed_fraud") before it is
+ * applied; any other value is a 400 (BUG-007).
  */
 interface AcquirerCallbackBody {
   callbackId?: string;
@@ -22,6 +19,15 @@ interface AcquirerCallbackBody {
   outcome?: string;
   note?: string;
 }
+
+const ACQUIRER_CALLBACK_OUTCOMES: readonly AcquirerCallbackInput["outcome"][] = ["cleared", "confirmed_fraud"];
+
+function isAcquirerCallbackOutcome(value: string): value is AcquirerCallbackInput["outcome"] {
+  return (ACQUIRER_CALLBACK_OUTCOMES as readonly string[]).includes(value);
+}
+
+/** Exact request bytes, kept so the HMAC is checked over what the acquirer signed. */
+const rawBodies = new WeakMap<FastifyRequest, string>();
 
 /** Header format: "t=<unix seconds>,v1=<hex hmac>". A repeated header uses the first value. */
 function getSignatureHeader(request: FastifyRequest): string | undefined {
@@ -41,28 +47,19 @@ function getSignatureHeader(request: FastifyRequest): string | undefined {
  * endpoint has.
  */
 export async function acquirerCallbackRoutes(app: FastifyInstance): Promise<void> {
-  // Keep the exact request bytes: the signature is over the raw body, not a
-  // re-serialisation of the parsed JSON (BUG-007). Scoped to this plugin only.
+  // Scoped to this plugin only: parse JSON ourselves so the raw text is kept.
+  app.removeContentTypeParser("application/json");
   app.addContentTypeParser("application/json", { parseAs: "string" }, (request, body, done) => {
-    (request as RequestWithRawBody).rawBody = body as string;
+    const text = body as string;
+    rawBodies.set(request, text);
     try {
-      done(null, JSON.parse(body as string));
+      done(null, text === "" ? {} : JSON.parse(text));
     } catch {
-      done(new BadRequestError("invalid_request", "body is not valid JSON"), undefined);
+      done(new BadRequestError("invalid_request", "body must be valid JSON"), undefined);
     }
   });
 
   app.post<{ Body: AcquirerCallbackBody }>("/callbacks", async (request, reply) => {
-    // Authenticate first, before acting on anything in the body.
-    const verification = verifyAcquirerCallbackSignature(
-      (request as RequestWithRawBody).rawBody ?? "",
-      getSignatureHeader(request),
-      app.config.acquirerCallbackSigningSecret,
-    );
-    if (!verification.valid) {
-      throw new UnauthorizedError("invalid_signature", verification.reason);
-    }
-
     const body = request.body ?? {};
     if (
       !body.callbackId ||
@@ -70,18 +67,22 @@ export async function acquirerCallbackRoutes(app: FastifyInstance): Promise<void
       !body.transactionId ||
       !body.occurredAt ||
       !body.outcome ||
+      !isAcquirerCallbackOutcome(body.outcome) ||
       !body.note
     ) {
       throw new BadRequestError(
         "invalid_request",
-        "callbackId, type, transactionId, occurredAt, outcome, and note are required",
+        "callbackId, type, transactionId, occurredAt, outcome (cleared | confirmed_fraud), and note are required",
       );
     }
-    if (!ALLOWED_OUTCOMES.includes(body.outcome)) {
-      throw new BadRequestError("invalid_request", "outcome must be cleared or confirmed_fraud");
-    }
-    if (Number.isNaN(Date.parse(body.occurredAt))) {
-      throw new BadRequestError("invalid_request", "occurredAt must be an ISO-8601 timestamp");
+
+    const verification = verifyAcquirerCallbackSignature(
+      rawBodies.get(request) ?? "",
+      getSignatureHeader(request),
+      app.config.acquirerCallbackSigningSecret,
+    );
+    if (!verification.valid) {
+      throw new UnauthorizedError("invalid_signature", verification.reason);
     }
 
     const callback: AcquirerCallbackInput = {
@@ -89,7 +90,7 @@ export async function acquirerCallbackRoutes(app: FastifyInstance): Promise<void
       type: "fraud_review.completed",
       transactionId: body.transactionId,
       occurredAt: body.occurredAt,
-      outcome: body.outcome as AcquirerCallbackInput["outcome"],
+      outcome: body.outcome,
       note: body.note,
     };
 

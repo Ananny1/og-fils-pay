@@ -11,29 +11,29 @@ type ChildWeight struct {
 	WeightBps int64
 }
 
-// ChildShares distributes netPayout across children by their weights with
-// the largest-remainder method — the Go port of packages/money's
-// allocateRemainder. Shares are floored, then the leftover fils go one each
-// to the largest remainders (ties: lowest index), so the shares always sum
-// to netPayout exactly (BUG-016). Weights are relative to their own sum,
-// which is 10000 for a correctly configured parent. A non-positive net or
-// all-zero weights yields all-zero shares.
+// ChildShares distributes netPayout across children by their weights.
+//
+// BUG-016: largest-remainder allocation, the Go port of packages/money
+// allocateRemainder. Each child gets floor(net*w/sum(w)); the fils left over
+// (fewer than len(children)) go one each to the largest remainders, ties to
+// the lower index. The shares always sum to netPayout exactly. Rounding each
+// child on its own (ApplyRateFils) lost or invented fils.
 func ChildShares(netPayout money.Fils, children []ChildWeight) []money.Fils {
 	out := make([]money.Fils, len(children))
-	var weightSum int64
+	var sumWeights int64
 	for _, c := range children {
-		weightSum += c.WeightBps
+		sumWeights += c.WeightBps
 	}
-	if netPayout <= 0 || weightSum <= 0 {
-		return out
+	if sumWeights <= 0 || netPayout <= 0 {
+		return out // nothing to pay (empty or fee-only batch)
 	}
 
 	remainders := make([]int64, len(children))
 	var allocated money.Fils
 	for i, c := range children {
 		product := int64(netPayout) * c.WeightBps
-		out[i] = money.Fils(product / weightSum)
-		remainders[i] = product % weightSum
+		out[i] = money.Fils(product / sumWeights)
+		remainders[i] = product % sumWeights
 		allocated += out[i]
 	}
 
@@ -41,8 +41,10 @@ func ChildShares(netPayout money.Fils, children []ChildWeight) []money.Fils {
 	for i := range order {
 		order[i] = i
 	}
-	sort.SliceStable(order, func(a, b int) bool { return remainders[order[a]] > remainders[order[b]] })
-	for k := 0; allocated < netPayout; k++ {
+	sort.SliceStable(order, func(a, b int) bool {
+		return remainders[order[a]] > remainders[order[b]]
+	})
+	for k := 0; allocated < netPayout && k < len(order); k++ {
 		out[order[k]]++
 		allocated++
 	}

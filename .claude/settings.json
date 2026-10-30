@@ -1,11 +1,19 @@
 {
   "permissions": {
     "deny": [
-      "Bash(git push:*)",
-      "Bash(git push)",
+      "Bash(git push origin main:*)",
+      "Bash(git push origin main)",
+      "Bash(git push origin HEAD:main:*)",
+      "Bash(git push --force:*)",
+      "Bash(git push -f:*)",
+      "Bash(git push --force-with-lease:*)",
+      "Bash(git push --all:*)",
+      "Bash(git push --mirror:*)",
+      "Bash(git push --delete:*)",
+      "Bash(git push reference:*)",
       "Bash(gh pr create:*)",
-      "Bash(gh repo create:*)",
-      "Bash(gh pr merge:*)"
+      "Bash(gh pr merge:*)",
+      "Bash(gh repo create:*)"
     ]
   },
   "includeCoAuthoredBy": false

@@ -25,9 +25,9 @@ func TestBusinessDayWindow_OffByThreeHours(t *testing.T) {
 }
 
 // TestBusinessDayWindow_IgnoresClockTime: only the Bahrain calendar date of
-// the argument matters. BUG-020: 23:59:59 UTC is 02:59:59 Bahrain on the
-// NEXT day, so the old case pinned the UTC-day bug; 20:59:59 UTC is the
-// last second of 31 Dec in Bahrain.
+// the argument matters. BUG-020: this test used 23:59:59 UTC (= 02:59 Bahrain
+// the NEXT day) and expected the UTC day, which locked in the 03:00 close.
+// 20:59:59 UTC is the last second of the Bahrain day.
 func TestBusinessDayWindow_IgnoresClockTime(t *testing.T) {
 	a, _ := BusinessDayWindow(time.Date(2026, 12, 31, 0, 0, 0, 0, time.UTC))
 	b, bEnd := BusinessDayWindow(time.Date(2026, 12, 31, 20, 59, 59, 0, time.UTC))
@@ -36,6 +36,16 @@ func TestBusinessDayWindow_IgnoresClockTime(t *testing.T) {
 	}
 	if want := time.Date(2026, 12, 31, 21, 0, 0, 0, time.UTC); !bEnd.Equal(want) {
 		t.Fatalf("year-end window end = %s, want %s", bEnd.UTC(), want)
+	}
+}
+
+// BUG-020: an instant after 21:00 UTC is already the next Bahrain day.
+func TestBusinessDayWindow_UsesBahrainCalendarDay(t *testing.T) {
+	start, end := BusinessDayWindow(time.Date(2026, 3, 24, 22, 30, 0, 0, time.UTC))
+	wantStart := time.Date(2026, 3, 24, 21, 0, 0, 0, time.UTC)
+	wantEnd := time.Date(2026, 3, 25, 21, 0, 0, 0, time.UTC)
+	if !start.Equal(wantStart) || !end.Equal(wantEnd) {
+		t.Fatalf("window = [%s, %s), want [%s, %s)", start.UTC(), end.UTC(), wantStart, wantEnd)
 	}
 }
 

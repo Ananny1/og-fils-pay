@@ -1,7 +1,8 @@
 import type { Pool } from "pg";
 import type { Config } from "../config.js";
 import { decodeEncryptionKey, decryptSecret } from "./secretCrypto.js";
-import { signPayload } from "./sign.js";
+import { signRawBody } from "./sign.js";
+import { canonicalJson } from "../payments/idempotency.js";
 import { WEBHOOK_SIGNATURE_HEADER } from "./headers.js";
 import type { WebhookTransport } from "./transport.js";
 import { NotFoundError } from "../lib/errors.js";
@@ -54,9 +55,9 @@ export async function sendTestWebhookEvent(
 
   const key = decodeEncryptionKey(config.webhookSecretEncryptionKey);
   const secret = decryptSecret(row.secret_ciphertext, key);
-  // Sign the exact bytes sent (BUG-023).
-  const body = JSON.stringify(testPayload);
-  const { signature } = signPayload(body, secret);
+  // BUG-023: sign exactly the bytes we send.
+  const body = canonicalJson(testPayload);
+  const { signature } = signRawBody(body, secret);
 
   const response = await transport({
     url: row.url,

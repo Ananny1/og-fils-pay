@@ -7,7 +7,7 @@
  * point at a real, migrated Postgres (run `npm run migrate` first).
  */
 import assert from "node:assert/strict";
-import { randomUUID } from "node:crypto";
+import { createHmac, randomUUID } from "node:crypto";
 import { test } from "node:test";
 import { Pool } from "pg";
 import { enqueueEvent } from "@filspay/events";
@@ -171,6 +171,14 @@ test("one active endpoint, 2xx response: exact headers/body sent, delivery marke
   const verifyResult = verifySignature(req.body, req.headers[WEBHOOK_SIGNATURE_HEADER]!, endpoint.secret);
   assert.deepEqual(verifyResult, { valid: true });
 
+  // BUG-023: a real receiver HMACs the raw bytes it received, without
+  // re-parsing or re-sorting. The signature must match those exact bytes.
+  const [tPart, v1Part] = req.headers[WEBHOOK_SIGNATURE_HEADER]!.split(",");
+  const rawExpected = createHmac("sha256", endpoint.secret)
+    .update(`${tPart!.slice(2)}.${req.body}`)
+    .digest("hex");
+  assert.equal(v1Part!.slice(3), rawExpected, "signature must cover the exact bytes sent (raw body)");
+
   const delivery = await getDelivery(String(outboxEvent.id), endpoint.id);
   assert.equal(delivery.status, "succeeded");
   assert.equal(delivery.attempt_count, 1);
@@ -192,7 +200,9 @@ test("failing endpoint: backoff/exhaustion sequence across repeated runDispatchP
   assert.equal(delivery.status, "pending");
   assert.equal(delivery.attempt_count, 1);
   assert.equal(delivery.response_status_code, 500);
-  const expectedDelay1 = backoffDelayMs(1, config);
+  // BUG-060: no-jitter midpoint (jitter() = 0.5) is the configured value;
+  // the real delay below is checked with a tolerance that covers ±10 %.
+  const expectedDelay1 = backoffDelayMs(1, config, () => 0.5);
   assert.equal(expectedDelay1, 1000);
   const actualDelay1 = delivery.next_attempt_at.getTime() - Date.now();
   assert.ok(Math.abs(actualDelay1 - expectedDelay1) < 3000, `expected ~${expectedDelay1}ms, got ${actualDelay1}ms`);
@@ -212,7 +222,9 @@ test("failing endpoint: backoff/exhaustion sequence across repeated runDispatchP
   delivery = await getDelivery(String(outboxEvent.id), endpoint.id);
   assert.equal(delivery.status, "pending");
   assert.equal(delivery.attempt_count, 2);
-  const expectedDelay2 = backoffDelayMs(2, config);
+  // BUG-060: no-jitter midpoint (jitter() = 0.5) is the configured value;
+  // the real delay below is checked with a tolerance that covers ±10 %.
+  const expectedDelay2 = backoffDelayMs(2, config, () => 0.5);
   assert.equal(expectedDelay2, 2000);
   const actualDelay2 = delivery.next_attempt_at.getTime() - Date.now();
   assert.ok(Math.abs(actualDelay2 - expectedDelay2) < 3000, `expected ~${expectedDelay2}ms, got ${actualDelay2}ms`);
@@ -232,6 +244,19 @@ test("failing endpoint: backoff/exhaustion sequence across repeated runDispatchP
   delivery = await getDelivery(String(outboxEvent.id), endpoint.id);
   assert.equal(delivery.status, "exhausted");
   assert.equal(delivery.attempt_count, 3);
+});
+
+// BUG-060: config says "no retry ever waits longer than" webhookBackoffCapMs,
+// and attempt 1 waits webhookBackoffBaseMs (±10 % jitter).
+test("backoffDelayMs: jitter stays within ±10 % of the configured delay and never exceeds the cap", () => {
+  assert.equal(backoffDelayMs(1, config, () => 0.5), 1000);
+  assert.equal(backoffDelayMs(1, config, () => 0), 900);
+  assert.equal(backoffDelayMs(1, config, () => 1), 1100);
+  assert.equal(backoffDelayMs(3, config, () => 0.5), 4000);
+  for (const j of [0, 0.5, 0.999, 1]) {
+    const d = backoffDelayMs(20, config, () => j);
+    assert.ok(d <= config.webhookBackoffCapMs, `attempt 20 with jitter ${j}: ${d}ms exceeds cap ${config.webhookBackoffCapMs}ms`);
+  }
 });
 
 test("transport-level failure (thrown/rejected transport): treated as a non-2xx failure, null response_status_code", async () => {
@@ -407,4 +432,112 @@ test("a disabled endpoint gets no delivery row for a new event", async () => {
     endpoint.id,
   ]);
   assert.equal(rows.rows.length, 0);
+});
+
+// BUG-008 (W6): the settlement.paid pre-delivery effect (a payout-rail
+// disbursement instruction) ran once per delivery row, i.e. once per
+// registered endpoint. A merchant with two endpoints got two disbursements.
+test("settlement.paid to a merchant with two endpoints records exactly one disbursement", async () => {
+  const merchantId = await createMerchant("payout-two-endpoints");
+  await createEndpoint(merchantId, `http://payout-a.test/webhook-${randomUUID()}`);
+  await createEndpoint(merchantId, `http://payout-b.test/webhook-${randomUUID()}`);
+  const batch = await pool.query<{ id: string }>(
+    `INSERT INTO settlement_batches
+        (merchant_id, batch_date, status, gross_fils, fee_fils, net_payout_fils, closed_at, paid_at)
+     VALUES ($1, current_date, 'paid', 471300, 0, 471300, now(), now())
+     RETURNING id`,
+    [merchantId],
+  );
+  const batchId = batch.rows[0]!.id;
+  await enqueueEvent(pool, {
+    eventType: "settlement.paid",
+    aggregateType: "settlement_batch",
+    aggregateId: batchId,
+    payload: { merchantId, batchId, batchDate: "2026-08-21", netPayoutFils: 471_300 },
+  });
+
+  await runDispatchPass(pool, alwaysRespond(200), config);
+
+  const rows = await pool.query(`SELECT * FROM settlement_payout_disbursements WHERE settlement_batch_id = $1`, [batchId]);
+  assert.equal(rows.rows.length, 1);
+});
+
+// BUG-008 (W7): Step B selected due rows without claiming them, so two API
+// replicas (or the NOTIFY handler and the poll timer) running a pass at the
+// same time both sent the same delivery.
+test("two concurrent dispatch passes send a due delivery only once", async () => {
+  const merchantId = await createMerchant("concurrent-passes");
+  const url = `http://concurrent.test/webhook-${randomUUID()}`;
+  const endpoint = await createEndpoint(merchantId, url);
+  const outboxEvent = await enqueueCaptured(merchantId);
+
+  // Pass 0: create the row and fail it once, so it is a plain due retry.
+  await runDispatchPass(pool, alwaysRespond(500), config);
+  const delivery = await getDelivery(String(outboxEvent.id), endpoint.id);
+  await forceDueNow(delivery.id);
+
+  // The first call to our URL waits for a second one (or 1 s), so both
+  // passes are inside Step B at the same time — the multi-replica case.
+  let calls = 0;
+  let releaseFirst: () => void = () => {};
+  const secondCallOrTimeout = new Promise<void>((resolve) => {
+    releaseFirst = resolve;
+    setTimeout(resolve, 1000);
+  });
+  const transport: WebhookTransport = async (req) => {
+    if (req.url !== url) return { statusCode: 200, body: "" };
+    calls += 1;
+    if (calls === 1) await secondCallOrTimeout;
+    else releaseFirst();
+    return { statusCode: 200, body: "ok" };
+  };
+
+  await Promise.all([runDispatchPass(pool, transport, config), runDispatchPass(pool, transport, config)]);
+
+  assert.equal(calls, 1);
+  const after = await getDelivery(String(outboxEvent.id), endpoint.id);
+  assert.equal(after.status, "succeeded");
+  assert.equal(after.attempt_count, 2);
+});
+
+// FP-300.4: processRefund enqueues refund.succeeded; it must reach the merchant.
+test("a refund.succeeded outbox event is delivered to the merchant's endpoint", async () => {
+  const merchantId = await createMerchant("refund-webhook");
+  const endpointUrl = `http://fake-receiver.test/webhook-${randomUUID()}`;
+  const endpoint = await createEndpoint(merchantId, endpointUrl);
+  const transactionId = randomUUID();
+  const refundId = randomUUID();
+  const outboxEvent = await enqueueEvent(pool, {
+    eventType: "refund.succeeded",
+    aggregateType: "transaction",
+    aggregateId: transactionId,
+    payload: {
+      merchantId,
+      refundId,
+      amountFils: 1_000,
+      feeReversedFils: 25,
+      refundedTotalFils: 1_000,
+      newStatus: "partially_refunded",
+    },
+  });
+
+  const captured: WebhookTransportRequest[] = [];
+  const transport: WebhookTransport = async (req) => {
+    if (req.url === endpointUrl) captured.push(req);
+    return { statusCode: 200, body: "ok" };
+  };
+  await runDispatchPass(pool, transport, config);
+
+  assert.equal(captured.length, 1);
+  const body = JSON.parse(captured[0]!.body) as { type: string; data: Record<string, unknown> };
+  assert.equal(body.type, "refund.succeeded");
+  assert.equal(body.data.refundId, refundId);
+  assert.equal(body.data.transactionId, transactionId);
+  assert.equal(body.data.amountFils, 1_000);
+  assert.deepEqual(verifySignature(body, captured[0]!.headers[WEBHOOK_SIGNATURE_HEADER]!, endpoint.secret), {
+    valid: true,
+  });
+
+  const delivery = await getDelivery(String(outboxEvent.id), endpoint.id);
+  assert.equal(delivery.status, "succeeded");
 });

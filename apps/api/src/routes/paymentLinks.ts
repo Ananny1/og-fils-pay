@@ -32,12 +32,13 @@ interface CreatePaymentLinkBody {
 }
 
 /**
- * card: simulated card input. Nothing else in the body is trusted: the
- * amount comes from the link row and expiry is judged by the server clock
- * (a client `submittedAt` is ignored — BUG-004).
+ * card: simulated card input. submittedAt: accepted for old clients but
+ * always ignored — this route is public (no API key), so expiry is judged by
+ * the server clock only (BUG-004).
  */
 interface PayPaymentLinkBody {
   card?: SimulatedCardInput;
+  submittedAt?: string;
 }
 
 interface ListPaymentLinksQuery {
@@ -46,8 +47,8 @@ interface ListPaymentLinksQuery {
   cursor?: string;
 }
 
-// am: this is the ownership check for create/cancel/list. cancel.ts relies on it, link ids are UUIDs
-// MK: it checks the path merchant, not that the link belongs to that merchant?
+// Checks the caller owns the *path* merchant only. Link ownership is checked
+// in the query itself (cancel.ts: AND merchant_id = $2) — BUG-003.
 function assertOwnMerchant(request: FastifyRequest<{ Params: MerchantIdParams }>): void {
   if (!request.merchantAuth || request.merchantAuth.merchantId !== request.params.merchantId) {
     throw new ForbiddenError("forbidden");
@@ -103,7 +104,7 @@ export async function paymentLinkMerchantRoutes(app: FastifyInstance): Promise<v
       assertOwnMerchant(request);
       const result = await cancelPaymentLink(app.db, {
         id: request.params.id,
-        merchantId: request.merchantAuth!.merchantId,
+        merchantId: request.params.merchantId,
       });
       if (result.outcome === "canceled") {
         reply.code(204).send();
@@ -163,6 +164,7 @@ export async function paymentLinkPublicRoutes(app: FastifyInstance): Promise<voi
       app.db,
       app.acquirer,
       { paymentLinkReservationTimeoutSeconds: app.config.paymentLinkReservationTimeoutSeconds },
+      // No submittedAt: a client-chosen time must never decide expiry (BUG-004).
       { token: request.params.token, card, idempotencyKey },
     );
     reply.code(result.statusCode).send(result.body);

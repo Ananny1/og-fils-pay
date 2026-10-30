@@ -75,8 +75,17 @@ function hoursFromNow(hours: number): Date {
 
 // ------------------------------------------------------------------ tests
 
-// theres no test for a NOT promoted session — am
-// MK: covered in routes/auth.test.ts
+test("lookupSession returns null for a pending session that never passed the OTP", async () => {
+  const merchantUserId = await createMerchantUser("pending");
+  const rawToken = await insertSession({
+    merchantUserId,
+    authenticated: false,
+    expiresAt: hoursFromNow(1),
+  });
+
+  assert.equal(await lookupSession(pool, rawToken, 60), null, "a pre-OTP cookie must never act as a login");
+});
+
 test("lookupSession finds an active, promoted session", async () => {
   const merchantUserId = await createMerchantUser("active");
   const rawToken = await insertSession({
@@ -85,7 +94,7 @@ test("lookupSession finds an active, promoted session", async () => {
     expiresAt: hoursFromNow(12),
   });
 
-  const found = await lookupSession(pool, rawToken);
+  const found = await lookupSession(pool, rawToken, 60);
   assert.ok(found, "an unexpired, unrevoked session must resolve");
   assert.equal(found.merchantUserId, merchantUserId);
   assert.equal(found.role, "owner");
@@ -93,7 +102,7 @@ test("lookupSession finds an active, promoted session", async () => {
 
 test("lookupSession returns null for an unknown token", async () => {
   // Never inserted anywhere — a well-formed token that simply isn't a session.
-  assert.equal(await lookupSession(pool, randomToken(32)), null);
+  assert.equal(await lookupSession(pool, randomToken(32), 60), null);
 });
 
 test("lookupSession returns null for a revoked session", async () => {
@@ -105,7 +114,7 @@ test("lookupSession returns null for a revoked session", async () => {
     revoked: true,
   });
 
-  assert.equal(await lookupSession(pool, rawToken), null, "revoked_at must exclude the row");
+  assert.equal(await lookupSession(pool, rawToken, 60), null, "revoked_at must exclude the row");
 });
 
 test("lookupSession returns null for an expired session", async () => {
@@ -116,5 +125,21 @@ test("lookupSession returns null for an expired session", async () => {
     expiresAt: hoursFromNow(-1),
   });
 
-  assert.equal(await lookupSession(pool, rawToken), null, "expires_at in the past must exclude the row");
+  assert.equal(await lookupSession(pool, rawToken, 60), null, "expires_at in the past must exclude the row");
 });
+
+// SEC-RT-2: login only lets in active merchants; a live session must stop
+// working as soon as its merchant is suspended or closed, like admin status.
+for (const status of ["suspended", "closed"] as const) {
+  test(`lookupSession returns null once the merchant is ${status}`, async () => {
+    const merchantUserId = await createMerchantUser(status);
+    const rawToken = await insertSession({ merchantUserId, authenticated: true, expiresAt: hoursFromNow(12) });
+    assert.ok(await lookupSession(pool, rawToken, 60), "session resolves while the merchant is active");
+
+    await pool.query(
+      `UPDATE merchants SET status = $2 WHERE id = (SELECT merchant_id FROM merchant_users WHERE id = $1)`,
+      [merchantUserId, status],
+    );
+    assert.equal(await lookupSession(pool, rawToken, 60), null, `a ${status} merchant's session must be dead`);
+  });
+}

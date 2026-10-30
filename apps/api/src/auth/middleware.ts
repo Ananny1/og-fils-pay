@@ -35,7 +35,7 @@ export const requireSession: preHandlerHookHandler = async (
   if (!token) {
     throw new UnauthorizedError("unauthenticated");
   }
-  const session = await lookupSession(request.server.db, token);
+  const session = await lookupSession(request.server.db, token, request.server.config.sessionIdleMinutes);
   if (!session) {
     throw new UnauthorizedError("unauthenticated");
   }

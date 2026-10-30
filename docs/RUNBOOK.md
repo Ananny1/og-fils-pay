@@ -115,8 +115,8 @@ boundary"), finance runs a month-end script modelled on
 `scripts/reconcile_march.ts`:
 
 1. Copy the script, change the window constants at the top to the new
-   month (UTC calendar month, `YYYY-MM-01T00:00Z` to the first of the next
-   month).
+   month. `monthBounds` gives the **Bahrain** calendar month (midnight
+   Asia/Bahrain = 21:00 UTC the day before), not the UTC month (BUG-027).
 2. Run it once against production with finance on the call.
 3. Attach the log from `scripts/out/` to the month-end ticket.
 

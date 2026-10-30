@@ -18,7 +18,7 @@ const BASE_ENV = {
 
 function capture() {
   const lines: Array<Record<string, unknown>> = [];
-  return { lines, logger: { info: (obj: Record<string, unknown>) => void lines.push(obj) } };
+  return { lines, logger: { info: (obj: Record<string, unknown>) => void lines.push(obj), error: () => undefined } };
 }
 
 test("BUG-031: OTP is not exposed by default, whatever NODE_ENV is", () => {

@@ -1,82 +1,95 @@
-# BUG-020 — Daily close runs at 03:00 Bahrain instead of just after midnight
+# BUG-020 — Daily close runs at 03:00 Bahrain instead of midnight
 
 | | |
 |---|---|
-| **Severity** | Critical |
+| **Severity** | High |
 | **Area** | Settlement |
-| **Analysis ID** | S1 |
-| **Clue** | `daemon.go` (am: "logs show the close ~03:15 local not 00:15??"); HANDOVER "The daemon's 'yesterday' is computed from the UTC date" |
-| **Commit** | see `git log --grep BUG-020` |
+| **Analysis ID** | S1 (see `docs/challenge/ANALYSIS.md`) |
+| **Clue** | Comment in `daemon.go`: "logs show the close ~03:15 local not 00:15??" |
+| **Decision** | D-016 (4-hour sprint, stream S5) |
 | **Status** | ✅ fixed |
 
-## 1. The issue — what was wrong
+## Summary (the short note)
 
-The settlement daemon should close yesterday's Bahrain business day 15 minutes after Bahrain
-midnight (21:15 UTC). It actually closes it at 03:15 Bahrain (00:15 UTC). For three hours every
-night merchants see yesterday still open, payouts and `settlement.paid` webhooks are three hours
-late, and between 00:00 and 03:00 Bahrain the daemon keeps re-attempting the day **before**
-yesterday.
+- **What's wrong:** the settlement daemon closed each business day about 3 hours late
+  (03:15 Bahrain), not 15 minutes after Bahrain midnight.
+- **Why:** it took the "today" date from the **UTC** calendar, which only changes at
+  00:00 UTC = 03:00 Bahrain. Settlement day is midnight Asia/Bahrain = 21:00 UTC.
+- **What it breaks:** merchants get batches and payouts 3 hours late every day, and any
+  instant handed to `BusinessDayWindow` between 21:00 and 24:00 UTC got the wrong day's window.
+
+## 1. The issue
+
+At 22:30 UTC on 24 March it is already 01:30 on 25 March in Bahrain, so business day
+24 March is over and its close should run. The daemon instead thought "today" was still
+24 March and only re-ran 23 March (a no-op). The 24 March close waited until 00:00 UTC +
+delay = ~03:15 Bahrain.
 
 ## 2. Why it happened — the root cause
 
-`apps/settlement/internal/settlement/window.go:44` and `scheduler/daemon.go:80-90`
+`apps/settlement/internal/settlement/window.go` `BusinessDayWindow`:
 
 ```go
-now := time.Now().UTC()
-todayStart, _ := settlement.BusinessDayWindow(now)
-...
-func BusinessDayWindow(date time.Time) (start, end time.Time) {
-	y, m, d := date.Date()          // calendar date in date's OWN location (UTC)
-	start = time.Date(y, m, d, 0, 0, 0, 0, businessDayLocation)
+// before
+y, m, d := date.Date()   // date's own location: UTC in the daemon
+start = time.Date(y, m, d, 0, 0, 0, 0, businessDayLocation)
 ```
 
-`date.Date()` returns the **UTC** calendar date. From 21:00 to 24:00 UTC it is already the next
-day in Bahrain, but the window still says "the UTC day", so "today" only flips at 00:00 UTC =
-03:00 Bahrain.
+`runIfDue` passes `time.Now().UTC()`, so `Date()` returns the UTC day.
 
-Traps: "MK: UTC here is fine, BusinessDayWindow converts to Bahrain" (it converts the date's
-*digits*, not the instant); HANDOVER "BusinessDayWindow … is correct and tested" (the test
-`TestBusinessDayWindow_IgnoresClockTime` pinned 23:59:59 UTC as 31 Dec — which is 02:59 on 1 Jan in
-Bahrain).
+False claims that hid it (for `TRAPS.md`):
+- `daemon.go`: "MK: UTC here is fine, BusinessDayWindow converts to Bahrain." It did not convert;
+  it only reused the UTC Y/M/D.
+- `window_utc_compat_test.go` `TestBusinessDayWindow_IgnoresClockTime` passed 23:59:59 UTC
+  (= 02:59 Bahrain next day) and expected the UTC day, locking the bug in.
 
 ## 3. Who was affected
 
 | Party | How | How bad |
 |---|---|---|
-| Merchants | payouts and notifications 3 h late every day | High |
-| FilsPay ops | close runs outside the agreed window; daily cut-off wrong | High |
+| Merchants | Payout and `settlement.paid` webhook ~3 hours late every day | Medium, daily |
+| FilsPay finance / ops | Close time does not match the documented Bahrain-midnight rule | Medium |
+| Card scheme | Scheme export lines produced late | Low |
 
 ## 4. The fix
 
 | File | Change |
 |---|---|
-| `apps/settlement/internal/settlement/window.go:44` | `date.In(businessDayLocation).Date()` — the Bahrain date of the instant |
-| `apps/settlement/internal/settlement/batch.go:62` | `batch_date` taken from the window start (Bahrain date), so the stored date always matches the window it covers |
-| `apps/settlement/internal/scheduler/daemon.go` | due-date decision extracted to `dueBusinessDate(now, delay)` (same logic) so it can be tested |
+| `apps/settlement/internal/settlement/window.go` | `date.Date()` → `date.In(businessDayLocation).Date()` |
+| `apps/settlement/internal/scheduler/daemon.go` | Moved the "is it due, which date" decision into a pure `dueBusinessDate(now, delay)` so it can be tested; removed the false MK comment. Behaviour of `runIfDue` otherwise unchanged. |
 
-CLI and internal API pass dates at 00:00 UTC, which is 03:00 Bahrain on the same date, so their
-behaviour is unchanged. The daemon passes a real instant and now gets the Bahrain day.
+```go
+// after
+y, m, d := date.In(businessDayLocation).Date()
+```
+
+CLI dates (`run-batch --date=YYYY-MM-DD`) are parsed as UTC midnight = 03:00 Bahrain the
+same day, so they still map to the same business day. The daemon's business date is built in
+the Bahrain zone, so `CloseBatch`'s `batch_date` uses the Bahrain Y/M/D too.
 
 ## 5. Options considered (ranked)
 
 | Rank | Option | Pros | Cons | Chosen? |
 |---|---|---|---|---|
-| 1 | Convert to Bahrain inside `BusinessDayWindow` | one place defines the business day; every caller correct | old test case encoded the bug | ✅ |
-| 2 | Convert only in the daemon (`time.Now().In(bahrain)`) | window untouched | needs a second copy of the zone (window.go says "exactly one place") | |
-| 3 | Shift the daemon delay by −3 h | no code | hack; breaks if delay changes | |
+| 1 | Convert to Bahrain inside `BusinessDayWindow` | One line; every caller gets the right day; CLI unchanged | Callers passing a UTC instant late at night now get the next day (correct) | ✅ |
+| 2 | Only change the daemon: `now := time.Now().In(Asia/Bahrain)` | Also one line | Leaves the trap in `BusinessDayWindow` for the next caller; zone would be defined twice | |
+| 3 | Set `TZ=Asia/Bahrain` in the container | No code change | Depends on deploy config; the code comment says the zone must never come from config | |
+| 4 | (creative) Pass a plain `civil date` type (Y/M/D, no clock) everywhere | Makes the bug class impossible | Big refactor across batch, CLI and tests | |
+
+**Why we chose #1:** the function's own doc says it returns the *Asia/Bahrain* business day; the fix makes the code match that in one place.
 
 ## 6. Proof — tests
 
 | Test | File | Before fix | After fix |
 |---|---|---|---|
-| `TestDueBusinessDate_BahrainMidnight` | `apps/settlement/internal/scheduler/daemon_fix_test.go` | ❌ at 00:20 Bahrain picks 23 Mar instead of 24 Mar; runs inside grace period | ✅ |
-| `TestBusinessDayWindow_UsesBahrainDateOfInstant` | `apps/settlement/internal/settlement/window_fix_test.go` | ❌ window of the UTC day | ✅ |
-| `TestCloseBatch_BatchDateMatchesBahrainWindow` | same | ✅ (guard for the batch_date change) | ✅ |
+| `TestDueBusinessDate_ClosesAfterBahrainMidnight` (22:30 UTC → close 24 Mar) | `apps/settlement/internal/scheduler/daemon_test.go` | ❌ business date = 2026-03-23 | ✅ |
+| `TestDueBusinessDate_WaitsForGracePeriod` (21:05 UTC not due, 21:20 due) | same | ❌ due before grace period (wrong day) | ✅ |
+| `TestBusinessDayWindow_UsesBahrainCalendarDay` | `apps/settlement/internal/settlement/window_utc_compat_test.go` | ❌ window [23 Mar 21:00, 24 Mar 21:00) | ✅ [24 Mar 21:00, 25 Mar 21:00) |
+| Full Go suite | `apps/settlement` | ✅ | ✅ |
 
 ```bash
-cd apps/settlement && go test ./internal/scheduler/ ./internal/settlement/ -count=1
+cd apps/settlement && go test ./...
 ```
 
-Existing test changed: `TestBusinessDayWindow_IgnoresClockTime` (`window_utc_compat_test.go`) —
-its "end of day" instant was 23:59:59 UTC, which is the next day in Bahrain; it now uses 20:59:59
-UTC (23:59:59 Bahrain). Same intent, correct timezone.
+Existing tests changed: `TestBusinessDayWindow_IgnoresClockTime` used 23:59:59 UTC, which is
+the next Bahrain day; changed to 20:59:59 UTC (last second of the Bahrain day). It encoded the bug.

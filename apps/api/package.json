@@ -21,11 +21,13 @@
     "fastify": "^5.12.3",
     "fastify-plugin": "^6.0.0",
     "lodash": "^4.17.21",
+    "nodemailer": "6.9.16",
     "pg": "^8.13.1",
     "sharp": "^0.33.5"
   },
   "devDependencies": {
     "@types/node": "^24.5.2",
+    "@types/nodemailer": "6.4.17",
     "@types/pg": "^8.11.6",
     "tsx": "^4.19.1",
     "typescript": "^5.6.3"

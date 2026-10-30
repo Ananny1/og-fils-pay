@@ -9,6 +9,12 @@
 | **Decision** | D-007, D-013 |
 | **Status** | ✅ fixed |
 
+## Summary (the short note)
+
+- **What's wrong:** A brand-new database could not be set up: the migration run stopped half-way.
+- **Why:** Two abandoned migrations were left in: 0054 builds a view on a table that never existed, 0055 inserts into columns that don't exist.
+- **What it breaks:** No new environment (laptop, CI, Dilmune Cloud) could be created.
+
 ## 1. The issue
 
 `docker compose -f ops/docker-compose.yml run --rm migrate` on an empty database stops at

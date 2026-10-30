@@ -123,7 +123,15 @@ test("create -> public read (active) -> pay (approved) -> public read (paid) -> 
   assert.equal(readActive.statusCode, 200, readActive.body);
   assert.equal(readActive.json().status, "active");
   assert.equal(readActive.json().amountFils, 4_750);
-  assert.ok(readActive.json().merchantPublicKey?.startsWith("fp_"));
+  // SEC-RT-4: the public page must not carry any API-key material.
+  const key = await pool.query<{ key_prefix: string; key_hash: string }>(
+    `SELECT key_prefix, key_hash FROM api_keys WHERE merchant_id = $1`,
+    [merchantId],
+  );
+  assert.ok(!("merchantPublicKey" in readActive.json()));
+  assert.ok(!("merchantIntegrationId" in readActive.json()));
+  assert.ok(!readActive.body.includes(key.rows[0]!.key_hash), "key hash leaked");
+  assert.ok(!readActive.body.includes(key.rows[0]!.key_prefix), "key prefix leaked");
 
   const payRes = await pay(link.token, APPROVED_CARD);
   assert.equal(payRes.statusCode, 200, payRes.body);
@@ -218,6 +226,26 @@ test("expired link is rejected: read reports 'expired', pay is rejected 410", as
   assert.equal(payRes.json().error, "payment_link_expired");
 });
 
+// BUG-004: the public pay route must judge expiry by the server clock, not a
+// client-supplied submittedAt (anyone can send an old timestamp).
+test("expired link: a past submittedAt in the body is ignored — pay still rejected 410", async () => {
+  const { rawKey, merchantId } = await createApprovedMerchantWithApiKey("expired-submittedat");
+  const link = await createLink(rawKey, merchantId, {});
+  await pool.query(`UPDATE payment_links SET expires_at = now() - interval '1 minute' WHERE token = $1`, [link.token]);
+
+  const payRes = await app.inject({
+    method: "POST",
+    url: `/v1/payment-links/${link.token}/pay`,
+    headers: { "idempotency-key": randomUUID() },
+    payload: { card: APPROVED_CARD, submittedAt: new Date(Date.now() - 86_400_000).toISOString() },
+  });
+  assert.equal(payRes.statusCode, 410, payRes.body);
+  assert.equal(payRes.json().error, "payment_link_expired");
+
+  const txns = await pool.query(`SELECT 1 FROM transactions WHERE merchant_id = $1`, [merchantId]);
+  assert.equal(txns.rowCount, 0);
+});
+
 test("canceled link is rejected via both read and pay", async () => {
   const { rawKey, merchantId } = await createApprovedMerchantWithApiKey("canceled-rejected");
   const link = await createLink(rawKey, merchantId, {});
@@ -271,6 +299,35 @@ test("cancel: happy path 204, nonexistent id -> 404, already-paid -> 409", async
   });
   assert.equal(cancelPaid.statusCode, 409, cancelPaid.body);
   assert.equal(cancelPaid.json().error, "not_cancelable");
+});
+
+test("BUG-003: merchant A cannot cancel or probe merchant B's payment link (404, B's link untouched)", async () => {
+  const a = await createApprovedMerchantWithApiKey("idor-a");
+  const b = await createApprovedMerchantWithApiKey("idor-b");
+
+  // B's active link: A tries to cancel it through A's own path.
+  const bActive = await createLink(b.rawKey, b.merchantId, {});
+  const cancelB = await app.inject({
+    method: "DELETE",
+    url: `/v1/merchants/${a.merchantId}/payment-links/${bActive.id}`,
+    headers: authHeader(a.rawKey),
+  });
+  assert.equal(cancelB.statusCode, 404, cancelB.body);
+  assert.equal(cancelB.json().error, "payment_link_not_found");
+  const stillActive = await pool.query<{ status: string }>(`SELECT status FROM payment_links WHERE id = $1`, [
+    bActive.id,
+  ]);
+  assert.equal(stillActive.rows[0]!.status, "active");
+
+  // B's paid link: A must not learn its status (was 409 "status: paid").
+  const bPaid = await createLink(b.rawKey, b.merchantId, {});
+  assert.equal((await pay(bPaid.token, APPROVED_CARD)).statusCode, 200);
+  const probe = await app.inject({
+    method: "DELETE",
+    url: `/v1/merchants/${a.merchantId}/payment-links/${bPaid.id}`,
+    headers: authHeader(a.rawKey),
+  });
+  assert.equal(probe.statusCode, 404, probe.body);
 });
 
 test("list returns created payment links for the owning merchant", async () => {

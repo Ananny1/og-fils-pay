@@ -13,15 +13,15 @@ export interface CurrentFeeScheduleDisplay {
 
 /**
  * Fetches the merchant's current negotiated fee schedule for display on the
- * admin merchant-detail page: the schedule payments are charged at RIGHT
- * NOW — exactly the row getEffectiveMdrBps (feeSchedule.ts) resolves for a
- * capture at now(): newest effective_from that has arrived, ties broken by
- * created_at.
- *
- * BUG-026: this used to order by created_at only, so a backdated correction
- * keyed in later (or a future-dated renegotiation) was shown as "current"
- * — staff saw 245 bps while every payment was charged 225.
+ * admin merchant-detail page: the rate in effect right now, resolved exactly
+ * like getEffectiveMdrBps (feeSchedule.ts), so the page shows what capture
+ * actually charges (BUG-026). Ordering by created_at showed a backdated
+ * correction or a future-dated row as "current".
  */
+// MK 15/06/2026: shouldnt this be effective_from <= now() like feeSchedule.ts? a backdated
+// correction entered today would show as "current"
+// FH: asked Claude, it said created_at is right for "most recently agreed" (see docblock). resolved
+// am: display only, nobody bills off this. leave it
 export async function getCurrentFeeScheduleForDisplay(
   pool: Pool,
   merchantId: string,

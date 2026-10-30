@@ -33,6 +33,10 @@ type BatchResult struct {
 	NetPayoutFils money.Fils
 	EventCount    int
 	LineCount     int
+	// FP-300.3: refunds claimed by this batch and the amount they took off
+	// the payout (refund amount minus the fee reversed to the merchant).
+	RefundCount        int
+	RefundDeductedFils money.Fils
 }
 
 // PayoutResult is PayoutBatch's return value.
@@ -219,6 +223,59 @@ func CloseBatch(ctx context.Context, db *pgxpool.Pool, merchantID uuid.UUID, bus
 	}
 	netPayout := NetPayableFils(batchGross, batchFee)
 
+	// Step 9 (FP-300.3, decision Q-2): refunds are deducted from the
+	// merchant's next batch. Every succeeded refund up to the end of this
+	// business day that no batch has claimed yet is taken off the payout,
+	// oldest first, by what it cost the merchant (amount minus the fee given
+	// back). A refund that would push the payout below zero, and every one
+	// after it, waits for a later batch, so a payout is never negative and
+	// each refund is deducted exactly once (claimed by settlement_batch_id,
+	// locked FOR UPDATE in this transaction).
+	refundRows, err := tx.Query(ctx, `
+		SELECT id, amount_fils, fee_reversed_fils
+		  FROM refunds
+		 WHERE merchant_id = $1
+		   AND status = 'succeeded'
+		   AND settlement_batch_id IS NULL
+		   AND occurred_at < $2
+		 ORDER BY occurred_at, id
+		 FOR UPDATE
+	`, merchantID, end)
+	if err != nil {
+		return BatchResult{}, fmt.Errorf("settlement: CloseBatch: select unbatched refunds: %w", err)
+	}
+	var claimedRefundIDs []uuid.UUID
+	var refundDeducted money.Fils
+	stopClaiming := false
+	for refundRows.Next() {
+		var id uuid.UUID
+		var amount, feeReversed int64
+		if err := refundRows.Scan(&id, &amount, &feeReversed); err != nil {
+			refundRows.Close()
+			return BatchResult{}, fmt.Errorf("settlement: CloseBatch: scan refund: %w", err)
+		}
+		cost := money.Fils(amount - feeReversed)
+		if stopClaiming || cost > netPayout {
+			stopClaiming = true
+			continue
+		}
+		netPayout -= cost
+		refundDeducted += cost
+		claimedRefundIDs = append(claimedRefundIDs, id)
+	}
+	if err := refundRows.Err(); err != nil {
+		return BatchResult{}, fmt.Errorf("settlement: CloseBatch: iterate refunds: %w", err)
+	}
+	refundRows.Close()
+	if len(claimedRefundIDs) > 0 {
+		_, err = tx.Exec(ctx, `
+			UPDATE refunds SET settlement_batch_id = $2 WHERE id = ANY($1)
+		`, claimedRefundIDs, batchID)
+		if err != nil {
+			return BatchResult{}, fmt.Errorf("settlement: CloseBatch: mark refunds batched: %w", err)
+		}
+	}
+
 	// Record this batch's contribution to the platform-wide lifetime
 	// processed-volume counter, in the same transaction that freezes this
 	// batch's own totals — so the counter and the batch it describes
@@ -253,7 +310,7 @@ func CloseBatch(ctx context.Context, db *pgxpool.Pool, merchantID uuid.UUID, bus
 		_, err = tx.Exec(ctx, `
 			INSERT INTO scheme_export_lines (settlement_batch_id, transaction_id, amount_fils, amount, line_sequence)
 			VALUES ($1, $2, $3, $4, $5)
-		`, batchID, line.transactionID, int64(truncated), SchemeAmountBD(line.grossFils), i+1)
+		`, batchID, line.transactionID, int64(truncated), SchemeAmountBD(truncated), i+1)
 		if err != nil {
 			return BatchResult{}, fmt.Errorf("settlement: CloseBatch: insert scheme export line: %w", err)
 		}
@@ -307,6 +364,9 @@ func CloseBatch(ctx context.Context, db *pgxpool.Pool, merchantID uuid.UUID, bus
 		NetPayoutFils: netPayout,
 		EventCount:    len(eventIDs),
 		LineCount:     len(lines),
+
+		RefundCount:        len(claimedRefundIDs),
+		RefundDeductedFils: refundDeducted,
 	}, nil
 }
 

@@ -3,10 +3,13 @@ import type { Pool } from "pg";
 import type { Config } from "./config.js";
 import { createAcquirerSimulator } from "./acquirer/simulator.js";
 import { cookiesPlugin } from "./plugins/cookies.js";
-import { corsPlugin } from "./plugins/cors.js";
 import { multipartPlugin } from "./plugins/multipart.js";
 import { errorHandler } from "./plugins/errorHandler.js";
+import { loadSheddingPlugin } from "./plugins/loadShedding.js";
+import { securityHeadersPlugin } from "./plugins/securityHeaders.js";
+import { corsPlugin } from "./plugins/cors.js";
 import { healthRoutes } from "./routes/health.js";
+import { assistantRoutes } from "./routes/assistant.js";
 import { authRoutes } from "./routes/auth.js";
 import { businessProfileRoutes } from "./routes/businessProfile.js";
 import { kycRoutes } from "./routes/kyc.js";
@@ -20,7 +23,6 @@ import { analyticsRoutes } from "./routes/analytics.js";
 import { reportingRoutes } from "./routes/reporting.js";
 import { adminRoutes, type AdminRoutesOptions } from "./routes/admin.js";
 import { acquirerCallbackRoutes } from "./routes/acquirerCallbacks.js";
-import { assistantRoutes } from "./routes/assistant.js";
 import { createFetchTransport, type WebhookTransport } from "./webhooks/transport.js";
 
 export interface BuildAppOptions {
@@ -41,13 +43,21 @@ export interface BuildAppOptions {
  * tests use `app.inject(...)` against this — no real socket needed.
  */
 export function buildApp(config: Config, pool: Pool, options: BuildAppOptions = {}): FastifyInstance {
+  // X-Forwarded-For is trusted only behind our own proxy, and only for the
+  // entries our proxy addresses add, so a client can't choose its own
+  // request.ip (SEC-1). Size and time limits (SEC-3): a slow or huge request
+  // is cut off instead of holding a socket and memory open.
   const app = Fastify({
     logger: true,
-    bodyLimit: config.bodyLimitBytes,
+    // CAP-1: two JSON log lines per request cost real CPU on a 0.5 vCPU box.
+    // In production nginx keeps the access log; errors are still logged.
+    disableRequestLogging: config.nodeEnv === "production",
+    trustProxy: config.trustProxy ? config.trustProxyAddresses : false,
+    bodyLimit: config.httpBodyLimitBytes,
+    connectionTimeout: config.httpConnectionTimeoutMs,
     requestTimeout: config.httpRequestTimeoutMs,
-    // Behind nginx, request.ip (audit rows in auth/adminAuth) must be the
-    // client, not the proxy.
-    trustProxy: (_address: string, hop: number) => hop < config.trustProxyHops,
+    keepAliveTimeout: config.httpKeepAliveTimeoutMs,
+    http: { headersTimeout: config.httpHeadersTimeoutMs },
   });
 
   app.decorate("db", pool);
@@ -55,8 +65,12 @@ export function buildApp(config: Config, pool: Pool, options: BuildAppOptions = 
   app.decorate("acquirer", createAcquirerSimulator(config));
   app.decorate("webhookTransport", options.webhookTransport ?? createFetchTransport());
 
-  installOverloadGuard(app, config.maxInFlightRequests);
-
+  // First, so an over-capacity request is turned away before any work.
+  app.register(loadSheddingPlugin, {
+    maxInFlight: config.apiMaxInFlight,
+    retryAfterSeconds: config.apiRetryAfterSeconds,
+  });
+  app.register(securityHeadersPlugin, { config });
   app.register(corsPlugin);
   app.register(cookiesPlugin);
   app.register(multipartPlugin, { config });
@@ -69,11 +83,9 @@ export function buildApp(config: Config, pool: Pool, options: BuildAppOptions = 
   app.register(apiKeyRoutes, { prefix: "/v1/merchants" });
   // v1/routes/transactions.ts is NOT this one. that tree is dead — MK
   app.register(transactionRoutes, { prefix: "/v1/transactions" });
-  // FP-212: RefundDrawer posts to /v1/merchants/:id/refunds, initiateMerchantRefund expects
-  // that path too. this prefix is the old stub — am
-  // MK: keep /v1/refunds, API.md documents it. the drawer is wrong
-  // FH: API.md has both?? asked in #eng, no answer yet (12/10/2026)
-  app.register(refundRoutes, { prefix: "/v1/refunds" });
+  // FP-300.1 (decision Q-1): POST /v1/merchants/:merchantId/refunds, the path the
+  // web RefundDrawer and initiateMerchantRefund use. The /v1/refunds 501 stub is gone.
+  app.register(refundRoutes, { prefix: "/v1/merchants" });
   app.register(paymentLinkMerchantRoutes, { prefix: "/v1/merchants" });
   app.register(paymentLinkPublicRoutes, { prefix: "/v1/payment-links" });
   app.register(webhookEndpointRoutes, { prefix: "/v1/merchants" });
@@ -81,7 +93,7 @@ export function buildApp(config: Config, pool: Pool, options: BuildAppOptions = 
   app.register(analyticsRoutes, { prefix: "/v1/analytics" });
   app.register(reportingRoutes, { prefix: "/v1/reporting" });
   app.register(assistantRoutes, { prefix: "/v1/assistant" });
-  // FH: "the acquirer signature is the only auth" — and inboundVerify rejects unsigned requests, so OK
+  // BUG-007: the acquirer signature is the only auth — inboundVerify now always requires it
   app.register(acquirerCallbackRoutes, { prefix: "/v1/acquirer" }); // public — acquirer signature is the only auth
   // The admin plane, including KYC review
   // (POST /v1/admin/merchants/:id/kyc-reviews).
@@ -92,46 +104,4 @@ export function buildApp(config: Config, pool: Pool, options: BuildAppOptions = 
   // consumer is likewise started by its own entrypoint, never from here.
 
   return app;
-}
-
-/** Probes must keep answering while the API sheds load, or Docker/nginx
- *  would mark a busy-but-healthy instance dead. */
-const UNGUARDED_ROUTES = new Set(["/healthz", "/readyz"]);
-
-/**
- * Load shedding (OPS-002). Counts requests currently being processed; once
- * `maxInFlight` are in progress, a new request is answered at once with
- * 503 + `Retry-After: 1` and never reaches a handler or the DB pool. The
- * alternative — accepting everything — lets a burst queue up behind a
- * 0.5 vCPU event loop and a small pg pool until *every* request is slow and
- * times out (no one gets served). 0 disables the guard.
- */
-function installOverloadGuard(app: FastifyInstance, maxInFlight: number): void {
-  if (maxInFlight <= 0) return;
-  let inFlight = 0;
-  app.addHook("onRequest", (request, reply, done) => {
-    if (UNGUARDED_ROUTES.has(request.routeOptions.url ?? "")) {
-      done();
-      return;
-    }
-    if (inFlight >= maxInFlight) {
-      reply
-        .code(503)
-        .header("retry-after", "1")
-        .send({ error: "overloaded", message: "server is busy, retry shortly" });
-      return;
-    }
-    inFlight += 1;
-    let released = false;
-    const release = (): void => {
-      if (released) return;
-      released = true;
-      inFlight -= 1;
-    };
-    // 'finish' = response fully written; 'close' also fires when the client
-    // goes away first. Either frees the slot, exactly once.
-    reply.raw.once("finish", release);
-    reply.raw.once("close", release);
-    done();
-  });
 }

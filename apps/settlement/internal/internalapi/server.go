@@ -262,11 +262,10 @@ func handleRunBatch(pool *pgxpool.Pool) http.Handler {
 }
 
 // handleRebuildBalances backs the admin console's "Rebuild cached balances"
-// action. Takes no body; any body sent is ignored.
+// action. Takes no body; any body sent is ignored. It runs the same
+// ledger-only rebuild as the `settlement rebuild-balances` CLI (BUG-017).
 func handleRebuildBalances(pool *pgxpool.Pool) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Same ledger recompute as the CLI `rebuild-balances` (BUG-017): the
-		// merchant_payable_position view sums scheme lines, not the ledger.
 		diffs, err := ledger.RebuildAllBalances(r.Context(), pool)
 		if err != nil {
 			log.Printf("settlement internal api: rebuild-balances failed: %v", err)

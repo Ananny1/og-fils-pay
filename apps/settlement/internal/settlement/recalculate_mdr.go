@@ -17,8 +17,8 @@ import (
 // recalculation pass.
 //
 // DiffFils is NewFeeFils - OldFeeFils. A positive diff means the merchant was
-// undercharged at close; the correcting ledger group lands in the current
-// period's batch, so the original batch's figures stay as they were paid.
+// undercharged at close. Only 'closed' (not yet paid) batches are
+// recalculated and rewritten; 'paid' batches are left exactly as paid.
 type BatchAdjustment struct {
 	BatchID    uuid.UUID
 	BatchDate  time.Time
@@ -44,10 +44,9 @@ type batchRow struct {
 	netPayoutFils money.Fils
 }
 
-// RecalculateMDR re-derives the fee on a merchant's closed batches in
-// [from, to) at the merchant's current terms and posts the difference.
-// Only 'closed' (not yet paid) batches are recalculated; a 'paid' batch's
-// frozen figures are what was actually paid out and are never rewritten.
+// RecalculateMDR re-derives the fee on a merchant's closed, not-yet-paid
+// batches in [from, to) at the merchant's current terms and posts the
+// difference. Paid batches are skipped (BUG-018).
 func RecalculateMDR(ctx context.Context, db *pgxpool.Pool, merchantID uuid.UUID, from, to time.Time) (RecalcResult, error) {
 	tx, err := db.Begin(ctx)
 	if err != nil {
@@ -66,7 +65,7 @@ func RecalculateMDR(ctx context.Context, db *pgxpool.Pool, merchantID uuid.UUID,
 		SELECT id, batch_date, status, gross_fils, fee_fils, net_payout_fils
 		  FROM settlement_batches
 		 WHERE merchant_id = $1 AND batch_date >= $2 AND batch_date < $3
-		   AND status = 'closed' -- never 'paid': that money has left (BUG-018)
+		   AND status = 'closed' -- BUG-018: never rewrite a paid batch (or an open one)
 		 ORDER BY batch_date
 		 FOR UPDATE
 	`, merchantID, from, to)
@@ -102,7 +101,11 @@ func RecalculateMDR(ctx context.Context, db *pgxpool.Pool, merchantID uuid.UUID,
 		if diff == 0 {
 			continue
 		}
-		newNetPayout := b.grossFils - newFee
+		// FP-300.3: net already has this batch's claimed refunds taken off
+		// (gross - fee - refunds). Move it by the fee change only, so the
+		// refund deduction is kept; those refunds stay linked to this batch
+		// and no later batch will deduct them again.
+		newNetPayout := b.netPayoutFils - diff
 		// am: posts against the OLD batch id so it never lands in a new payout?? fixed in FP-244 i think
 		if err := postMdrAdjustment(ctx, tx, merchantID, b.id, diff); err != nil {
 			return RecalcResult{}, err

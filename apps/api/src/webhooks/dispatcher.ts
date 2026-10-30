@@ -3,7 +3,8 @@ import { Client, type Pool } from "pg";
 import type { Config } from "../config.js";
 import { withTransaction } from "../db/withTransaction.js";
 import { decodeEncryptionKey, decryptSecret } from "./secretCrypto.js";
-import { signPayload } from "./sign.js";
+import { signRawBody } from "./sign.js";
+import { canonicalJson } from "../payments/idempotency.js";
 import { buildEnvelope } from "./envelope.js";
 import { recordPayoutDisbursementEffect } from "./payoutDisbursement.js";
 import { WEBHOOK_DELIVERY_ID_HEADER, WEBHOOK_SIGNATURE_HEADER } from "./headers.js";
@@ -22,13 +23,14 @@ import type { WebhookTransport } from "./transport.js";
 
 const STEP_A_BATCH_LIMIT = 500;
 const STEP_B_BATCH_LIMIT = 100;
-// add refund.succeeded here when refunds ship, thats all it needs — am
 // YA: adding a type here without a buildEnvelope case throws in Step A and stalls the whole queue. envelope.ts first.
+// FP-300.4: refund.succeeded added (its buildEnvelope case exists).
 // MK: settlement.batch_closed taken out of this list in Feb (too noisy). docs still mention it
 const WEBHOOK_ELIGIBLE_EVENT_TYPES: readonly string[] = [
   "transaction.captured",
   "transaction.voided",
   "settlement.paid",
+  "refund.succeeded",
 ];
 const NOTIFY_CHANNEL = "outbox_events_channel";
 
@@ -50,21 +52,16 @@ export type DispatcherConfig = Pick<
   | "webhookSecretEncryptionKey"
 >;
 
-/** Exponential backoff with a cap: base * 2^(attempt-1), never above cap.
- *  attemptNumber is the attempt that just failed (1-indexed).
- *
- *  Deterministic by default (BUG-052): the retry schedule is documented and
- *  tested as exact values, and Math.random jitter made it unpredictable and
- *  could exceed the cap by 10 %. ±10 % jitter is opt-in via `jitter`
- *  (returns [0,1)), and the result is still clamped to the cap. */
+/** Exponential backoff with a cap and ±10 % jitter. attemptNumber is the
+ *  attempt that just failed (1-indexed). */
 export function backoffDelayMs(
   attemptNumber: number,
   config: Pick<Config, "webhookBackoffBaseMs" | "webhookBackoffCapMs">,
-  jitter?: () => number,
+  jitter: () => number = Math.random,
 ): number {
   const raw = config.webhookBackoffBaseMs * 2 ** (attemptNumber - 1);
   const capped = Math.min(raw, config.webhookBackoffCapMs);
-  if (!jitter) return capped;
+  // BUG-060: cap AFTER jitter too — the config promises no retry waits longer than the cap.
   return Math.min(Math.round(capped * (0.9 + jitter() * 0.2)), config.webhookBackoffCapMs);
 }
 
@@ -136,6 +133,7 @@ async function createMissingDeliveries(pool: Pool): Promise<number> {
 
 interface DueDeliveryRow {
   id: string;
+  next_attempt_at: Date;
   endpoint_id: string;
   event_type: string;
   delivery_event_id: string;
@@ -164,7 +162,7 @@ async function attemptOneDelivery(
   try {
     secret = decryptSecret(row.secret_ciphertext, key);
   } catch (err: unknown) {
-    // BUG-053: an undecryptable secret (wrong/rotated key, corrupt row) is
+    // BUG-053 (Sayed): an undecryptable secret (wrong/rotated key, corrupt row) is
     // permanent, not transient — leaving the row 'pending' retried it every
     // pass forever and, since Step B takes the oldest-due 100, enough such
     // rows starved every other merchant's deliveries. Mark it 'failed' with
@@ -182,11 +180,9 @@ async function attemptOneDelivery(
     );
     return;
   }
-  // Serialise once; sign and send the SAME bytes (BUG-023). Signing
-  // canonicalJson(payload) while sending JSON.stringify(payload) (jsonb key
-  // order) meant no merchant verifying the raw body could ever match.
-  const body = JSON.stringify(row.payload);
-  const { signature } = signPayload(body, secret);
+  // BUG-023: serialize once, sign those exact bytes, send the same bytes.
+  const body = canonicalJson(row.payload);
+  const { signature } = signRawBody(body, secret);
 
   if (row.attempt_count === 0) {
     const effect = PRE_DELIVERY_EFFECTS[row.event_type];
@@ -244,50 +240,37 @@ async function attemptOneDelivery(
   );
 }
 
-/** How long a claimed delivery is hidden from other dispatchers while this
- *  one attempts it: one request timeout plus a generous margin. If this
- *  process dies mid-attempt the row becomes due again after the lease
- *  (at-least-once, receivers dedupe on Webhook-Delivery-Id). */
-const CLAIM_LEASE_MARGIN_MS = 60_000;
-
 /**
- * Claims ONE due delivery (BUG-051): FOR UPDATE SKIP LOCKED so two
- * dispatchers (two API replicas, or the NOTIFY and poll paths of different
- * processes) never pick the same row, and the same statement pushes its
- * next_attempt_at out by a lease so it stays claimed after this short
- * autocommit transaction ends — the HTTP call itself still never runs
- * inside a DB transaction.
+ * Step B: attempt every currently-due 'pending' delivery, sequentially.
+ *
+ * Each row is claimed right before it is sent (BUG-008 / W7): one UPDATE
+ * moves next_attempt_at forward by a lease longer than the request timeout,
+ * and only the pass whose UPDATE matched sends. Two replicas, or the NOTIFY
+ * handler and the poll timer, can no longer both send the same row. No DB
+ * transaction is held across the HTTP call. If the process dies mid-send,
+ * the row becomes due again when the lease runs out.
  */
-async function claimNextDueDelivery(pool: Pool, config: DispatcherConfig): Promise<DueDeliveryRow | undefined> {
-  const result = await pool.query<DueDeliveryRow>(
-    `WITH claimed AS (
-       SELECT id FROM webhook_deliveries
-        WHERE status = 'pending' AND next_attempt_at <= now()
-        ORDER BY next_attempt_at ASC
-        LIMIT 1
-        FOR UPDATE SKIP LOCKED
-     )
-     UPDATE webhook_deliveries wd
-        SET next_attempt_at = now() + ($1::text || ' milliseconds')::interval
-       FROM claimed, webhook_endpoints we
-      WHERE wd.id = claimed.id AND we.id = wd.endpoint_id
-     RETURNING wd.id, wd.endpoint_id, wd.event_type, wd.delivery_event_id, wd.payload, wd.attempt_count,
-               we.url, we.secret_ciphertext`,
-    [config.webhookRequestTimeoutMs + CLAIM_LEASE_MARGIN_MS],
-  );
-  return result.rows[0];
-}
-
-/** Step B: claim and attempt currently-due 'pending' deliveries one at a
- *  time, up to STEP_B_BATCH_LIMIT per pass. Safe with any number of
- *  concurrent dispatchers (the old "only ever run ONE api replica" rule is
- *  no longer needed). */
 async function attemptDueDeliveries(pool: Pool, transport: WebhookTransport, config: DispatcherConfig): Promise<number> {
-  let attempted = 0;
-  while (attempted < STEP_B_BATCH_LIMIT) {
-    const row = await claimNextDueDelivery(pool, config);
-    if (!row) break;
-    attempted++;
+  const claimLeaseMs = config.webhookRequestTimeoutMs + 30_000;
+  const dueResult = await pool.query<DueDeliveryRow>(
+    `SELECT wd.id, wd.next_attempt_at, wd.endpoint_id, wd.event_type, wd.delivery_event_id, wd.payload, wd.attempt_count, we.url, we.secret_ciphertext
+       FROM webhook_deliveries wd
+       JOIN webhook_endpoints we ON we.id = wd.endpoint_id
+      WHERE wd.status = 'pending' AND wd.next_attempt_at <= now()
+      ORDER BY wd.next_attempt_at ASC
+      LIMIT $1`,
+    [STEP_B_BATCH_LIMIT],
+  );
+
+  for (const row of dueResult.rows) {
+    const claim = await pool.query(
+      `UPDATE webhook_deliveries
+          SET next_attempt_at = now() + ($2::text || ' milliseconds')::interval
+        WHERE id = $1 AND status = 'pending' AND next_attempt_at <= now()`,
+      [row.id, claimLeaseMs],
+    );
+    if (claim.rowCount !== 1) continue; // another pass or replica already took it
+
     try {
       await attemptOneDelivery(pool, transport, config, row);
     } catch (err: unknown) {
@@ -296,17 +279,26 @@ async function attemptDueDeliveries(pool: Pool, transport: WebhookTransport, con
       // webhookSecretEncryptionKey) must never abort the whole pass — that
       // would couple every OTHER merchant's delivery to this one poisoned
       // row. Endpoints are never coupled to each other.
-      // The row keeps its status/attempt_count and is retried once its
-      // claim lease expires, which self-heals if the failure was transient.
-      // (A permanent failure — an undecryptable secret — is marked 'failed'
-      // inside attemptOneDelivery, BUG-053.)
+      // Deliberately leave this row's status/attempt_count/next_attempt_at
+      // untouched: it is simply retried next pass, which self-heals if the
+      // failure was transient and otherwise degrades to "this one row never
+      // progresses" rather than "webhook delivery silently stops platform-
+      // wide."
+      // Give the claim back (restore next_attempt_at) so the row is
+      // retried next pass exactly as before.
+      await pool
+        .query(`UPDATE webhook_deliveries SET next_attempt_at = $2 WHERE id = $1 AND status = 'pending'`, [
+          row.id,
+          row.next_attempt_at,
+        ])
+        .catch(() => {});
       console.error(
         "[webhooks/dispatcher] delivery attempt threw before/around transport call, skipping row for this pass",
         { deliveryId: row.id, endpointId: row.endpoint_id, err },
       );
     }
   }
-  return attempted;
+  return dueResult.rows.length;
 }
 
 /**

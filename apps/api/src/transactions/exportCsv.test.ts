@@ -193,3 +193,41 @@ test("a reference containing a comma or a quote is CSV-escaped", async () => {
 
   assert.ok(dataLine.includes('"inv-1,""urgent"""'));
 });
+
+// BUG-030: a reference that starts with = + - @ TAB or CR is run as a formula by
+// Excel / Sheets / LibreOffice when the merchant opens the export.
+test("a reference that looks like a spreadsheet formula is neutralised with a leading quote", async () => {
+  const merchantId = await createMerchant();
+  const references = ['=HYPERLINK("http://evil.test","x")', "+1+1", "-2+3", "@SUM(A1)", "\tcmd", "\rcmd"];
+  for (const [i, reference] of references.entries()) {
+    await insertTransaction(merchantId, {
+      status: "captured",
+      amountFils: 1000,
+      capturedFils: 1000,
+      reference,
+      occurredAt: `2026-04-0${i + 1}T00:00:00Z`,
+    });
+  }
+
+  const csv = await buildTransactionsExportCsv(pool, { merchantId });
+
+  assert.ok(csv.includes(`"'=HYPERLINK(""http://evil.test"",""x"")"`), csv);
+  assert.ok(csv.includes(",'+1+1,"));
+  assert.ok(csv.includes(",'-2+3,"));
+  assert.ok(csv.includes(",'@SUM(A1),"));
+  assert.ok(csv.includes(",'\tcmd,"));
+  assert.ok(csv.includes(`,"'\rcmd",`), "a CR inside a field must also be quoted");
+});
+
+test("a plain reference is not changed by the formula guard", async () => {
+  const merchantId = await createMerchant();
+  await insertTransaction(merchantId, {
+    status: "captured",
+    amountFils: 1000,
+    capturedFils: 1000,
+    reference: "order-7",
+    occurredAt: "2026-04-01T00:00:00Z",
+  });
+  const csv = await buildTransactionsExportCsv(pool, { merchantId });
+  assert.equal(csv.split("\n")[1]!.split(",")[4], "order-7");
+});

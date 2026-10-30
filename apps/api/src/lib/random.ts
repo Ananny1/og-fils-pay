@@ -1,20 +1,16 @@
 import { randomInt } from "node:crypto";
 
-/**
- * Both helpers draw from the OS CSPRNG (`crypto.randomInt`), never
- * `Math.random`: their outputs are secrets (OTP codes, payment-link tokens),
- * and Math.random's state can be recovered from a handful of outputs.
- */
-
-/** Generates a string of `n` random decimal digits (e.g. "042817"). */
+/** Generates a string of `n` random decimal digits (e.g. "042817"), from a
+ *  CSPRNG: these are OTP codes (BUG-011). */
 export function randomDigits(n: number): string {
   const max = 10 ** n;
-  return randomInt(0, max)
+  return randomInt(max)
     .toString()
     .padStart(n, "0");
 }
 
-/** Generates a string of `n` characters drawn uniformly from `alphabet`. */
+/** Generates a string of `n` characters drawn uniformly from `alphabet`, from
+ *  a CSPRNG: payment-link tokens and admin invite codes are bearer secrets. */
 export function randomFromAlphabet(alphabet: string, n: number): string {
   let out = "";
   for (let i = 0; i < n; i++) {

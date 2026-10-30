@@ -9,6 +9,12 @@
 | **Decision** | D-003 |
 | **Status** | ✅ fixed |
 
+## Summary (the short note)
+
+- **What's wrong:** The app could not be built: the two Dockerfiles that `docker compose` needs were never committed.
+- **Why:** `ops/docker-compose.yml` points at `ops/Dockerfile.node` and `ops/Dockerfile.go`, which did not exist.
+- **What it breaks:** Nobody could run, test or deploy FilsPay from the repo, including the Dilmune Cloud deploy.
+
 ## 1. The issue
 
 `docker compose -f ops/docker-compose.yml build` fails at once: `ops/Dockerfile.node` and

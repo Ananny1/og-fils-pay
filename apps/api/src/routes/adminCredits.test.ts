@@ -80,7 +80,8 @@ async function signedInAdmin(role: AdminRole, label: string) {
   });
   assert.equal(verifyRes.statusCode, 200, verifyRes.body);
 
-  return { id: inserted.rows[0]!.id, email, cookie };
+  // The session token is rotated at OTP verify (BUG-032): use the cookie it sets.
+  return { id: inserted.rows[0]!.id, email, cookie: parseCookie(verifyRes.headers["set-cookie"], config.adminCookieName) };
 }
 
 async function createMerchant(label: string, mdrBps = 250): Promise<string> {
@@ -136,7 +137,6 @@ test("every credits route rejects an unauthenticated caller", async () => {
   }
 });
 
-// create isn't in this test, only approve/reject. intentional? — am
 test("a support admin is 403'd on approve and reject — the decision that moves money", async () => {
   const finance = await signedInAdmin("finance", "gate-maker");
   const support = await signedInAdmin("support", "gate-checker");
@@ -162,6 +162,27 @@ test("a support admin is 403'd on approve and reject — the decision that moves
     [pending.id],
   );
   assert.equal(row.rows[0]!.status, "pending_approval");
+});
+
+// BUG-033: create moves money (a below-threshold credit posts at once), so it is finance-gated too,
+// as createCreditRequest's own doc says ("a support caller gets a 403").
+test("a support admin is 403'd on create — a small credit would post money with no second person", async () => {
+  const support = await signedInAdmin("support", "create-gate");
+  const merchantId = await createMerchant("create-gate");
+
+  const res = await app.inject({
+    method: "POST",
+    url: `/v1/admin/merchants/${merchantId}/credits`,
+    headers: { cookie: support.cookie },
+    payload: { baseAmountFils: 10_000, reasonCode: "goodwill", effectiveDate: new Date().toISOString().slice(0, 10) },
+  });
+  assert.equal(res.statusCode, 403, res.body);
+  assert.equal(res.json().error, "forbidden");
+
+  const rows = await pool.query(`SELECT 1 FROM credit_requests WHERE merchant_id = $1`, [merchantId]);
+  assert.equal(rows.rowCount, 0);
+  const legs = await pool.query(`SELECT 1 FROM ledger_entries WHERE merchant_id = $1`, [merchantId]);
+  assert.equal(legs.rowCount, 0);
 });
 
 test("a support admin CAN read the credits queue — it is a read, like the merchant list", async () => {

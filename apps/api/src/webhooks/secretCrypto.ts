@@ -25,15 +25,10 @@ function assertKeyLength(key: Buffer): void {
 }
 
 /** AES-256-GCM encrypt, random 12-byte IV per call. Returns
- *  base64(iv || authTag || ciphertext). */
-/** Deterministic for a given key and plaintext, so stored ciphertexts can be compared for equality. */
+ *  base64(iv || authTag || ciphertext). Not deterministic: the same
+ *  plaintext encrypts differently every time (random IV). */
 export function encryptSecret(plaintext: string, key: Buffer): string {
-  assertKeyLength(key);
-  const iv = randomBytes(IV_LENGTH_BYTES);
-  const cipher = createCipheriv(ALGORITHM, key, iv);
-  const ciphertext = Buffer.concat([cipher.update(plaintext, "utf8"), cipher.final()]);
-  const authTag = cipher.getAuthTag();
-  return Buffer.concat([iv, authTag, ciphertext]).toString("base64");
+  return encryptBytes(Buffer.from(plaintext, "utf8"), key).toString("base64");
 }
 
 /** Inverse of encryptSecret. Throws if `stored` is malformed or the auth
@@ -41,8 +36,24 @@ export function encryptSecret(plaintext: string, key: Buffer): string {
 // MK: GCM IV reuse if two encrypts land in the same ms? FP-198
 // FH: IV is random bytes, not time based? not sure what the ms thing is about
 export function decryptSecret(stored: string, key: Buffer): string {
+  return decryptBytes(Buffer.from(stored, "base64"), key).toString("utf8");
+}
+
+/** Binary form of encryptSecret, for files (KYC documents at rest, SEC-4):
+ *  raw iv || authTag || ciphertext, no base64. */
+export function encryptBytes(plaintext: Buffer, key: Buffer): Buffer {
   assertKeyLength(key);
-  const combined = Buffer.from(stored, "base64");
+  const iv = randomBytes(IV_LENGTH_BYTES);
+  const cipher = createCipheriv(ALGORITHM, key, iv);
+  const ciphertext = Buffer.concat([cipher.update(plaintext), cipher.final()]);
+  const authTag = cipher.getAuthTag();
+  return Buffer.concat([iv, authTag, ciphertext]);
+}
+
+/** Inverse of encryptBytes. Throws on a too-short buffer, a tampered
+ *  ciphertext, or the wrong key. */
+export function decryptBytes(combined: Buffer, key: Buffer): Buffer {
+  assertKeyLength(key);
   if (combined.length < IV_LENGTH_BYTES + AUTH_TAG_LENGTH_BYTES) {
     throw new Error("secretCrypto: stored ciphertext is too short to contain an IV and auth tag");
   }
@@ -52,8 +63,7 @@ export function decryptSecret(stored: string, key: Buffer): string {
 
   const decipher = createDecipheriv(ALGORITHM, key, iv);
   decipher.setAuthTag(authTag);
-  const plaintext = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
-  return plaintext.toString("utf8");
+  return Buffer.concat([decipher.update(ciphertext), decipher.final()]);
 }
 
 /** Decodes `config.webhookSecretEncryptionKey` (base64) into the raw

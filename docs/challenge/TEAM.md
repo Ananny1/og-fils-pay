@@ -1,13 +1,12 @@
 # Team — who does what
 
-| Person | Git name | Role | Task list |
+| Person | Git name | Role | Branch |
 |---|---|---|---|
-| **Ebrahim** | `ealnasser` | **Track B** "Is the money right" (money + Go settlement), then **all frontend / UI / UX** (last) | `PLAN.md` → Track B, FP-300 (B steps), Phase F, Phase T (T4, T5) |
-| **Sayed** | — | **Track A** "Who can get in" (security in `apps/api`) + 3 TS items moved from B | `PLAN.md` → Track A, FP-300 (A steps), Phase T (T3) |
+| **Ebrahim** | `ealnasser` | **Responsible for every task** in `PLAN.md` → Master order, including all frontend (Tier 7) | `ebrahim/track-b` |
+| **Sayed** | — | Helps by taking tasks from Track A (security in `apps/api`); claims each one first | `sayed/track-a` (to create) |
 
-Shared: Phase T (T1 baseline first, T6 fresh-clone check by the non-author, T7 final read), Phase 6 deploy.
-
-The split is **by need, not equal**: Ebrahim also owns all frontend, so Sayed took three TypeScript API items from Track B.
+**Claiming:** before starting a task, mark it ⏳ with your name in the Master order and in
+`PROGRESS.md`, commit and push that line. Never start a task someone else has marked ⏳.
 
 The task status (⬜ ⏳ ✅) lives only in `PLAN.md`. This file says **who** and **how**.
 
@@ -61,9 +60,24 @@ console, port 5174). Both run in Docker with live reload.
 ## How we work together
 
 1. **First time:** follow `SETUP.md` (Docker, migrate, seed, logins).
-2. **Before each bug:** `git pull --rebase origin main`.
+2. **Before each bug:** on your branch, `git pull --rebase origin main`. The full per-task steps are in `WORKFLOW.md`.
 3. **Each bug:** failing test → small fix → test passes → write-up `docs/bugs/BUG-NNN-*.md`
    → your rows in `IMPLEMENTATION.md` and `PLAN.md` → **one commit for that bug only**.
-4. **After each commit:** push yourself (Claude never pushes), so your mate gets it.
+4. **After each commit:** push **your own branch** (Claude may push it for you when you've asked;
+   never `main`). Merge into `main` through GitHub with a normal or rebase merge, never squash.
 5. **Only edit your own rows** in shared files. Ask before touching the other track's files.
 6. **Found a trap?** Add it to `TRAPS.md` and tell your mate.
+
+## For Sayed (frontend) — what the backend sprint touched on your side (2026-10-30)
+
+| Change | Files | Why |
+|---|---|---|
+| Checkout no longer sends `submittedAt` | `apps/web/src/pages/checkout/CheckoutPage.tsx`, `apps/web/src/api/paymentLinks.ts` (2 lines) | BUG-004: the server now decides link expiry |
+| Admin router `basename` from `BASE_URL` | `apps/admin/src/router.tsx` | HOST-1: the hosted build serves the console under `/admin` |
+| Refund route is `POST /v1/merchants/:merchantId/refunds` | (API) | FP-300.1: matches the existing `RefundDrawer` — you can wire the drawer now |
+| Settlement batch net can now be `gross − fee − refunds` | (API) | FP-300.3: the comment in `apps/web/src/types.ts` ("always gross − fee") is out of date |
+| **Not merged:** screen fixes F4 (read-only banner), F5 (negative amounts), F9 (tab titles), F10 (no double-click) | branch `worktree-wf_927692e7-c3a-10` | Built by an agent; yours to take or drop. "Before" screenshots are in `docs/challenge/ux/before/` |
+
+## Migration numbers used in the sprint
+
+0084–0087 and 0090 (bug streams), 0098 (CAP-3), security stream 0073–0079. Next free numbers: 0080–0083, 0088–0089, 0091–0097.

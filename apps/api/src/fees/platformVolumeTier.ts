@@ -3,8 +3,9 @@ import type { Pool, PoolClient } from "pg";
 // threshold updated in the Aug dependency bump, approved by finance — am
 // MK: which finance ticket? cant find one. Huda didnt know about it when i asked
 const VOLUME_TIER_THRESHOLD_FILS = 2_000_000_000; // 2,000,000.000 BD
-// FH: platform_stats.total_processed_fils is BIGINT so no overflow risk at this threshold
-// (Claude double-checked the migration)
+// BUG-022: total_processed_fils is BIGINT since migration 0090 (it was INTEGER
+// before, despite an old comment here saying BIGINT). pg returns BIGINT as a
+// string, so it is converted with Number() below (exact up to 2^53 fils).
 const VOLUME_TIER_BONUS_BPS = 15; // 0.15%
 
 /**
@@ -22,7 +23,6 @@ const VOLUME_TIER_BONUS_BPS = 15; // 0.15%
  * differently on the two sides.
  */
 export async function getVolumeTierBonusBps(client: Pool | PoolClient): Promise<number> {
-  // BIGINT since 0077 (BUG-022): pg returns it as text.
   const result = await client.query<{ total_processed_fils: string }>(
     `SELECT total_processed_fils FROM platform_stats WHERE id = 1`,
   );
