@@ -93,7 +93,13 @@ export function SettlementBatchListPage() {
 
   const hasFilters = from !== "" || to !== "" || statuses.length > 0;
   const initialLoading = loading && batches.length === 0;
-  const loadedHint = `Across the ${batches.length} ${batches.length === 1 ? "batch" : "batches"} on this page`;
+  // After a failed load there are no totals to show: "—", not 0.000 BHD.
+  const noData = !loading && !!error && batches.length === 0;
+  const loadedHint =
+    initialLoading || error
+      ? undefined
+      : `Across the ${batches.length} ${batches.length === 1 ? "batch" : "batches"} on this page`;
+  const unknown = <span className="text-muted-foreground">—</span>;
 
   return (
     <>
@@ -134,9 +140,9 @@ export function SettlementBatchListPage() {
 
       <FadeContent trigger="mount" duration={0.5} delay={0.12}>
         <div className="grid gap-4 sm:grid-cols-3">
-          <StatCard label="Total gross" fils={totals.gross} icon={Wallet} loading={initialLoading} hint={loadedHint} />
-          <StatCard label="Total fees" fils={totals.fee} icon={Percent} loading={initialLoading} hint={loadedHint} />
-          <StatCard label="To your bank" fils={totals.net} icon={Banknote} loading={initialLoading} hint={loadedHint} />
+          <StatCard label="Total gross" fils={noData ? undefined : totals.gross} value={noData ? unknown : undefined} icon={Wallet} loading={initialLoading} hint={loadedHint} />
+          <StatCard label="Total fees" fils={noData ? undefined : totals.fee} value={noData ? unknown : undefined} icon={Percent} loading={initialLoading} hint={loadedHint} />
+          <StatCard label="To your bank" fils={noData ? undefined : totals.net} value={noData ? unknown : undefined} icon={Banknote} loading={initialLoading} hint={loadedHint} />
         </div>
       </FadeContent>
 

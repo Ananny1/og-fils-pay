@@ -140,6 +140,12 @@ export function OverviewPage() {
 
   const initialLoading = loading && !volumes && !payouts && !topLinks;
   const statsLoading = loading && !volumes;
+  // After a failed load with nothing to show, a tile reads "—", not a
+  // real-looking 0 that says "you sold nothing".
+  const noVolumes = !loading && !volumes;
+  const noPayouts = !loading && !payouts;
+  const noTopLinks = !loading && !topLinks;
+  const unknown = <span className="text-muted-foreground">—</span>;
 
   return (
     <>
@@ -189,25 +195,35 @@ export function OverviewPage() {
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <StatCard
             label="Captured"
-            count={summary.capturedCount}
+            count={noVolumes ? undefined : summary.capturedCount}
+            value={noVolumes ? unknown : undefined}
             icon={ArrowLeftRight}
             loading={statsLoading}
             hint="Card payments taken"
           />
           <StatCard
             label="Sales"
-            fils={summary.capturedGrossFils}
+            fils={noVolumes ? undefined : summary.capturedGrossFils}
+            value={noVolumes ? unknown : undefined}
             icon={Wallet}
             loading={statsLoading}
             hint="Before fees"
           />
-          <StatCard label="Voided" count={summary.voidedCount} icon={Ban} loading={statsLoading} hint="Cancelled before money was taken" />
+          <StatCard
+            label="Voided"
+            count={noVolumes ? undefined : summary.voidedCount}
+            value={noVolumes ? unknown : undefined}
+            icon={Ban}
+            loading={statsLoading}
+            hint="Cancelled before money was taken"
+          />
           <StatCard
             label="Payout days"
-            count={summary.batchCount}
+            count={noPayouts ? undefined : summary.batchCount}
+            value={noPayouts ? unknown : undefined}
             icon={BarChart3}
             loading={loading && !payouts}
-            hint={`${formatCount(summary.paidBatches)} paid`}
+            hint={payouts ? `${formatCount(summary.paidBatches)} paid` : undefined}
           />
         </div>
       </FadeContent>
@@ -222,6 +238,8 @@ export function OverviewPage() {
           >
             {initialLoading ? (
               <Skeleton className="aspect-video w-full" />
+            ) : noVolumes ? (
+              <EmptyState icon={BarChart3} title="Sales not loaded" description="Could not load sales. Try Refresh." />
             ) : volumes && volumes.points.length === 0 ? (
               <EmptyState
                 icon={BarChart3}
@@ -321,7 +339,11 @@ export function OverviewPage() {
             action={payouts ? <StalenessBadge readModelAsOf={payouts.readModelAsOf} live={payouts.live} /> : null}
             className="h-full"
           >
-            {!initialLoading && payouts && payouts.points.length === 0 ? (
+            {noPayouts && !initialLoading ? (
+              <div className="p-4">
+                <EmptyState icon={Wallet} title="Payouts not loaded" description="Could not load payouts. Try Refresh." />
+              </div>
+            ) : !initialLoading && payouts && payouts.points.length === 0 ? (
               <div className="p-4">
                 <EmptyState icon={Wallet} title="No payouts yet" description="No payouts in these dates yet." />
               </div>
@@ -382,7 +404,11 @@ export function OverviewPage() {
             description={`The ${clampedLimit} highest-value paid payment links in the window.`}
             action={topLinks ? <StalenessBadge readModelAsOf={topLinks.readModelAsOf} live={topLinks.live} /> : null}
           >
-            {!initialLoading && topLinks && topLinks.links.length === 0 ? (
+            {noTopLinks && !initialLoading ? (
+              <div className="p-4">
+                <EmptyState icon={Link2} title="Best links not loaded" description="Could not load your best links. Try Refresh." />
+              </div>
+            ) : !initialLoading && topLinks && topLinks.links.length === 0 ? (
               <div className="p-4">
                 <EmptyState icon={Link2} title="No paid links yet" description="None of your links were paid in these dates." />
               </div>
