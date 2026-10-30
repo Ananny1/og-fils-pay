@@ -183,7 +183,7 @@ Planned queue (from the audit, in fix order):
 | BUG-022 | High | Platform volume counter int32 overflow → [write-up](docs/bugs/BUG-022-platform-volume-int32-overflow.md) | ✅ |
 | BUG-023 | High | Outbound webhook signs canonical JSON but sends different bytes (FP-240) → [write-up](docs/bugs/BUG-023-webhook-signs-different-bytes.md) | ✅ |
 | BUG-024 | Medium | Settlement summary double-counts multi-capture merchants; slow | ⬜ |
-| BUG-025 | Medium | Export loads all rows in memory; streaming variant skips rows | ⬜ |
+| BUG-025 | Medium | Export loads all rows in memory; streaming variant skips rows → [write-up](docs/bugs/BUG-025-large-export-memory-and-skipped-rows.md) | ✅ |
 | BUG-026 | Medium | Dashboard fee uses latest-entered schedule, not effective one (245 vs 225) → [write-up](docs/bugs/BUG-026-fee-display-245-vs-225.md) | ✅ |
 | BUG-027 | Medium | March sweep script not idempotent, wrong window, wrong account → [write-up](docs/bugs/BUG-027-march-sweep-not-idempotent.md) | ✅ |
 | BUG-028 | Medium | Lifetime payout estimate stored as REAL (drift) | ⬜ |

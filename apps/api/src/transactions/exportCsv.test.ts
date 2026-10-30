@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { after, test } from "node:test";
 import { Pool } from "pg";
-import { buildTransactionsExportCsv } from "./exportCsv.js";
+import { buildTransactionsExportCsv, streamTransactionsExportCsv } from "./exportCsv.js";
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) {
@@ -245,4 +245,30 @@ test("a refunded transaction shows its refunded amount in BD (FP-300.5)", async 
   await pool.query(`UPDATE transactions SET refunded_fils = 2005 WHERE id = $1`, [id]);
   const csv = await buildTransactionsExportCsv(pool, { merchantId });
   assert.equal(csv.split("\n")[1]!.split(",")[6], "2.005");
+});
+
+test("BUG-025: streaming export keeps rows that share a timestamp across page edges", async () => {
+  const merchantId = await createMerchant();
+  const ids: string[] = [];
+  for (let i = 0; i < 5; i++) {
+    ids.push(
+      await insertTransaction(merchantId, {
+        status: "captured",
+        amountFils: 1000 + i,
+        capturedFils: 1000 + i,
+        reference: `same-ts-${i}`,
+        occurredAt: "2026-05-01T09:00:00Z",
+      }),
+    );
+  }
+
+  let csv = "";
+  await streamTransactionsExportCsv(pool, { merchantId }, (chunk) => {
+    csv += chunk;
+  }, 2);
+  const lines = csv.trim().split("\n");
+  assert.equal(lines.length, 6, "header + all 5 rows");
+  for (const id of ids) {
+    assert.ok(csv.includes(id), `row ${id} missing`);
+  }
 });

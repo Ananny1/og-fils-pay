@@ -96,7 +96,7 @@ the screens (Tier 7) and hand-in (Tier 8).
 | **Tier 5** | | **What shops are told (webhooks, reports)** | | | | |
 | 5.1 | BUG-023 | Outbound webhook signs different bytes than it sends | ★★★ | S4 FP-240 | — | ✅ |
 | 5.2 | BUG-024 | Settlement summary double-counts and is slow | ★★ | S4 "reporting … slow" | — | ✅ (Sayed) |
-| 5.3 | BUG-025 | Large export: all in memory; streaming version skips rows | ★★ | S4 "large export" | — | ⬜ |
+| 5.3 | BUG-025 | Large export: all in memory; streaming version skips rows | ★★ | S4 "large export" | — | ✅ |
 | 5.4 | BUG-030 | CSV export formula injection | ★ | — | 5.3 | ✅ |
 | 5.5 | BUG-026 | Dashboard fee 245 vs 225 bps | ★★ | S3 | — | ✅ |
 | 5.6 | BUG-054 | Reconciliation uses `merchants.mdr_bps` (no sync trigger) | ★ | — | 5.5 | ✅ (Sayed) |
