@@ -147,7 +147,7 @@ export function ReconciliationPage() {
               the endpoint reports honestly and so does this. */}
           <FadeContent trigger="mount" duration={0.5} delay={0.1}>
             {reconciled ? (
-              <Alert className="border-success/40 bg-success/5 text-success *:data-[slot=alert-description]:text-success/90">
+              <Alert className="border-success/40 bg-success/5 text-success *:data-[slot=alert-description]:text-success">
                 <CheckCircle2 />
                 <AlertTitle>Everything adds up</AlertTitle>
                 <AlertDescription>
