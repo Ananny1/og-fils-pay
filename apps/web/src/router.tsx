@@ -48,7 +48,7 @@ export const router = createBrowserRouter([
           </RequireDashboardAuth>
         ),
         children: [
-          { path: "/dashboard", element: <Navigate to="/dashboard/transactions" replace /> },
+          { path: "/dashboard", element: <Navigate to="/dashboard/overview" replace /> },
 
           { path: "/dashboard/transactions", element: <TransactionListPage /> },
           { path: "/dashboard/transactions/:id", element: <TransactionDetailPage /> },
