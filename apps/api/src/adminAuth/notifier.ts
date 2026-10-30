@@ -1,5 +1,5 @@
 import type { Config } from "../config.js";
-import { otpMailText, type MinimalLogger } from "../auth/notifier.js";
+import { otpMailHtml, otpMailText, type MinimalLogger } from "../auth/notifier.js";
 import { sendMail, type MailConfig, type SendMail } from "../lib/mail.js";
 
 /**
@@ -31,6 +31,7 @@ export async function sendAdminOtpCode(
       to: recipient.email,
       subject: "Your FilsPay staff console login code",
       text: otpMailText(code, config.adminOtpTtlMinutes),
+      html: otpMailHtml(code, config.adminOtpTtlMinutes, "FilsPay staff console"),
     });
   } catch (err) {
     logger.error(

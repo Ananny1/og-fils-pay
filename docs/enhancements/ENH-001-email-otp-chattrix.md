@@ -121,3 +121,17 @@ slowly (an email is sent), an unknown email answered fast.
 | **Real run (hosted Gmail settings, code sent to our own inbox)** | Login **111 ms**, code not in the reply, no send error logged |
 | **Suite** | API 503 / 503 |
 | **Trade-off** | If the API process dies in the second after answering, that one email may not go out; the user presses "resend" |
+
+## 8. Email layout (2026-10-30)
+
+The code email now has a simple HTML version next to the plain text (mail apps that can't show
+HTML still get the text). Both merchant and staff emails share one layout.
+
+- **One place for the look:** `MAIL_THEME` in `apps/api/src/auth/notifier.ts` (accent, text, muted,
+  background, card, font). When the dashboards get their final theme (Sayed), only these values change.
+- **Safe by design:** inline styles only, no images, scripts or links, so nothing loads from outside and
+  nothing can track the reader. It also tells the reader never to share the code.
+- **Test:** `notifier.test.ts` checks the HTML has the code, the validity, the warning, the theme
+  colour, and no external content. Suite: API 504 / 504.
+
+![The code email](img/otp-email.png)

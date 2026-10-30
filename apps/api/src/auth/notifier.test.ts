@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { sendOtpCode } from "./notifier.js";
+import { MAIL_THEME, sendOtpCode } from "./notifier.js";
 import { sendAdminOtpCode } from "../adminAuth/notifier.js";
 import type { OutgoingMail, SendMail } from "../lib/mail.js";
 
@@ -96,4 +96,20 @@ test("a failing SMTP send is logged (without the code), not thrown (ENH-001)", a
   await sendAdminOtpCode(logger, WITH_SMTP, { adminUserId: "a1", email: "a@b.test" }, "135790", failing);
   assert.equal(errors.length, 2);
   assert.equal(JSON.stringify(errors).includes("135790"), false);
+});
+
+test("the code email has a simple HTML version: code, validity, warning, no external content", async () => {
+  const { logger } = stubLogger();
+  const { sent, send } = fakeSend();
+  await sendOtpCode(logger, WITH_SMTP, { merchantUserId: "u1", email: "owner@shop.test" }, "482913", send);
+  await sendAdminOtpCode(logger, WITH_SMTP, { adminUserId: "a1", email: "staff@filspay.test" }, "907261", send);
+  for (const [mail, code] of [[sent[0]!, "482913"], [sent[1]!, "907261"]] as const) {
+    assert.ok(mail.html, "an HTML part is sent");
+    assert.match(mail.html!, new RegExp(code));
+    assert.match(mail.html!, /minutes/);
+    assert.match(mail.html!, /wasn.t you/);
+    assert.match(mail.html!, new RegExp(MAIL_THEME.accent));
+    assert.doesNotMatch(mail.html!, /<img|src=|https?:\/\//, "no images, scripts or links");
+  }
+  assert.match(sent[1]!.html!, /staff console/);
 });

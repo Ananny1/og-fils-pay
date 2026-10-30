@@ -12,7 +12,7 @@ export type MailConfig = Pick<
   "nodeEnv" | "smtpHost" | "smtpPort" | "smtpSecure" | "smtpUser" | "smtpPassword" | "mailFrom"
 >;
 
-export type OutgoingMail = { to: string; subject: string; text: string };
+export type OutgoingMail = { to: string; subject: string; text: string; html?: string };
 
 /** Signature the notifiers depend on, so tests can pass a fake. */
 export type SendMail = (config: MailConfig, mail: OutgoingMail) => Promise<void>;
