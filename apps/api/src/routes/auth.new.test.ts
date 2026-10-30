@@ -113,3 +113,36 @@ test("BUG-001: the same cookie works once the OTP is verified", async () => {
   assert.equal(me.statusCode, 200, me.body);
   assert.equal(me.json().merchant.id, merchantId);
 });
+
+// ------------------------------------------------------------ BUG-002
+
+test("BUG-002: with the same email at two merchants, the OTP and session belong to the merchant that logged in", async () => {
+  const email = uniqueEmail("shared-otp");
+  const a = await signup("shared-a", "password-of-merchant-a-111", email);
+  const b = await signup("shared-b", "password-of-merchant-b-222", email);
+
+  const { cookie, code } = await login(b.merchantId, email, b.password);
+
+  const challenge = await pool.query<{ merchant_user_id: string }>(
+    `SELECT c.merchant_user_id
+       FROM sessions s JOIN otp_challenges c ON c.id = s.otp_challenge_id
+      WHERE s.merchant_user_id IN ($1, $2)
+      ORDER BY s.created_at DESC LIMIT 1`,
+    [a.ownerUserId, b.ownerUserId],
+  );
+  assert.equal(challenge.rows[0]?.merchant_user_id, b.ownerUserId, "OTP challenge issued to the wrong merchant's user");
+
+  const verify = await app.inject({
+    method: "POST",
+    url: "/v1/auth/otp/verify",
+    headers: { cookie },
+    payload: { code },
+  });
+  assert.equal(verify.statusCode, 200, verify.body);
+  assert.equal(verify.json().merchantId, b.merchantId, "verified into the wrong merchant");
+
+  const me = await app.inject({ method: "GET", url: "/v1/auth/me", headers: { cookie } });
+  assert.equal(me.statusCode, 200, me.body);
+  assert.equal(me.json().merchant.id, b.merchantId);
+  assert.equal(me.json().merchantUserId, b.ownerUserId);
+});
