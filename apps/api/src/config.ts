@@ -218,6 +218,26 @@ const DEV_FALLBACK_WEBHOOK_KEY_B64 = "ZGV2LW9ubHktd2ViaG9vay1rZXktbm90LWZvci1wcm
 
 const BASE64_RE = /^[A-Za-z0-9+/]+={0,2}$/;
 
+/** Secret values that are public — in this repo, its git history, or the
+ *  example env files — and so must never authenticate anything in
+ *  production (SEC-4). The acqsec_sandbox_ value was committed in
+ *  ops/.env.docker (669af52) and stays readable in history: it is
+ *  refused here and must be rotated, see docs/challenge/SECURITY.md. */
+const KNOWN_PUBLIC_SECRETS: ReadonlySet<string> = new Set([
+  "acqsec_sandbox_f8c3a1e6b9d24f7081c5e3a9b7d4f602",
+  "dev-only-acquirer-secret-not-for-production",
+  "dev-only-settlement-token-not-for-production",
+  DEV_FALLBACK_WEBHOOK_KEY_B64,
+  "change-me",
+]);
+
+/** @throws in production when `value` is one of KNOWN_PUBLIC_SECRETS. */
+function refusePublicSecret(nodeEnv: Config["nodeEnv"], name: string, value: string | undefined): void {
+  if (nodeEnv === "production" && value !== undefined && KNOWN_PUBLIC_SECRETS.has(value)) {
+    throw new Error(`loadConfig: ${name} is a publicly known value (committed to the repo); rotate it`);
+  }
+}
+
 /** Validates WEBHOOK_SECRET_ENCRYPTION_KEY decodes to exactly 32 raw bytes,
  *  failing fast at boot (same posture as DATABASE_URL) rather than
  *  accepting a missing/malformed key and only discovering the problem at
@@ -265,6 +285,11 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   if (nodeEnv === "production" && acquirerCallbackSigningSecret === "") {
     throw new Error("loadConfig: ACQUIRER_CALLBACK_SIGNING_SECRET is required when NODE_ENV=production");
   }
+
+  refusePublicSecret(nodeEnv, "SETTLEMENT_INTERNAL_TOKEN", settlementInternalToken);
+  refusePublicSecret(nodeEnv, "ACQUIRER_CALLBACK_SIGNING_SECRET", acquirerCallbackSigningSecret);
+  refusePublicSecret(nodeEnv, "WEBHOOK_SECRET_ENCRYPTION_KEY", env.WEBHOOK_SECRET_ENCRYPTION_KEY);
+  refusePublicSecret(nodeEnv, "KYC_ENCRYPTION_KEY", env.KYC_ENCRYPTION_KEY);
 
   const webhookSecretEncryptionKey = parseWebhookSecretEncryptionKey(
     env.WEBHOOK_SECRET_ENCRYPTION_KEY || (nodeEnv !== "production" ? DEV_FALLBACK_WEBHOOK_KEY_B64 : undefined),

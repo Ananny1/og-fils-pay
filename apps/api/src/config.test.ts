@@ -67,6 +67,35 @@ test("SMTP is off unless SMTP_HOST is set, and its settings are read when it is 
   assert.equal(config.mailFrom, "FilsPay <sender@example.test>");
 });
 
+test("production refuses secrets that are public: the leaked acquirer secret, dev values, placeholders (SEC-4)", () => {
+  const good = {
+    DATABASE_URL,
+    NODE_ENV: "production",
+    SETTLEMENT_INTERNAL_TOKEN: "a-real-random-token",
+    ACQUIRER_CALLBACK_SIGNING_SECRET: "a-real-random-secret",
+    WEBHOOK_SECRET_ENCRYPTION_KEY: "Y1ZTGTcYbe30GZJebys9w7T3OYZNKewuOH3SUCEdRQk=",
+  };
+  assert.doesNotThrow(() => loadConfig(good));
+
+  const known: Array<[string, string]> = [
+    // committed in ops/.env.docker (669af52, reference history): leaked, must be rotated
+    ["ACQUIRER_CALLBACK_SIGNING_SECRET", "acqsec_sandbox_f8c3a1e6b9d24f7081c5e3a9b7d4f602"],
+    ["ACQUIRER_CALLBACK_SIGNING_SECRET", "dev-only-acquirer-secret-not-for-production"],
+    ["ACQUIRER_CALLBACK_SIGNING_SECRET", "change-me"],
+    ["SETTLEMENT_INTERNAL_TOKEN", "dev-only-settlement-token-not-for-production"],
+    ["SETTLEMENT_INTERNAL_TOKEN", "change-me"],
+    ["WEBHOOK_SECRET_ENCRYPTION_KEY", "ZGV2LW9ubHktd2ViaG9vay1rZXktbm90LWZvci1wcmQ="],
+    ["KYC_ENCRYPTION_KEY", "ZGV2LW9ubHktd2ViaG9vay1rZXktbm90LWZvci1wcmQ="],
+  ];
+  for (const [name, value] of known) {
+    assert.throws(() => loadConfig({ ...good, [name]: value }), new RegExp(`${name} .*publicly known`), name);
+  }
+  // Dev and test keep working with the dev values.
+  assert.doesNotThrow(() =>
+    loadConfig({ DATABASE_URL, NODE_ENV: "development", ACQUIRER_CALLBACK_SIGNING_SECRET: "change-me" }),
+  );
+});
+
 test("KYC_ENCRYPTION_KEY falls back to the webhook key, and a malformed one refuses to boot (SEC-4)", () => {
   const webhookKey = "Y1ZTGTcYbe30GZJebys9w7T3OYZNKewuOH3SUCEdRQk=";
   assert.equal(loadConfig({ DATABASE_URL, WEBHOOK_SECRET_ENCRYPTION_KEY: webhookKey }).kycEncryptionKey, webhookKey);
