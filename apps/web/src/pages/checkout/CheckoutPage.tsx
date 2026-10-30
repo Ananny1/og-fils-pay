@@ -291,89 +291,91 @@ export function CheckoutPage() {
 
           <form onSubmit={handleSubmit}>
             <FieldGroup>
-              <Field>
-                <div className="flex items-center justify-between">
-                  <FieldLabel htmlFor="checkout-pan">Card number</FieldLabel>
-                  {showBrand ? (
-                    <Badge variant="secondary" className="uppercase tracking-wide">
-                      <CreditCard aria-hidden="true" />
-                      {brandHint}
-                    </Badge>
-                  ) : null}
+              <fieldset disabled={submitting} className="contents">
+                <Field>
+                  <div className="flex items-center justify-between">
+                    <FieldLabel htmlFor="checkout-pan">Card number</FieldLabel>
+                    {showBrand ? (
+                      <Badge variant="secondary" className="uppercase tracking-wide">
+                        <CreditCard aria-hidden="true" />
+                        {brandHint}
+                      </Badge>
+                    ) : null}
+                  </div>
+                  <Input
+                    id="checkout-pan"
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="cc-number"
+                    required
+                    maxLength={23}
+                    placeholder="1234 5678 9012 3456"
+                    className="h-11 font-mono"
+                    value={card.pan}
+                    onChange={(e) => {
+                      const pan = e.target.value;
+                      setCard({ ...card, pan });
+                      const digits = pan.replace(/\D/g, "");
+                      if (digits.length >= 4) {
+                        setBrandHint(formatCardBrandHint(digits));
+                      } else {
+                        setBrandHint(null);
+                      }
+                    }}
+                  />
+                </Field>
+                <div className="grid grid-cols-3 gap-3">
+                  <Field>
+                    <FieldLabel htmlFor="checkout-exp-month">Month</FieldLabel>
+                    <Input
+                      id="checkout-exp-month"
+                      type="text"
+                      inputMode="numeric"
+                      autoComplete="cc-exp-month"
+                      maxLength={2}
+                      pattern="0?[1-9]|1[0-2]"
+                      title="Month, 01 to 12"
+                      placeholder="MM"
+                      required
+                      className="h-11 font-mono"
+                      value={expiry.month}
+                      onChange={(e) => setExpiry({ ...expiry, month: e.target.value.replace(/\D/g, "") })}
+                    />
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor="checkout-exp-year">Year</FieldLabel>
+                    <Input
+                      id="checkout-exp-year"
+                      type="text"
+                      inputMode="numeric"
+                      autoComplete="cc-exp-year"
+                      maxLength={4}
+                      pattern="\d{4}"
+                      title="Four digits, for example 2028"
+                      placeholder="YYYY"
+                      required
+                      className="h-11 font-mono"
+                      value={expiry.year}
+                      onChange={(e) => setExpiry({ ...expiry, year: e.target.value.replace(/\D/g, "") })}
+                    />
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor="checkout-cvv">CVV</FieldLabel>
+                    <Input
+                      id="checkout-cvv"
+                      type="text"
+                      inputMode="numeric"
+                      autoComplete="cc-csc"
+                      required
+                      maxLength={4}
+                      placeholder="123"
+                      className="h-11 font-mono"
+                      value={card.cvv}
+                      onChange={(e) => setCard({ ...card, cvv: e.target.value })}
+                    />
+                  </Field>
                 </div>
-                <Input
-                  id="checkout-pan"
-                  type="text"
-                  inputMode="numeric"
-                  autoComplete="cc-number"
-                  required
-                  maxLength={23}
-                  placeholder="1234 5678 9012 3456"
-                  className="h-11 font-mono"
-                  value={card.pan}
-                  onChange={(e) => {
-                    const pan = e.target.value;
-                    setCard({ ...card, pan });
-                    const digits = pan.replace(/\D/g, "");
-                    if (digits.length >= 4) {
-                      setBrandHint(formatCardBrandHint(digits));
-                    } else {
-                      setBrandHint(null);
-                    }
-                  }}
-                />
-              </Field>
-              <div className="grid grid-cols-3 gap-3">
-                <Field>
-                  <FieldLabel htmlFor="checkout-exp-month">Month</FieldLabel>
-                  <Input
-                    id="checkout-exp-month"
-                    type="text"
-                    inputMode="numeric"
-                    autoComplete="cc-exp-month"
-                    maxLength={2}
-                    pattern="0?[1-9]|1[0-2]"
-                    title="Month, 01 to 12"
-                    placeholder="MM"
-                    required
-                    className="h-11 font-mono"
-                    value={expiry.month}
-                    onChange={(e) => setExpiry({ ...expiry, month: e.target.value.replace(/\D/g, "") })}
-                  />
-                </Field>
-                <Field>
-                  <FieldLabel htmlFor="checkout-exp-year">Year</FieldLabel>
-                  <Input
-                    id="checkout-exp-year"
-                    type="text"
-                    inputMode="numeric"
-                    autoComplete="cc-exp-year"
-                    maxLength={4}
-                    pattern="\d{4}"
-                    title="Four digits, for example 2028"
-                    placeholder="YYYY"
-                    required
-                    className="h-11 font-mono"
-                    value={expiry.year}
-                    onChange={(e) => setExpiry({ ...expiry, year: e.target.value.replace(/\D/g, "") })}
-                  />
-                </Field>
-                <Field>
-                  <FieldLabel htmlFor="checkout-cvv">CVV</FieldLabel>
-                  <Input
-                    id="checkout-cvv"
-                    type="text"
-                    inputMode="numeric"
-                    autoComplete="cc-csc"
-                    required
-                    maxLength={4}
-                    placeholder="123"
-                    className="h-11 font-mono"
-                    value={card.cvv}
-                    onChange={(e) => setCard({ ...card, cvv: e.target.value })}
-                  />
-                </Field>
-              </div>
+              </fieldset>
               <Button type="submit" size="lg" className="w-full" disabled={submitting}>
                 {submitting ? (
                   <>
