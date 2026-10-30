@@ -123,7 +123,15 @@ test("create -> public read (active) -> pay (approved) -> public read (paid) -> 
   assert.equal(readActive.statusCode, 200, readActive.body);
   assert.equal(readActive.json().status, "active");
   assert.equal(readActive.json().amountFils, 4_750);
-  assert.ok(readActive.json().merchantPublicKey?.startsWith("fp_"));
+  // SEC-RT-4: the public page must not carry any API-key material.
+  const key = await pool.query<{ key_prefix: string; key_hash: string }>(
+    `SELECT key_prefix, key_hash FROM api_keys WHERE merchant_id = $1`,
+    [merchantId],
+  );
+  assert.ok(!("merchantPublicKey" in readActive.json()));
+  assert.ok(!("merchantIntegrationId" in readActive.json()));
+  assert.ok(!readActive.body.includes(key.rows[0]!.key_hash), "key hash leaked");
+  assert.ok(!readActive.body.includes(key.rows[0]!.key_prefix), "key prefix leaked");
 
   const payRes = await pay(link.token, APPROVED_CARD);
   assert.equal(payRes.statusCode, 200, payRes.body);
