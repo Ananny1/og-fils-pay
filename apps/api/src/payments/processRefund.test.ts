@@ -605,3 +605,45 @@ test("two refunds at the same moment cannot together exceed the captured amount"
   );
   assert.equal(Number(refunds.rows[0]!.total), 6_000);
 });
+
+/** Net (debit - credit) per account for every ledger leg of one transaction. */
+async function ledgerNetByAccount(transactionId: string): Promise<Map<string, number>> {
+  const result = await pool.query<{ account_id: string; net: string }>(
+    `SELECT account_id,
+            SUM(CASE WHEN direction = 'debit' THEN amount_fils ELSE -amount_fils END)::text AS net
+       FROM ledger_entries
+      WHERE transaction_id = $1
+      GROUP BY account_id`,
+    [transactionId],
+  );
+  return new Map(result.rows.map((r) => [r.account_id, Number(r.net)]));
+}
+
+// FP-300.2: a full refund must bring every account back to exactly zero for
+// that sale. With a negotiated discount, capture charges the MDR fee and then
+// gives part of it back; the refund read only the gross fee credit and so
+// reversed more fee than the merchant actually paid.
+test("a full refund nets every ledger account to zero, even with a negotiated discount", async () => {
+  const merchant = await createApprovedMerchantWithApiKey("refund-ledger-discount", 250);
+  await pool.query(`UPDATE merchants SET negotiated_discount_bps = 1000 WHERE id = $1`, [merchant.merchantId]);
+  const txn = await capturedTransaction(merchant.rawKey, 10_000);
+  const actor = await apiKeyActor(merchant.merchantId);
+
+  const before = await ledgerNetByAccount(txn.id);
+  const netFeePaid = -(before.get("platform_fee_revenue") ?? 0);
+  assert.ok(netFeePaid > 0 && netFeePaid < 250, `discount should lower the fee, got ${netFeePaid}`);
+
+  const result = await processRefund(pool, approvingAcquirer, {
+    transactionId: txn.id,
+    merchantId: merchant.merchantId,
+    idempotencyKey: randomUUID(),
+    actor,
+  });
+  assert.equal(result.statusCode, 200, JSON.stringify(result.body));
+  assert.equal((result.body as { feeReversedFils: number }).feeReversedFils, netFeePaid);
+
+  const after = await ledgerNetByAccount(txn.id);
+  for (const [account, net] of after) {
+    assert.equal(net, 0, `${account} should net to 0 after a full refund, got ${net}`);
+  }
+});
