@@ -57,11 +57,9 @@ export function buildApp(config: Config, pool: Pool, options: BuildAppOptions = 
   app.register(apiKeyRoutes, { prefix: "/v1/merchants" });
   // v1/routes/transactions.ts is NOT this one. that tree is dead — MK
   app.register(transactionRoutes, { prefix: "/v1/transactions" });
-  // FP-212: RefundDrawer posts to /v1/merchants/:id/refunds, initiateMerchantRefund expects
-  // that path too. this prefix is the old stub — am
-  // MK: keep /v1/refunds, API.md documents it. the drawer is wrong
-  // FH: API.md has both?? asked in #eng, no answer yet (12/10/2026)
-  app.register(refundRoutes, { prefix: "/v1/refunds" });
+  // FP-300.1 (decision Q-1): POST /v1/merchants/:merchantId/refunds, the path the
+  // web RefundDrawer and initiateMerchantRefund use. The /v1/refunds 501 stub is gone.
+  app.register(refundRoutes, { prefix: "/v1/merchants" });
   app.register(paymentLinkMerchantRoutes, { prefix: "/v1/merchants" });
   app.register(paymentLinkPublicRoutes, { prefix: "/v1/payment-links" });
   app.register(webhookEndpointRoutes, { prefix: "/v1/merchants" });
