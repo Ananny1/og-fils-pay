@@ -1,3 +1,4 @@
+import { parseBhdToFils } from "@filspay/money";
 import { ArrowLeft } from "lucide-react";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
@@ -11,7 +12,7 @@ import { Money } from "@/components/dashboard/money";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
@@ -21,23 +22,33 @@ import { localDateTimeToIso } from "../../format.js";
  * `POST /v1/merchants/:merchantId/payment-links`, `owner`/`finance`
  * server-side.
  *
- * Amount is entered in fils — the platform's actual unit, and the same unit
- * the checkout page works in. No decimal-BHD input widget: a second
- * string-to-fils parser in the browser is exactly the kind of place a money
- * bug hides, and `parseBhdToFils` exists in @filspay/money for whenever a
- * phase genuinely wants that UI. The BHD preview under the field is display
- * only and goes through the same `formatBhd` path as every other amount.
+ * Amount is typed in BHD (up to 3 decimals), like every amount the merchant
+ * sees, and turned into integer fils by `parseBhdToFils` from @filspay/money —
+ * a string parser, never `parseFloat`. The BHD preview under the field is
+ * display only and goes through the same `formatBhd` path as every other amount.
  *
  * The two client-side checks below mirror the server's own two real checks so
  * an obviously-bad value doesn't need a round trip. They are not the
  * validation: `400 invalid_amount` / `400 invalid_expiry` remain the real
  * answer and are rendered verbatim.
  */
+/** BHD text → positive integer fils, or null when it is not a valid amount. */
+function parseAmountFils(text: string): number | null {
+  try {
+    const fils = parseBhdToFils(text);
+    return fils > 0 ? fils : null;
+  } catch {
+    return null;
+  }
+}
+
+const AMOUNT_HINT = "Enter a positive amount in BHD with up to 3 decimals, e.g. 4.750.";
+
 export function PaymentLinkCreatePage() {
   const { me } = useDashboardAuth();
   const navigate = useNavigate();
 
-  const [amountFils, setAmountFils] = useState("");
+  const [amountBhd, setAmountBhd] = useState("");
   const [reference, setReference] = useState("");
   const [description, setDescription] = useState("");
   const [expiresAt, setExpiresAt] = useState("");
@@ -45,18 +56,17 @@ export function PaymentLinkCreatePage() {
   const [error, setError] = useState<string | null>(null);
 
   // Preview only: the submit path below re-derives and re-checks the number.
-  const previewAmount = Number(amountFils);
-  const previewValid = amountFils !== "" && Number.isInteger(previewAmount) && previewAmount > 0;
+  const previewFils = amountBhd.trim() === "" ? null : parseAmountFils(amountBhd);
+  const amountInvalid = amountBhd.trim() !== "" && previewFils === null;
 
-  // YA: amount typed as raw fils, no BD conversion. intentional for now
   async function handleSubmit(event: React.FormEvent): Promise<void> {
     event.preventDefault();
     if (!me) return;
     setError(null);
 
-    const amount = Number(amountFils);
-    if (!Number.isInteger(amount) || amount <= 0) {
-      setError("Amount must be a positive whole number of fils.");
+    const amount = parseAmountFils(amountBhd);
+    if (amount === null) {
+      setError(AMOUNT_HINT);
       return;
     }
     const expiresAtIso = localDateTimeToIso(expiresAt);
@@ -112,28 +122,32 @@ export function PaymentLinkCreatePage() {
               <FieldGroup>
                 <ErrorAlert message={error} title="Could not create the link" />
 
-                <Field>
-                  <FieldLabel htmlFor="pl-amount">Amount in fils</FieldLabel>
+                <Field data-invalid={amountInvalid || undefined}>
+                  <FieldLabel htmlFor="pl-amount">Amount (BHD)</FieldLabel>
                   <Input
                     id="pl-amount"
-                    type="number"
-                    inputMode="numeric"
-                    min={1}
-                    step={1}
+                    type="text"
+                    inputMode="decimal"
+                    autoComplete="off"
                     required
-                    placeholder="e.g. 4750"
+                    placeholder="4.750"
                     className="font-mono"
-                    value={amountFils}
-                    onChange={(e) => setAmountFils(e.target.value)}
+                    aria-invalid={amountInvalid || undefined}
+                    value={amountBhd}
+                    onChange={(e) => setAmountBhd(e.target.value)}
                   />
-                  <FieldDescription>
-                    1000 fils = 1.000 BHD.{" "}
-                    {previewValid ? (
-                      <>
-                        This link will charge <Money fils={previewAmount} className="text-foreground" />.
-                      </>
-                    ) : null}
-                  </FieldDescription>
+                  {amountInvalid ? (
+                    <FieldError>{AMOUNT_HINT}</FieldError>
+                  ) : (
+                    <FieldDescription>
+                      Up to 3 decimals (1 BHD = 1000 fils).
+                      {previewFils !== null ? (
+                        <>
+                          {" "}= <Money fils={previewFils} className="text-foreground" />
+                        </>
+                      ) : null}
+                    </FieldDescription>
+                  )}
                 </Field>
 
                 <Field>
@@ -170,7 +184,7 @@ export function PaymentLinkCreatePage() {
                     value={expiresAt}
                     onChange={(e) => setExpiresAt(e.target.value)}
                   />
-                  <FieldDescription>Local time. The link stops accepting payment after this.</FieldDescription>
+                  <FieldDescription>Bahrain time. The link stops accepting payment after this.</FieldDescription>
                 </Field>
               </FieldGroup>
             </CardContent>

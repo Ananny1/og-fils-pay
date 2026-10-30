@@ -1,3 +1,4 @@
+import { parseBhdToFils } from "@filspay/money";
 import type { LucideIcon } from "lucide-react";
 import {
   Activity,
@@ -81,6 +82,18 @@ function eventLook(eventType: string): { icon: LucideIcon; tone: string } {
   if (t.includes("auth")) return { icon: ShieldCheck, tone: "border-warning/30 bg-warning/15 text-warning" };
   return { icon: Activity, tone: "border-border bg-muted text-muted-foreground" };
 }
+
+/** BHD text → positive integer fils, or null when it is not a valid amount. */
+function parseAmountFils(text: string): number | null {
+  try {
+    const fils = parseBhdToFils(text);
+    return fils > 0 ? fils : null;
+  } catch {
+    return null;
+  }
+}
+
+const AMOUNT_HINT = "Enter a positive amount in BHD with up to 3 decimals, e.g. 4.750.";
 
 function DetailRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -167,7 +180,16 @@ export function TransactionDetailPage() {
       // Left blank, `amountFils` is omitted entirely and capture.ts captures
       // everything still outstanding — its own documented default. Computing
       // the remainder here would just be a second, staler copy of that rule.
-      const input = trimmed === "" ? {} : { amountFils: Number(trimmed) };
+      // Typed in BHD and parsed to integer fils by @filspay/money (never a float).
+      let input: { amountFils?: number } = {};
+      if (trimmed !== "") {
+        const amountFils = parseAmountFils(trimmed);
+        if (amountFils === null) {
+          setCaptureError(AMOUNT_HINT);
+          return;
+        }
+        input = { amountFils };
+      }
       // A fresh Idempotency-Key per click, including a retry after a decline —
       // same discipline as the checkout page's submit handler.
       await captureTransaction(id, input, crypto.randomUUID());
@@ -282,6 +304,8 @@ export function TransactionDetailPage() {
   // when `amountFils` is omitted. Nothing is outstanding once the transaction
   // can no longer be captured.
   const remainingFils = capturable ? Math.max(0, txn.amountFils - txn.capturedFils) : 0;
+  const capturePreviewFils = captureAmount.trim() === "" ? null : parseAmountFils(captureAmount);
+  const captureAmountInvalid = captureAmount.trim() !== "" && capturePreviewFils === null;
 
   return (
     <>
@@ -443,23 +467,37 @@ export function TransactionDetailPage() {
                 <Money fils={remainingFils} /> is still authorized and not yet captured on this transaction.
               </DialogDescription>
             </DialogHeader>
-            <Field>
-              <FieldLabel htmlFor="capture-amount">Amount in fils</FieldLabel>
+            <Field data-invalid={captureAmountInvalid || Boolean(captureError) || undefined}>
+              <FieldLabel htmlFor="capture-amount">Amount (BHD)</FieldLabel>
               <Input
                 id="capture-amount"
-                type="number"
-                min={1}
-                step={1}
-                inputMode="numeric"
-                placeholder="The full remaining amount"
+                type="text"
+                inputMode="decimal"
+                autoComplete="off"
+                placeholder="4.750"
                 className="font-mono tabular-nums"
+                aria-invalid={captureAmountInvalid || Boolean(captureError) || undefined}
                 value={captureAmount}
-                onChange={(e) => setCaptureAmount(e.target.value)}
+                onChange={(e) => {
+                  setCaptureAmount(e.target.value);
+                  setCaptureError(null);
+                }}
                 disabled={submitting}
                 autoFocus
               />
-              <FieldDescription>Leave blank to capture everything still outstanding.</FieldDescription>
-              {captureError ? <FieldError>{captureError}</FieldError> : null}
+              <FieldDescription>
+                Leave blank to capture everything still outstanding.
+                {capturePreviewFils !== null ? (
+                  <>
+                    {" "}= <Money fils={capturePreviewFils} className="text-foreground" />
+                  </>
+                ) : null}
+              </FieldDescription>
+              {captureAmountInvalid ? (
+                <FieldError>{AMOUNT_HINT}</FieldError>
+              ) : captureError ? (
+                <FieldError>{captureError}</FieldError>
+              ) : null}
             </Field>
             <DialogFooter>
               <DialogClose render={<Button variant="outline" disabled={submitting} />}>Cancel</DialogClose>
