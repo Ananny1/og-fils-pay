@@ -92,7 +92,7 @@ the screens (Tier 7) and hand-in (Tier 8).
 | 4.12 | BUG-029 | Adjustment import has no double-submit guard | ★★ | — | 4.1 | ✅ |
 | 4.13 | BUG-051 | Scheme residue never posted (ADR-0002) | ★★ | ADR-0002 | 4.3 | ✅ (Sayed, his BUG-041) |
 | 4.14 | BUG-052 | Capture fee ignores negotiated discount; settlement applies it | ★★ | — | — | ✅ (Sayed, his BUG-036) |
-| 4.15 | BUG-053 | Split child without a balance row → payout no-op | ★ | — | 4.4 | ⬜ |
+| 4.15 | BUG-053 | Split child without a balance row → payout no-op (fixed as BUG-110) | ★ | — | 4.4 | ✅ |
 | **Tier 5** | | **What shops are told (webhooks, reports)** | | | | |
 | 5.1 | BUG-023 | Outbound webhook signs different bytes than it sends | ★★★ | S4 FP-240 | — | ✅ |
 | 5.2 | BUG-024 | Settlement summary double-counts and is slow | ★★ | S4 "reporting … slow" | — | ✅ (Sayed) |

@@ -210,6 +210,7 @@ Planned queue (from the audit, in fix order):
 | BUG-057 | Medium | Status after a full refund of a partial capture | ⬜ |
 | BUG-058 | High | Built-in dev webhook key is 34 bytes → API and seed crash in dev → [write-up](docs/bugs/BUG-058-dev-webhook-key-invalid.md) | ✅ |
 | BUG-059 | High | Reporting consumer writes `merchant_id = NULL` (4 reporting tests red at T1) → [write-up](docs/bugs/BUG-059-reporting-null-merchant-from-test-fixture.md) | ✅ |
+| BUG-110 | Medium | Split child without a balance row: payout skipped in the cache (audit BUG-053) → [write-up](docs/bugs/BUG-110-split-child-payout-no-balance-row.md) | ✅ |
 | BUG-060 | Medium | Webhook retry backoff differs from config (API test 332 red at T1) → [write-up](docs/bugs/BUG-060-webhook-backoff-jitter-and-cap.md) | ✅ |
 | BUG-061 | High | Refund insert violates `chk_refunds_reason_not_null` (11 refund tests red at T1; R8) → [write-up](docs/bugs/BUG-061-refund-reason-null.md) | ✅ |
 | BUG-062 | High | Reporting worker crashes (and stalls for everyone) when a closed batch's day has captures but no rollup row → [write-up](docs/bugs/BUG-062-reporting-stalls-on-missing-rollup.md) | ✅ |
