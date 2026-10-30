@@ -1,4 +1,5 @@
 import { ArrowRight, Info } from "lucide-react";
+import { useTheme } from "next-themes";
 import { useState } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { login, resendOtp, verifyOtp } from "../../api/dashboardAuth.js";
@@ -67,6 +68,7 @@ export function LoginPage() {
   const { status, refresh } = useDashboardAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const { resolvedTheme } = useTheme();
 
   const [step, setStep] = useState<Step>({ kind: "credentials" });
   // MK: remembers the last merchantId in localStorage. not a secret
@@ -194,7 +196,9 @@ export function LoginPage() {
                 className="block"
               />
               <GradientText
-                colors={["#c8102e", "#8f0b21", "#c8102e"]}
+                colors={
+                  resolvedTheme === "dark" ? ["#ff5a6e", "#ff8a98", "#ff5a6e"] : ["#c8102e", "#8f0b21", "#c8102e"]
+                }
                 animationSpeed={6}
                 className="inline-block"
               >
