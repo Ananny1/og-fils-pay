@@ -44,12 +44,7 @@ export function PublicShell({
 export function BrandMark({ className }: { className?: string }) {
   return (
     <div className={cn("flex items-center gap-2.5", className)}>
-      <span
-        aria-hidden="true"
-        className="flex size-9 items-center justify-center bg-[#c8102e] font-heading text-lg font-bold text-[var(--on-dark)]"
-      >
-        F
-      </span>
+      <img src="/filspay-mark.png" alt="" aria-hidden="true" width={36} height={36} className="size-9 shrink-0" />
       <span className="font-heading text-xl font-bold uppercase tracking-wide">FilsPay</span>
     </div>
   );

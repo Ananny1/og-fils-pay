@@ -61,7 +61,7 @@ website: a 404 there is normal. Every page URL is listed in `PLAN.md` → Phase 
 | Where | User | Password |
 |---|---|---|
 | Shop dashboard (5173) | Merchant ID + email from the table below | `FilsPaySeed!2026` |
-| Staff console (5174) | `support@filspay.test` · `finance@filspay.test` · `superadmin@filspay.test` | `FilsPayAdminSeed!2026` |
+| Staff console (5174) | `support@filspay.test` · `finance@filspay.test` · `alnasser.ebra@gmail.com` | `FilsPayAdminSeed!2026` |
 
 **Shop login needs the Merchant ID.** All 15 logins below were tested end to end (password → OTP →
 logged in). Password for all: `FilsPaySeed!2026`. Merchant IDs stay the same after every re-seed.
@@ -77,7 +77,7 @@ logged in). Password for all: `FilsPaySeed!2026`. Merchant IDs stay the same aft
 | Coral Bay Traders | `fb338e02-053f-4915-85c5-846b9a76ba79` | owner@coralbaytraders.example | owner |
 | Delta Marketplace Bahrain | `eebd4250-3e67-4999-9ce9-f31e75486733` | owner@deltamarketplace.example | owner |
 | | | finance@deltamarketplace.example | finance |
-| Delta Wholesale Traders | `ce668d19-d805-469d-bc7e-d3b1741a6f16` | owner@deltawholesale.example | owner |
+| Delta Wholesale Traders | `ce668d19-d805-469d-bc7e-d3b1741a6f16` | eb.ipod2@gmail.com | owner |
 | | | finance@deltawholesale.example | finance |
 | Gamma Hospitality Group (test mode) | `185f819d-f3e8-42cf-ac7c-fc7e9516ed26` | owner@gammahospitality.example | owner |
 | | | finance@gammahospitality.example | finance |
@@ -85,14 +85,15 @@ logged in). Password for all: `FilsPaySeed!2026`. Merchant IDs stay the same aft
 | Seef Kiosk Partners | `49287abb-c45f-4c0f-a68a-d794ccd3853a` | owner@seefkiosk.example | owner |
 
 Staff console logins (all tested): `support@filspay.test` (support), `finance@filspay.test` (finance),
-`superadmin@filspay.test` (super_admin). Password: `FilsPayAdminSeed!2026`.
+`alnasser.ebra@gmail.com` (super_admin). Password: `FilsPayAdminSeed!2026`.
 
 **Bug A2 live demo:** log in with Beta's Merchant ID + `owner@alpharetail.example`. After the OTP
 you are inside **Alpha Retail**, not Beta (`GET /v1/auth/me` shows `"displayName":"Alpha Retail Co"`).
 
-**OTP code:** in local dev mode it is shown on the login page ("Development code: …") and in the
-login reply in DevTools → Network. That is bug **A5**. Once A5 is fixed, it will appear in the API logs
-(`dc logs -f api`) or in a local mail inbox instead.
+**OTP code:** it is emailed, never shown on the page (bug **A5**, `OTP_DEV_EXPOSE=false`).
+On the laptop every email lands in Mailpit: open **http://localhost:8025**. On the hosted box it is
+sent by Gmail to the real address, so only `alnasser.ebra@gmail.com` (staff) and
+`eb.ipod2@gmail.com` (Delta Wholesale owner) can receive codes there; the other seed emails are fake.
 
 **API keys:** `dc run --rm seed` prints one per shop. **They change on every re-seed** (only the
 Merchant IDs stay fixed), so copy them from your latest seed output. Use: `curl -H "Authorization: Bearer <key>" localhost:3000/v1/transactions?limit=2`
@@ -142,7 +143,7 @@ cd apps/settlement && go test ./...
 | Browser on 5173/5174: "refused to connect" | web/admin not started | `dc up -d web admin` |
 | `localhost:5173` shows "Unexpected Application Error! 404" | Old checkout (before F0) | `git pull`; or open `/dashboard` |
 | Shop login fails with the right details | A comma or space copied into a field, or the browser auto-filled an old password | Type exactly: Merchant ID, `owner@alpharetail.example` (no comma), `FilsPaySeed!2026` |
-| Where is the OTP? | Dev mode shows it | On the page ("Development code: …") or DevTools → Network → the POST `login` reply → `devOtpCode` (bug A5) |
+| Where is the OTP? | It is emailed, not shown (A5) | Laptop: Mailpit at http://localhost:8025. Hosted: the real Gmail inbox |
 | `localhost:3000` shows "Route GET:/ not found" | That's the API, not a website | Use 5173 / 5174 |
 | Dashboard calls fail with CORS errors | Running Vite outside Docker without the proxy | Set `VITE_API_BASE_URL=` (empty) before `npm run dev`; the Vite proxy sends `/v1` to `localhost:3000` |
 | `npm ci` fails on `argon2` / python | Building without the compile stage | Use `ops/Dockerfile.node` as committed |

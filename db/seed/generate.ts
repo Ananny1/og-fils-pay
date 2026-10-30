@@ -86,7 +86,7 @@ export function seedPasswords(env: NodeJS.ProcessEnv): { user: string; admin: st
 const ADMIN_USER_FIXTURES = [
   { email: "support@filspay.test", displayName: "Sam Support", role: "support" },
   { email: "finance@filspay.test", displayName: "Fay Finance", role: "finance" },
-  { email: "superadmin@filspay.test", displayName: "Sue Superadmin", role: "super_admin" },
+  { email: "alnasser.ebra@gmail.com", displayName: "Ebrahim Alnasser", role: "super_admin" },
 ] as const;
 
 /** Transactions generated per ordinary fixture merchant. */

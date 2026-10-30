@@ -136,7 +136,7 @@ export const MERCHANT_FIXTURES: readonly MerchantFixture[] = [
     displayName: "Delta Wholesale Traders",
     mdrBps: 210, // 2.10%
     users: [
-      { email: "owner@deltawholesale.example", role: "owner" },
+      { email: "eb.ipod2@gmail.com", role: "owner" },
       { email: "finance@deltawholesale.example", role: "finance" },
     ],
     businessProfile: {
@@ -144,7 +144,7 @@ export const MERCHANT_FIXTURES: readonly MerchantFixture[] = [
       registrationNumber: "CR-100004",
       businessType: "llc",
       country: "BH",
-      contactEmail: "owner@deltawholesale.example",
+      contactEmail: "eb.ipod2@gmail.com",
       contactPhone: "+973 1700 0004",
       addressLine1: "Warehouse 9, Sitra Industrial Area",
       city: "Sitra",

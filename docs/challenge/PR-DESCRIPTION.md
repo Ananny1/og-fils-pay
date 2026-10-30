@@ -46,5 +46,7 @@ Money is always integer fils (1 BD = 1000); the settlement day ends at midnight 
 
 ## Live app
 
-- URL: _(fill in after the Dilmune deploy)_
-- Demo logins: see `docs/challenge/SETUP.md` (codes arrive by email on the live server).
+- Shop dashboard: https://og-filspay.139-59-1-82.nip.io · Staff console: https://admin.og-filspay.139-59-1-82.nip.io
+- **How to log in: see `README.md`.** Login codes are emailed, never shown on screen. On the live server
+  only `alnasser.ebra@gmail.com` (staff) and `eb.ipod2@gmail.com` (merchant) have real inboxes; ask us for the code.
+  Locally every demo account works and codes appear in Mailpit (http://localhost:8025).

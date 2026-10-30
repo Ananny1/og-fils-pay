@@ -167,20 +167,14 @@ h3::after {
   white-space: nowrap;
 }
 
-/* Logo: small solid red square with an "F". */
+/* Logo: the FilsPay circle mark (docs/design/brand). */
 .admin-brand::before {
-  content: "F";
-  content: "F" / "";
-  display: inline-grid;
-  place-items: center;
+  content: "";
+  display: inline-block;
+  flex-shrink: 0;
   width: 1.75rem;
   height: 1.75rem;
-  background: var(--accent);
-  color: var(--on-dark);
-  font-family: var(--font-headline);
-  font-size: 1.1rem;
-  font-weight: 700;
-  line-height: 1;
+  background: url("/filspay-mark.png") center / contain no-repeat;
 }
 
 .admin-nav {
