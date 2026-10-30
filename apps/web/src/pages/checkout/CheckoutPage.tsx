@@ -1,4 +1,4 @@
-import { Ban, CheckCircle2, Clock, CreditCard, Hourglass, LockKeyhole, SearchX } from "lucide-react";
+import { Ban, CheckCircle2, Clock, CreditCard, Hourglass, LockKeyhole, SearchX, type LucideIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { getPaymentLink, payPaymentLink } from "../../api/paymentLinks.js";
@@ -9,7 +9,6 @@ import type { PaymentLinkPublicDto, PayPaymentLinkResponse, SimulatedCardInput }
 import BlurText from "@/components/ui/BlurText";
 import FadeContent from "@/components/ui/FadeContent";
 import { CopyButton } from "@/components/dashboard/copy-button";
-import { EmptyState } from "@/components/dashboard/empty-state";
 import { ErrorAlert } from "@/components/dashboard/error-alert";
 import { formatMoney, Money } from "@/components/dashboard/money";
 import { BrandMark, PublicShell } from "@/components/dashboard/public-shell";
@@ -126,8 +125,9 @@ export function CheckoutPage() {
   if (loadState.kind === "not_found") {
     return (
       <CheckoutShell>
-        <EmptyState
+        <CheckoutStatusCard
           icon={SearchX}
+          tone="muted"
           title="Payment link not found"
           description="This link doesn't exist. Check you have the full address."
         />
@@ -177,7 +177,7 @@ export function CheckoutPage() {
   if (payState.kind === "terminal") {
     return (
       <CheckoutShell>
-        <EmptyState icon={Ban} title="Unable to pay" description={payState.message} />
+        <CheckoutStatusCard icon={Ban} tone="destructive" title="Unable to pay" description={payState.message} />
       </CheckoutShell>
     );
   }
@@ -185,29 +185,48 @@ export function CheckoutPage() {
   if (link.status === "paid") {
     return (
       <CheckoutShell>
-        <EmptyState icon={CheckCircle2} title="Already paid" description="This has already been paid. Nothing more to do." />
+        <CheckoutStatusCard
+          icon={CheckCircle2}
+          tone="success"
+          title="Already paid"
+          description="This has already been paid. Nothing more to do."
+          link={link}
+        />
       </CheckoutShell>
     );
   }
   if (link.status === "expired") {
     return (
       <CheckoutShell>
-        <EmptyState icon={Clock} title="Link expired" description="This link has expired. Ask the shop to send a new one." />
+        <CheckoutStatusCard
+          icon={Clock}
+          tone="muted"
+          title="Link expired"
+          description="This link has expired. Ask the shop to send a new one."
+          link={link}
+        />
       </CheckoutShell>
     );
   }
   if (link.status === "canceled") {
     return (
       <CheckoutShell>
-        <EmptyState icon={Ban} title="No longer available" description="This link isn't available any more." />
+        <CheckoutStatusCard
+          icon={Ban}
+          tone="destructive"
+          title="No longer available"
+          description="This link isn't available any more."
+          link={link}
+        />
       </CheckoutShell>
     );
   }
   if (link.status === "processing") {
     return (
       <CheckoutShell>
-        <EmptyState
+        <CheckoutStatusCard
           icon={Hourglass}
+          tone="muted"
           title="Payment processing"
           description="Someone is paying this link right now. Wait a moment, then refresh."
         />
@@ -351,6 +370,47 @@ export function CheckoutPage() {
         <code className="font-mono text-foreground">0069</code> always errors.
       </p>
     </CheckoutShell>
+  );
+}
+
+const STATUS_TONES = {
+  success: "bg-success/10 text-success",
+  muted: "bg-muted text-muted-foreground",
+  destructive: "bg-destructive/10 text-destructive",
+} as const;
+
+/** Non-payable states, in the same card as the success screen (not the dashboard's empty-table style). */
+function CheckoutStatusCard({
+  icon: Icon,
+  tone,
+  title,
+  description,
+  link,
+}: {
+  icon: LucideIcon;
+  tone: keyof typeof STATUS_TONES;
+  title: string;
+  description: string;
+  link?: PaymentLinkPublicDto;
+}) {
+  return (
+    <Card className="w-full gap-0 py-0">
+      <CardContent className="flex flex-col items-center gap-5 px-6 py-8 text-center">
+        <span className={`flex size-14 items-center justify-center rounded-full ${STATUS_TONES[tone]}`}>
+          <Icon className="size-8" aria-hidden="true" />
+        </span>
+        <div className="flex flex-col gap-1">
+          <h1 className="font-heading text-xl font-semibold uppercase tracking-tight">{title}</h1>
+          <p className="text-sm text-muted-foreground">{description}</p>
+        </div>
+        {link ? (
+          <div className="flex flex-col items-center gap-1">
+            <p className="text-sm font-medium text-muted-foreground">{link.merchantDisplayName}</p>
+            <Money fils={link.amountFils} currency={link.currency} className="text-3xl font-semibold" />
+          </div>
+        ) : null}
+      </CardContent>
+    </Card>
   );
 }
 
