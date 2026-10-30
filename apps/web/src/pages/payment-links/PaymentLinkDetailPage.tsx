@@ -97,7 +97,7 @@ export function PaymentLinkDetailPage() {
   }
 
   const backButton = (
-    <Button variant="ghost" render={<Link to="/dashboard/payment-links" />}>
+    <Button variant="outline" render={<Link to="/dashboard/payment-links" />}>
       <ArrowLeft data-icon="inline-start" />
       Back to payment links
     </Button>

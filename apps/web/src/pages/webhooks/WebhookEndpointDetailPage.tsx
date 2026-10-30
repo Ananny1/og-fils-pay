@@ -180,7 +180,7 @@ export function WebhookEndpointDetailPage() {
   }
 
   const backButton = (
-    <Button variant="ghost" render={<Link to="/dashboard/webhooks" />}>
+    <Button variant="outline" render={<Link to="/dashboard/webhooks" />}>
       <ArrowLeft data-icon="inline-start" />
       Back to endpoints
     </Button>

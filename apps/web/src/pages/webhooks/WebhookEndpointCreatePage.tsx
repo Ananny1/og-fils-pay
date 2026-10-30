@@ -75,7 +75,7 @@ export function WebhookEndpointCreatePage() {
         title="New webhook endpoint"
         description="We'll send a signed message to this address each time a payment or payout happens."
         actions={
-          <Button variant="ghost" render={<Link to="/dashboard/webhooks" />}>
+          <Button variant="outline" render={<Link to="/dashboard/webhooks" />}>
             <ArrowLeft data-icon="inline-start" />
             Back to endpoints
           </Button>
