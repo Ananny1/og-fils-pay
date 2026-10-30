@@ -266,6 +266,9 @@ export async function processRefund(
         refundId: refund.id,
         feeReversedFils,
         acquirerReference: acquirerResult.acquirerReference,
+        // The status the transaction has after this refund (FP-300.5), so
+        // the timeline reads on its own without the current row.
+        transactionStatus: newStatus,
       },
     });
 

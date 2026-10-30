@@ -221,3 +221,36 @@ test("unauthenticated callers get 401, and the old /v1/refunds stub is gone", as
   });
   assert.equal(old.statusCode, 404, old.body);
 });
+
+test("FP-300.5: the transaction detail and timeline show the refund (amount in fils, status after it)", async () => {
+  const m = await createMerchant("timeline");
+  const txnId = await capturedTransaction(m.rawKey, 10_000);
+  const auth = { authorization: `Bearer ${m.rawKey}` };
+
+  const first = await refund(m.merchantId, { ...auth, "idempotency-key": randomUUID() }, { transactionId: txnId, amountFils: 2_500 });
+  assert.equal(first.statusCode, 200, first.body);
+  const second = await refund(m.merchantId, { ...auth, "idempotency-key": randomUUID() }, { transactionId: txnId });
+  assert.equal(second.statusCode, 200, second.body);
+
+  const detail = await app.inject({ method: "GET", url: `/v1/transactions/${txnId}`, headers: auth });
+  assert.equal(detail.statusCode, 200, detail.body);
+  const txn = detail.json() as { status: string; capturedFils: number; refundedFils: number };
+  assert.equal(txn.status, "refunded");
+  assert.equal(txn.capturedFils, 10_000);
+  assert.equal(txn.refundedFils, 10_000);
+
+  const events = await app.inject({ method: "GET", url: `/v1/transactions/${txnId}/events`, headers: auth });
+  assert.equal(events.statusCode, 200, events.body);
+  const timeline = events.json() as { eventType: string; amountFils: number | null; metadata: Record<string, unknown> }[];
+  const refundEvents = timeline.filter((e) => e.eventType === "refund_partial" || e.eventType === "refunded");
+  assert.deepEqual(
+    refundEvents.map((e) => [e.eventType, e.amountFils, e.metadata.transactionStatus]),
+    [
+      ["refund_partial", -2_500, "partially_refunded"],
+      ["refunded", -7_500, "refunded"],
+    ],
+  );
+  // The timeline sums to what is left with the merchant, to the fil.
+  const net = timeline.reduce((sum, e) => sum + (e.amountFils ?? 0), 0);
+  assert.equal(net, 0);
+});
