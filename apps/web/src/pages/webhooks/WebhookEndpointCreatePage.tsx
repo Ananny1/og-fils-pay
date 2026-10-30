@@ -86,7 +86,7 @@ export function WebhookEndpointCreatePage() {
         <Card className="max-w-xl">
           <form onSubmit={(e) => void handleSubmit(e)}>
             <CardHeader>
-              <CardTitle>Endpoint</CardTitle>
+              <CardTitle className="case-label">Endpoint</CardTitle>
               <CardDescription>
                 A signing secret is generated on create and shown to you exactly once.
               </CardDescription>
@@ -162,7 +162,7 @@ function SecretPanel({
                 className="text-xs font-medium uppercase tracking-wide"
               />
             </CardDescription>
-            <CardTitle>Store this secret now</CardTitle>
+            <CardTitle className="case-label">Store this secret now</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
             <Alert>

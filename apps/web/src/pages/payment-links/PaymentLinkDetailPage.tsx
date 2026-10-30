@@ -234,7 +234,7 @@ export function PaymentLinkDetailPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Details</CardTitle>
+            <CardTitle className="case-label">Details</CardTitle>
           </CardHeader>
           <CardContent>
             <dl className="grid gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">

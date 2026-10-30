@@ -113,7 +113,7 @@ export function PaymentLinkCreatePage() {
         <Card className="max-w-xl">
           <form onSubmit={(e) => void handleSubmit(e)}>
             <CardHeader>
-              <CardTitle>Link details</CardTitle>
+              <CardTitle className="case-label">Link details</CardTitle>
               <CardDescription>
                 The customer sees the amount and description on the checkout page.
               </CardDescription>

@@ -370,7 +370,7 @@ export function WebhookEndpointDetailPage() {
         <TabsContent value="settings" className="flex flex-col gap-4">
           <Card className="max-w-2xl">
             <CardHeader>
-              <CardTitle>Delivery</CardTitle>
+              <CardTitle className="case-label">Delivery</CardTitle>
               <CardDescription>
                 A disabled endpoint receives nothing and rejects replays; re-enable it to resume.
               </CardDescription>
@@ -406,7 +406,7 @@ export function WebhookEndpointDetailPage() {
 
           <Card className="max-w-2xl">
             <CardHeader>
-              <CardTitle>Details</CardTitle>
+              <CardTitle className="case-label">Details</CardTitle>
             </CardHeader>
             <CardContent>
               <dl className="grid gap-x-6 gap-y-4 text-sm sm:grid-cols-2">
@@ -428,7 +428,7 @@ export function WebhookEndpointDetailPage() {
 
           <Card className="max-w-2xl border-destructive/30">
             <CardHeader>
-              <CardTitle className="text-destructive">Danger zone</CardTitle>
+              <CardTitle className="case-label text-destructive">Danger zone</CardTitle>
               <CardDescription>
                 Deleting is permanent. Past deliveries stay in the log, but the endpoint and its
                 secret are gone.
