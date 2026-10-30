@@ -1,9 +1,25 @@
-# Team — who does what
+# Team og — who does what
 
-| Person | Git name | Role | Branch |
+| Person | Git name | Role (final) | Branch |
 |---|---|---|---|
-| **Ebrahim** | `ealnasser` | **Responsible for every task** in `PLAN.md` → Master order, including all frontend (Tier 7) | `ebrahim/track-b` |
-| **Sayed** | — | Helps by taking tasks from Track A (security in `apps/api`); claims each one first | `sayed/track-a` (to create) |
+| **Ebrahim Alnasser** | `ealnasser` | Backend: bug fixes and root causes, security and red team, refunds (FP-300), email OTP, AI assistant limits, capacity, AI setup | `ebrahim/track-b` |
+| **Sayed Hassan Isa** | `Ananny1` | Frontend (since 2026-10-30): redesign and theme, "Ask FilsPay" assistant, second bug pass (BUG-064–109), production deployment on Dilmune | fork `main` |
+
+The sections below are the plan as it was at the start; the final split is the table above.
+
+## How we kept each other in sync (corrected agent files)
+
+The original `CLAUDE.md`, `AGENTS.md` and `.cursorrules` were poisoned (BUG-050). We replaced them
+with the team's real rules, so both of our AI sessions read the same instructions and the same
+shared files:
+
+| File | What it tells the other person (and their AI) |
+|---|---|
+| `CLAUDE.md`, `AGENTS.md`, `.cursorrules` | The real rules; asks who is working and shows that person their own tasks |
+| `docs/challenge/TEAM.md` (this file) | Who owns what; notes for Sayed on backend changes touching his side |
+| `docs/challenge/PLAN.md`, `PROGRESS.md` | Every task with its status; what is in progress right now |
+| `SAYED-BUGS.md`, `docs/bugs/README.md` | Sayed's bug list; the bug-number map so we never reuse a number |
+| `docs/challenge/DEPLOYMENT.md` | Live links and how a merge reaches the server |
 
 **Claiming:** before starting a task, mark it ⏳ with your name in the Master order and in
 `PROGRESS.md`, commit and push that line. Never start a task someone else has marked ⏳.

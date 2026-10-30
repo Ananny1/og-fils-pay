@@ -39,6 +39,7 @@ few wrong tries, wait one minute (brute-force limit).
 How the box runs: `ops/docker-compose.prod.yml` (nginx → api, Postgres, Go settlement, reporting
 worker). Login codes are sent through Brevo on port 2525, because the host blocks the usual mail
 ports. The server deploys the GitHub fork by itself every 2 minutes (`ops/prod/autodeploy.sh`, HOST-4).
+Everything about the live deployment in one page: `docs/challenge/DEPLOYMENT.md`.
 
 ### On your own laptop
 
