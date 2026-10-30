@@ -237,3 +237,56 @@ func TestRecalculateMDR_OutOfRangeBatchUntouched(t *testing.T) {
 // compile-time assertion that RecalculateMDR keeps the *pgxpool.Pool
 // signature the internal API handler passes it.
 var _ func(context.Context, *pgxpool.Pool, uuid.UUID, time.Time, time.Time) (RecalcResult, error) = RecalculateMDR
+
+// BUG-018: a batch that was already paid out must never be rewritten. Its
+// fee and net payout are what the merchant was actually paid; changing them
+// (and moving the cache) after the money left breaks reconciliation.
+func TestRecalculateMDR_PaidBatchUntouched(t *testing.T) {
+	pool := mustPool(t)
+	ctx := context.Background()
+	const originalMdrBps = 250
+	merchantID := insertActiveMerchant(t, pool, originalMdrBps)
+
+	businessDate := time.Date(2026, 4, 9, 0, 0, 0, 0, time.UTC)
+	start, _ := BusinessDayWindow(businessDate)
+	insertCaptureEvent(t, pool, merchantID, originalMdrBps, 4750, start.Add(time.Hour))
+
+	closed, err := CloseBatch(ctx, pool, merchantID, businessDate)
+	if err != nil {
+		t.Fatalf("CloseBatch: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `UPDATE settlement_batches SET status = 'paid' WHERE id = $1`, closed.BatchID); err != nil {
+		t.Fatalf("mark batch paid: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `UPDATE merchants SET mdr_bps = 300 WHERE id = $1`, merchantID); err != nil {
+		t.Fatalf("update mdr_bps: %v", err)
+	}
+
+	from, to := recalcWindow(businessDate)
+	result, err := RecalculateMDR(ctx, pool, merchantID, from, to)
+	if err != nil {
+		t.Fatalf("RecalculateMDR: %v", err)
+	}
+	if len(result.Adjusted) != 0 {
+		t.Errorf("len(Adjusted) = %d, want 0 (a paid batch must not be adjusted)", len(result.Adjusted))
+	}
+
+	var gotFee, gotNet int64
+	if err := pool.QueryRow(ctx, `SELECT fee_fils, net_payout_fils FROM settlement_batches WHERE id = $1`, closed.BatchID).
+		Scan(&gotFee, &gotNet); err != nil {
+		t.Fatalf("read batch: %v", err)
+	}
+	if gotFee != int64(closed.FeeFils) || gotNet != int64(closed.NetPayoutFils) {
+		t.Errorf("paid batch rewritten: fee %d net %d, want fee %d net %d", gotFee, gotNet, closed.FeeFils, closed.NetPayoutFils)
+	}
+
+	var adjustments int
+	if err := pool.QueryRow(ctx, `
+		SELECT COUNT(*) FROM ledger_entries WHERE settlement_batch_id = $1 AND description = 'MDR recalculation adjustment'
+	`, closed.BatchID).Scan(&adjustments); err != nil {
+		t.Fatalf("count adjustments: %v", err)
+	}
+	if adjustments != 0 {
+		t.Errorf("%d MDR adjustment legs posted against a paid batch, want 0", adjustments)
+	}
+}

@@ -17,8 +17,8 @@ import (
 // recalculation pass.
 //
 // DiffFils is NewFeeFils - OldFeeFils. A positive diff means the merchant was
-// undercharged at close; the correcting ledger group lands in the current
-// period's batch, so the original batch's figures stay as they were paid.
+// undercharged at close. Only 'closed' (not yet paid) batches are
+// recalculated and rewritten; 'paid' batches are left exactly as paid.
 type BatchAdjustment struct {
 	BatchID    uuid.UUID
 	BatchDate  time.Time
@@ -44,8 +44,9 @@ type batchRow struct {
 	netPayoutFils money.Fils
 }
 
-// RecalculateMDR re-derives the fee on a merchant's closed batches in
-// [from, to) at the merchant's current terms and posts the difference.
+// RecalculateMDR re-derives the fee on a merchant's closed, not-yet-paid
+// batches in [from, to) at the merchant's current terms and posts the
+// difference. Paid batches are skipped (BUG-018).
 func RecalculateMDR(ctx context.Context, db *pgxpool.Pool, merchantID uuid.UUID, from, to time.Time) (RecalcResult, error) {
 	tx, err := db.Begin(ctx)
 	if err != nil {
@@ -64,7 +65,7 @@ func RecalculateMDR(ctx context.Context, db *pgxpool.Pool, merchantID uuid.UUID,
 		SELECT id, batch_date, status, gross_fils, fee_fils, net_payout_fils
 		  FROM settlement_batches
 		 WHERE merchant_id = $1 AND batch_date >= $2 AND batch_date < $3
-		   AND status <> 'open'
+		   AND status = 'closed' -- BUG-018: never rewrite a paid batch (or an open one)
 		 ORDER BY batch_date
 		 FOR UPDATE
 	`, merchantID, from, to)
