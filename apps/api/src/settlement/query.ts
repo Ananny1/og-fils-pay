@@ -251,8 +251,9 @@ export async function listBatchTransactions(
 
 /**
  * gapFils = ledgerMerchantPayableNetFils - settlementNetPayoutFils -
- * pendingUnbatchedFils. Refund legs are included both in the ledger figure
- * and in pending, so a period with refunds still explains to zero.
+ * pendingUnbatchedFils. Refund legs are in the ledger figure, and refunds
+ * not yet deducted by a batch of the period are taken off pending (FP-300.5;
+ * before that this comment claimed it, but pending only counted captures).
  */
 export interface ReconciliationReport {
   periodFrom: string;
@@ -288,7 +289,7 @@ export async function getReconciliationReport(
   const windowStart = bahrainLocalMidnightUtc(input.from);
   const windowEnd = bahrainLocalMidnightUtc(input.to);
 
-  const [ledgerResult, settlementResult, pendingResult, merchantResult, scheduleResult, volumeTierBonusBps] = await Promise.all([
+  const [ledgerResult, settlementResult, pendingResult, merchantResult, scheduleResult, volumeTierBonusBps, refundResult] = await Promise.all([
     pool.query<{ net: string }>(
       `SELECT COALESCE(SUM(CASE WHEN direction = 'credit' THEN amount_fils ELSE -amount_fils END), 0) AS net
          FROM ledger_entries
@@ -324,6 +325,25 @@ export async function getReconciliationReport(
       [input.merchantId],
     ),
     getVolumeTierBonusBps(pool),
+    // FP-300.5: a refund takes (amount - fee reversed) off merchant_payable
+    // when it happens, and off a payout only when CloseBatch claims it
+    // (FP-300.3, Go step 9) -- possibly a later day's batch. So:
+    // refunded in the period but not yet taken off a batch of the period
+    // still has to come off (pending goes down); refunded before the period
+    // but taken off a batch of the period was already in an earlier ledger
+    // window (pending goes up by the same amount).
+    pool.query<{ not_deducted_fils: string; carried_in_fils: string }>(
+      `SELECT COALESCE(SUM(r.amount_fils - r.fee_reversed_fils) FILTER (WHERE r.occurred_at >= $2 AND b.id IS NULL), 0)::text AS not_deducted_fils,
+              COALESCE(SUM(r.amount_fils - r.fee_reversed_fils) FILTER (WHERE r.occurred_at <  $2 AND b.id IS NOT NULL), 0)::text AS carried_in_fils
+         FROM refunds r
+         LEFT JOIN settlement_batches b
+           ON b.id = r.settlement_batch_id
+          AND b.batch_date >= $4 AND b.batch_date < $5
+          AND b.status IN ('closed', 'paid')
+        WHERE r.merchant_id = $1 AND r.status = 'succeeded' AND r.occurred_at < $3
+          AND (r.occurred_at >= $2 OR r.settlement_batch_id IS NOT NULL)`,
+      [input.merchantId, windowStart, windowEnd, input.from, input.to],
+    ),
   ]);
 
   // BUG-054: this used merchants.mdr_bps directly, citing "the 0046
@@ -350,6 +370,8 @@ export async function getReconciliationReport(
     const feeFils = estimateFeeFils(amountFils, mdrBps, discountBps);
     pendingUnbatchedFils += amountFils - feeFils;
   }
+  pendingUnbatchedFils -= Number(refundResult.rows[0]?.not_deducted_fils ?? 0);
+  pendingUnbatchedFils += Number(refundResult.rows[0]?.carried_in_fils ?? 0);
 
   const ledgerMerchantPayableNetFils = Number(ledgerResult.rows[0]?.net ?? 0);
   const settlementNetPayoutFils = Number(settlementResult.rows[0]?.total ?? 0);

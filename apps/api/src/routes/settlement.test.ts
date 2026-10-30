@@ -412,6 +412,73 @@ test("GET /v1/settlement/reconciliation with an unbatched capture reports it as 
   assert.equal(report.explained, true);
 });
 
+async function refundVia(merchantId: string, rawKey: string, transactionId: string, amountFils: number) {
+  const res = await app.inject({
+    method: "POST",
+    url: `/v1/merchants/${merchantId}/refunds`,
+    headers: { ...authHeader(rawKey), "idempotency-key": randomUUID() },
+    payload: { transactionId, amountFils },
+  });
+  assert.equal(res.statusCode, 200, res.body);
+  return res.json() as { amountFils: number; feeReversedFils: number };
+}
+
+async function reconcileToday(rawKey: string) {
+  const businessDate = todayBahrainDateString();
+  const res = await app.inject({
+    method: "GET",
+    url: `/v1/settlement/reconciliation?from=${businessDate}&to=${addOneCalendarDay(businessDate)}`,
+    headers: authHeader(rawKey),
+  });
+  assert.equal(res.statusCode, 200, res.body);
+  return res.json() as {
+    gapFils: number;
+    explained: boolean;
+    ledgerMerchantPayableNetFils: number;
+    settlementNetPayoutFils: number;
+    pendingUnbatchedFils: number;
+  };
+}
+
+test("FP-300.5: reconciliation explains an unbatched refund to zero gap (captured - fees - refunds = paid + pending)", async () => {
+  const { merchantId, rawKey } = await createApprovedMerchantWithApiKey("reconciliation-refund-pending", 250);
+  const txn = await authorize(rawKey, 10_000);
+  await capture(rawKey, txn.id);
+  const refund = await refundVia(merchantId, rawKey, txn.id, 4_000);
+
+  const report = await reconcileToday(rawKey);
+  const fee = Number(applyRateFils(toFils(10_000), 250));
+  const refundCost = refund.amountFils - refund.feeReversedFils;
+  assert.equal(report.ledgerMerchantPayableNetFils, 10_000 - fee - refundCost);
+  assert.equal(report.settlementNetPayoutFils, 0);
+  assert.equal(report.pendingUnbatchedFils, 10_000 - fee - refundCost);
+  assert.equal(report.gapFils, 0);
+  assert.equal(report.explained, true);
+});
+
+test("FP-300.5: reconciliation explains a refund the batch deducted to zero gap", async () => {
+  const { merchantId, rawKey } = await createApprovedMerchantWithApiKey("reconciliation-refund-batched", 250);
+  const txn = await authorize(rawKey, 10_000);
+  await capture(rawKey, txn.id);
+  const refund = await refundVia(merchantId, rawKey, txn.id, 4_000);
+  const refundCost = refund.amountFils - refund.feeReversedFils;
+
+  const batchId = await closeAndPayoutBatch(merchantId, todayBahrainDateString());
+  // What Go CloseBatch step 9 (FP-300.3) does: claim the refund, take its cost off the net.
+  await pool.query(`UPDATE refunds SET settlement_batch_id = $2 WHERE transaction_id = $1`, [txn.id, batchId]);
+  await pool.query(`UPDATE settlement_batches SET net_payout_fils = net_payout_fils - $2 WHERE id = $1`, [
+    batchId,
+    refundCost,
+  ]);
+
+  const report = await reconcileToday(rawKey);
+  const fee = Number(applyRateFils(toFils(10_000), 250));
+  assert.equal(report.settlementNetPayoutFils, 10_000 - fee - refundCost);
+  assert.equal(report.pendingUnbatchedFils, 0);
+  assert.equal(report.gapFils, 0);
+  assert.equal(report.explained, true);
+});
+
 test("GET /v1/settlement/summary sums captured amounts for transactions with a single capture event", async () => {
   const { rawKey } = await createApprovedMerchantWithApiKey("summary-single-event", 250);
   const txn1 = await authorize(rawKey, 10_000);
