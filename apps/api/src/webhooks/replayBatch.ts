@@ -74,16 +74,17 @@ export async function replayWebhookDeliveriesBatch(
       outbox_event_id: string;
       event_type: string;
       payload: Record<string, unknown>;
+      delivery_event_id: string;
     }>(
       // BUG-080: every replay row gets a NEW delivery id (replay.ts), so the
       // receiver cannot dedupe a second copy. Queue each event at most once
       // (latest matching row per outbox event), never for an event already
       // pending on this endpoint (a second click), and never for one already
       // delivered unless the caller explicitly asked for 'succeeded' rows.
-      `SELECT id, endpoint_id, outbox_event_id, event_type, payload
+      `SELECT id, endpoint_id, outbox_event_id, event_type, payload, delivery_event_id
          FROM (
            SELECT DISTINCT ON (wd.outbox_event_id)
-                  wd.id, wd.endpoint_id, wd.outbox_event_id, wd.event_type, wd.payload, wd.created_at
+                  wd.id, wd.endpoint_id, wd.outbox_event_id, wd.event_type, wd.payload, wd.delivery_event_id, wd.created_at
              FROM webhook_deliveries wd
             WHERE wd.endpoint_id = $1 AND wd.status = ANY($2)
               AND wd.created_at >= $3 AND wd.created_at < $4
@@ -108,6 +109,7 @@ export async function replayWebhookDeliveriesBatch(
         outboxEventId: row.outbox_event_id,
         eventType: row.event_type,
         payload: row.payload,
+        deliveryEventId: row.delivery_event_id,
       });
       replayedDeliveryIds.push(inserted.deliveryId);
     }

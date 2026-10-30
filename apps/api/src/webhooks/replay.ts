@@ -14,6 +14,8 @@ export interface OriginalDelivery {
   outboxEventId: string;
   eventType: string;
   payload: Record<string, unknown>;
+  /** The original row's delivery_event_id; when absent (archive restore) the envelope's own `id` is used. */
+  deliveryEventId?: string;
 }
 
 /**
@@ -21,17 +23,13 @@ export interface OriginalDelivery {
  * both the merchant-facing single-delivery replay route and the admin
  * batch-replay function — so the two can never mean different things.
  *
- * Re-signs with a fresh timestamp and a fresh delivery_event_id rather than
- * resending the original bytes verbatim: this platform's signature scheme
- * binds a `t=` timestamp specifically so a receiver can enforce freshness,
- * and a stale replay would near-certainly fail that check. A replay is also,
- * from a receiver's dedupe perspective, legitimately a new delivery attempt
- * of the same underlying event — reusing the original delivery_event_id
- * would make a receiver that already processed the original silently swallow
- * the replay too. The stored envelope's own `id` field is updated to match
- * (data/type/createdAt carried over unchanged), so a receiver deduping from
- * either the Webhook-Delivery-Id header or the parsed body gets a consistent
- * answer.
+ * Re-signs with a fresh timestamp (the dispatcher signs at send time) but
+ * keeps the ORIGINAL event's delivery_event_id, in the column (sent as the
+ * Webhook-Delivery-Id header) and as the envelope's `id`. That id is the only
+ * key a receiver can dedupe on (0022 schema, ARCHITECTURE §5): BUG-104, a
+ * replay used to mint a new one, so a receiver that had already processed
+ * e.g. `settlement.paid` booked the payout a second time. The replay still
+ * gets its own row id, so the original attempt history is kept.
  *
  * The original row (payload + signature) is never mutated — forensic value
  * is preserved there, not by resending its exact bytes.
@@ -43,10 +41,12 @@ export async function insertReplayDeliveryRow(
   client: PoolClient,
   original: OriginalDelivery,
 ): Promise<ReplayResult> {
-  // MK: new id per replay on purpose, receivers dedupe on the original id in the body
-  // FH: ARCH §5 says Webhook-Delivery-Id is stable across retries and replays — this mints a new one?
-  const newDeliveryEventId = randomUUID();
-  const replayPayload = { ...original.payload, id: newDeliveryEventId };
+  // BUG-104: reuse the original event id (header and envelope) so the
+  // receiver can dedupe the replay; only an envelope with no id gets a new one.
+  const payloadId = original.payload.id;
+  const deliveryEventId =
+    original.deliveryEventId ?? (typeof payloadId === "string" && payloadId !== "" ? payloadId : randomUUID());
+  const replayPayload = { ...original.payload, id: deliveryEventId };
 
   const insertResult = await client.query<{ id: string; status: string }>(
     `INSERT INTO webhook_deliveries
@@ -57,7 +57,7 @@ export async function insertReplayDeliveryRow(
       original.endpointId,
       original.outboxEventId,
       original.eventType,
-      newDeliveryEventId,
+      deliveryEventId,
       JSON.stringify(replayPayload),
       original.id,
     ],
@@ -75,6 +75,7 @@ interface OriginalDeliveryRow {
   outbox_event_id: string;
   event_type: string;
   payload: Record<string, unknown>;
+  delivery_event_id: string;
   endpoint_status: string;
 }
 
@@ -93,7 +94,7 @@ export async function replayWebhookDelivery(
   // belong to the caller even if two of the three IDs are individually
   // valid.
   const lookupResult = await pool.query<OriginalDeliveryRow>(
-    `SELECT wd.id, wd.endpoint_id, wd.outbox_event_id, wd.event_type, wd.payload, we.status AS endpoint_status
+    `SELECT wd.id, wd.endpoint_id, wd.outbox_event_id, wd.event_type, wd.payload, wd.delivery_event_id, we.status AS endpoint_status
        FROM webhook_deliveries wd
        JOIN webhook_endpoints we ON we.id = wd.endpoint_id
       WHERE wd.id = $1 AND wd.endpoint_id = $2 AND we.merchant_id = $3`,
@@ -114,6 +115,7 @@ export async function replayWebhookDelivery(
       outboxEventId: original.outbox_event_id,
       eventType: original.event_type,
       payload: original.payload,
+      deliveryEventId: original.delivery_event_id,
     }),
   );
 }

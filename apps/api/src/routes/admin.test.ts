@@ -974,7 +974,7 @@ test("webhook batch replay replays every matching failed delivery in range, once
 
   // Each new row is a real replay of a distinct original, produced by the
   // same per-delivery logic the merchant-facing route uses: pending, due
-  // now, with a FRESH delivery_event_id echoed into the stored envelope.
+  // now, with the original delivery_event_id (BUG-104) echoed into the stored envelope.
   const replays = await pool.query<{
     id: string;
     status: string;
@@ -992,7 +992,7 @@ test("webhook batch replay replays every matching failed delivery in range, once
     assert.equal(row.status, "pending");
     assert.ok(inRange.includes(row.replay_of_delivery_id));
     originals.add(row.replay_of_delivery_id);
-    assert.equal(row.payload.id, row.delivery_event_id, "envelope id must match the fresh delivery_event_id");
+    assert.equal(row.payload.id, row.delivery_event_id, "envelope id must match the delivery_event_id");
   }
   assert.equal(originals.size, 3, "each in-range original replayed exactly once");
 
