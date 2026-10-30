@@ -122,3 +122,70 @@ func TestEnqueuePayoutNotificationsSkipsIneligibleBatches(t *testing.T) {
 		t.Fatalf("a batch that has not reached 'paid' must not be notified, got %d event(s)", got)
 	}
 }
+
+// BUG-008 (W6, incident 2026-08-21): the daemon tick and a manual `run-batch`
+// (or two replicas) ran EnqueuePayoutNotifications at the same time. Both
+// passed the NOT EXISTS check and both inserted a settlement.paid event. The
+// comment above EnqueuePayoutNotifications quoted a unique index that did not
+// exist.
+//
+// The race is made deterministic: a SHARE lock on outbox_events lets both
+// runners' SELECT ... NOT EXISTS through but holds both INSERTs until both
+// runners are waiting, which is exactly the incident's interleaving.
+func TestEnqueuePayoutNotificationsConcurrentRunsEnqueueOnce(t *testing.T) {
+	pool := mustPool(t)
+	ctx := context.Background()
+
+	merchantID := insertActiveMerchant(t, pool, 250)
+	paidBatch := insertBatch(t, pool, merchantID, time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC), "paid", 10_000)
+
+	lockTx, err := pool.Begin(ctx)
+	if err != nil {
+		t.Fatalf("begin lock tx: %v", err)
+	}
+	defer lockTx.Rollback(ctx)
+	if _, err := lockTx.Exec(ctx, `LOCK TABLE outbox_events IN SHARE MODE`); err != nil {
+		t.Fatalf("lock outbox_events: %v", err)
+	}
+
+	const runners = 2
+	errs := make(chan error, runners)
+	for i := 0; i < runners; i++ {
+		go func() {
+			_, err := EnqueuePayoutNotifications(ctx, pool)
+			errs <- err
+		}()
+	}
+
+	// Wait until both runners have done their SELECT and are blocked on INSERT.
+	deadline := time.Now().Add(10 * time.Second)
+	for {
+		var waiting int
+		if err := pool.QueryRow(ctx, `
+			SELECT count(*) FROM pg_locks
+			 WHERE relation = 'outbox_events'::regclass AND NOT granted
+		`).Scan(&waiting); err != nil {
+			t.Fatalf("pg_locks: %v", err)
+		}
+		if waiting >= runners {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("runners never reached the INSERT (waiting=%d)", waiting)
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	if err := lockTx.Commit(ctx); err != nil {
+		t.Fatalf("release lock: %v", err)
+	}
+
+	for i := 0; i < runners; i++ {
+		if err := <-errs; err != nil {
+			t.Fatalf("concurrent EnqueuePayoutNotifications: %v", err)
+		}
+	}
+
+	if got := countPaidEvents(t, pool, paidBatch); got != 1 {
+		t.Fatalf("expected exactly 1 settlement.paid event after %d concurrent runs, got %d", runners, got)
+	}
+}

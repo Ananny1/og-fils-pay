@@ -408,3 +408,69 @@ test("a disabled endpoint gets no delivery row for a new event", async () => {
   ]);
   assert.equal(rows.rows.length, 0);
 });
+
+// BUG-008 (W6): the settlement.paid pre-delivery effect (a payout-rail
+// disbursement instruction) ran once per delivery row, i.e. once per
+// registered endpoint. A merchant with two endpoints got two disbursements.
+test("settlement.paid to a merchant with two endpoints records exactly one disbursement", async () => {
+  const merchantId = await createMerchant("payout-two-endpoints");
+  await createEndpoint(merchantId, `http://payout-a.test/webhook-${randomUUID()}`);
+  await createEndpoint(merchantId, `http://payout-b.test/webhook-${randomUUID()}`);
+  const batch = await pool.query<{ id: string }>(
+    `INSERT INTO settlement_batches
+        (merchant_id, batch_date, status, gross_fils, fee_fils, net_payout_fils, closed_at, paid_at)
+     VALUES ($1, current_date, 'paid', 471300, 0, 471300, now(), now())
+     RETURNING id`,
+    [merchantId],
+  );
+  const batchId = batch.rows[0]!.id;
+  await enqueueEvent(pool, {
+    eventType: "settlement.paid",
+    aggregateType: "settlement_batch",
+    aggregateId: batchId,
+    payload: { merchantId, batchId, batchDate: "2026-08-21", netPayoutFils: 471_300 },
+  });
+
+  await runDispatchPass(pool, alwaysRespond(200), config);
+
+  const rows = await pool.query(`SELECT * FROM settlement_payout_disbursements WHERE settlement_batch_id = $1`, [batchId]);
+  assert.equal(rows.rows.length, 1);
+});
+
+// BUG-008 (W7): Step B selected due rows without claiming them, so two API
+// replicas (or the NOTIFY handler and the poll timer) running a pass at the
+// same time both sent the same delivery.
+test("two concurrent dispatch passes send a due delivery only once", async () => {
+  const merchantId = await createMerchant("concurrent-passes");
+  const url = `http://concurrent.test/webhook-${randomUUID()}`;
+  const endpoint = await createEndpoint(merchantId, url);
+  const outboxEvent = await enqueueCaptured(merchantId);
+
+  // Pass 0: create the row and fail it once, so it is a plain due retry.
+  await runDispatchPass(pool, alwaysRespond(500), config);
+  const delivery = await getDelivery(String(outboxEvent.id), endpoint.id);
+  await forceDueNow(delivery.id);
+
+  // The first call to our URL waits for a second one (or 1 s), so both
+  // passes are inside Step B at the same time — the multi-replica case.
+  let calls = 0;
+  let releaseFirst: () => void = () => {};
+  const secondCallOrTimeout = new Promise<void>((resolve) => {
+    releaseFirst = resolve;
+    setTimeout(resolve, 1000);
+  });
+  const transport: WebhookTransport = async (req) => {
+    if (req.url !== url) return { statusCode: 200, body: "" };
+    calls += 1;
+    if (calls === 1) await secondCallOrTimeout;
+    else releaseFirst();
+    return { statusCode: 200, body: "ok" };
+  };
+
+  await Promise.all([runDispatchPass(pool, transport, config), runDispatchPass(pool, transport, config)]);
+
+  assert.equal(calls, 1);
+  const after = await getDelivery(String(outboxEvent.id), endpoint.id);
+  assert.equal(after.status, "succeeded");
+  assert.equal(after.attempt_count, 2);
+});

@@ -56,3 +56,21 @@ test("recordPayoutDisbursementEffect inserts one row with the given batch id and
   );
   assert.notEqual(result.rows[0]!.disbursement_reference, batchId);
 });
+
+// BUG-008 (W6): the effect runs on every first delivery attempt (one per
+// endpoint, and again from a second replica). A batch must get one
+// disbursement instruction no matter how often it is called.
+test("recordPayoutDisbursementEffect called twice (or concurrently) for one batch records one disbursement", async () => {
+  const batchId = await createPaidBatch(12_500);
+
+  await recordPayoutDisbursementEffect(pool, batchId, 12_500);
+  await Promise.all([
+    recordPayoutDisbursementEffect(pool, batchId, 12_500),
+    recordPayoutDisbursementEffect(pool, batchId, 12_500),
+  ]);
+
+  const result = await pool.query(`SELECT * FROM settlement_payout_disbursements WHERE settlement_batch_id = $1`, [
+    batchId,
+  ]);
+  assert.equal(result.rows.length, 1);
+});

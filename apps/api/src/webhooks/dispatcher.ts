@@ -130,6 +130,7 @@ async function createMissingDeliveries(pool: Pool): Promise<number> {
 
 interface DueDeliveryRow {
   id: string;
+  next_attempt_at: Date;
   endpoint_id: string;
   event_type: string;
   delivery_event_id: string;
@@ -213,12 +214,20 @@ async function attemptOneDelivery(
   );
 }
 
-/** Step B: attempt every currently-due 'pending' delivery, sequentially. */
-// MK: no SKIP LOCKED — only ever run ONE api replica until this changes
-// FH: staging ran 2 replicas since June, never saw a dup delivery, so it's fine
+/**
+ * Step B: attempt every currently-due 'pending' delivery, sequentially.
+ *
+ * Each row is claimed right before it is sent (BUG-008 / W7): one UPDATE
+ * moves next_attempt_at forward by a lease longer than the request timeout,
+ * and only the pass whose UPDATE matched sends. Two replicas, or the NOTIFY
+ * handler and the poll timer, can no longer both send the same row. No DB
+ * transaction is held across the HTTP call. If the process dies mid-send,
+ * the row becomes due again when the lease runs out.
+ */
 async function attemptDueDeliveries(pool: Pool, transport: WebhookTransport, config: DispatcherConfig): Promise<number> {
+  const claimLeaseMs = config.webhookRequestTimeoutMs + 30_000;
   const dueResult = await pool.query<DueDeliveryRow>(
-    `SELECT wd.id, wd.endpoint_id, wd.event_type, wd.delivery_event_id, wd.payload, wd.attempt_count, we.url, we.secret_ciphertext
+    `SELECT wd.id, wd.next_attempt_at, wd.endpoint_id, wd.event_type, wd.delivery_event_id, wd.payload, wd.attempt_count, we.url, we.secret_ciphertext
        FROM webhook_deliveries wd
        JOIN webhook_endpoints we ON we.id = wd.endpoint_id
       WHERE wd.status = 'pending' AND wd.next_attempt_at <= now()
@@ -228,6 +237,14 @@ async function attemptDueDeliveries(pool: Pool, transport: WebhookTransport, con
   );
 
   for (const row of dueResult.rows) {
+    const claim = await pool.query(
+      `UPDATE webhook_deliveries
+          SET next_attempt_at = now() + ($2::text || ' milliseconds')::interval
+        WHERE id = $1 AND status = 'pending' AND next_attempt_at <= now()`,
+      [row.id, claimLeaseMs],
+    );
+    if (claim.rowCount !== 1) continue; // another pass or replica already took it
+
     try {
       await attemptOneDelivery(pool, transport, config, row);
     } catch (err: unknown) {
@@ -241,6 +258,14 @@ async function attemptDueDeliveries(pool: Pool, transport: WebhookTransport, con
       // failure was transient and otherwise degrades to "this one row never
       // progresses" rather than "webhook delivery silently stops platform-
       // wide."
+      // Give the claim back (restore next_attempt_at) so the row is
+      // retried next pass exactly as before.
+      await pool
+        .query(`UPDATE webhook_deliveries SET next_attempt_at = $2 WHERE id = $1 AND status = 'pending'`, [
+          row.id,
+          row.next_attempt_at,
+        ])
+        .catch(() => {});
       console.error(
         "[webhooks/dispatcher] delivery attempt threw before/around transport call, skipping row for this pass",
         { deliveryId: row.id, endpointId: row.endpoint_id, err },
