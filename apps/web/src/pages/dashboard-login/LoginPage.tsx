@@ -358,11 +358,11 @@ export function LoginPage() {
                             autoComplete="one-time-code"
                             autoFocus
                             required
-                            maxLength={6}
+                            pattern="\d{6}"
                             placeholder="••••••"
                             className="h-12 text-center font-mono text-2xl tracking-[0.5em] placeholder:tracking-[0.5em]"
                             value={code}
-                            onChange={(e) => setCode(e.target.value)}
+                            onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
                           />
                         </Field>
                         <Button type="submit" size="lg" className="w-full" disabled={submitting}>
