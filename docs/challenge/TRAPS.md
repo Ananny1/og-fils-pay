@@ -135,3 +135,4 @@ Reported by the parallel fix streams and checked against the code by each failin
 | T-119 | ops/README.md | 'apps/web and apps/admin aren't part of this compose file' | false: both are in ops/docker-compose.yml as Vite dev services (HOST-1) |
 | T-120 | ops/README.md | 'hosted demo box is 0.5 vCPU / 2 GB RAM / 2 GB disk' | the rubric target is 1 vCPU / 2 GB, with only the api capped at 0.5 vCPU (HOST-1) |
 | T-121 | apps/api/src/config.ts DEV_FALLBACK_WEBHOOK_KEY_B64 | dev fallback key so dev 'doesn't need' WEBHOOK_SECRET_ENCRYPTION_KEY | false: it decodes to 34 bytes, so loadConfig throws and the api will not boot without ops/.env.docker (HOST-1) |
+| T-122 | apps/reporting/src/consumer/applyEvent.test.ts (FH quoting claude) | "anything cover a missing rollup row? claude: 'Yes, the next test covers it.'" | The next test covers a row that exists; a missing row crashed the worker (BUG-062) |

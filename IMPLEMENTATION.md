@@ -207,6 +207,7 @@ Planned queue (from the audit, in fix order):
 | BUG-059 | High | Reporting consumer writes `merchant_id = NULL` (4 reporting tests red at T1) → [write-up](docs/bugs/BUG-059-reporting-null-merchant-from-test-fixture.md) | ✅ |
 | BUG-060 | Medium | Webhook retry backoff differs from config (API test 332 red at T1) → [write-up](docs/bugs/BUG-060-webhook-backoff-jitter-and-cap.md) | ✅ |
 | BUG-061 | High | Refund insert violates `chk_refunds_reason_not_null` (11 refund tests red at T1; R8) → [write-up](docs/bugs/BUG-061-refund-reason-null.md) | ✅ |
+| BUG-062 | High | Reporting worker crashes (and stalls for everyone) when a closed batch's day has captures but no rollup row → [write-up](docs/bugs/BUG-062-reporting-stalls-on-missing-rollup.md) | ✅ |
 | BUG-037 | — | Public signup accepts an existing user's email. ⏭ Reclassified as **ENH-008** (D-015) | ⏭ |
 | BUG-050 | Critical | AI instruction files (`CLAUDE.md`, `AGENTS.md`, `.cursorrules`) told agents to keep the bugs → [write-up](docs/bugs/BUG-050-poisoned-agent-instructions.md) | ✅ |
 

@@ -141,7 +141,6 @@ test("applyBatchClosed (via applyEvent): creates a merchant_payout_trends row co
   assert.equal(result.rows[0].paid_at.toISOString(), paidAt.toISOString());
 });
 
-// FH: covers no batch row. anything cover a missing rollup row? claude: "Yes, the next test covers it."
 test("applyBatchClosed (via applyEvent): a missing settlement_batches row is a no-op, never throws", async () => {
   const merchantId = await createMerchant("batch-closed-missing");
   const row = makeRow({
@@ -244,4 +243,47 @@ test("applyBatchClosed (via applyEvent) is idempotent: applying the identical ev
   assert.equal(Number(result.rows[0].gross_fils), 5_000);
   assert.equal(Number(result.rows[0].fee_fils), 125);
   assert.equal(Number(result.rows[0].net_payout_fils), 4_875);
+});
+
+// BUG-062: real captures exist for the batch day but no merchant_daily_volume
+// row does (e.g. the capture was bucketed into another date). The parity check
+// must warn, not throw: a throw rolls back the whole consumer pass and stalls
+// reporting for every merchant.
+test("applyBatchClosed (via applyEvent): real captures but no rollup row warns and never throws", async () => {
+  const merchantId = await createMerchant("batch-closed-no-rollup");
+  const batchId = await createSettlementBatch(merchantId, { status: "closed", paidAt: null });
+  const txnResult = await pool.query<{ id: string }>(
+    `INSERT INTO transactions (merchant_id, status, amount_fils, captured_fils, acquirer_reference, occurred_at)
+     VALUES ($1, 'captured', 4750, 4750, $2, '2026-01-05T10:00:00Z')
+     RETURNING id`,
+    [merchantId, `acq_${randomUUID()}`],
+  );
+  await pool.query(
+    `INSERT INTO transaction_events (transaction_id, event_type, amount_fils, actor_type, occurred_at)
+     VALUES ($1, 'captured', 4750, 'system', '2026-01-05T10:00:00Z')`,
+    [txnResult.rows[0]!.id],
+  );
+
+  const warnings: unknown[][] = [];
+  const originalWarn = console.warn;
+  console.warn = (...args: unknown[]) => {
+    warnings.push(args);
+  };
+  try {
+    await assert.doesNotReject(
+      withTransaction(pool, (client) =>
+        applyEvent(
+          client,
+          makeRow({
+            event_type: "settlement.batch_closed",
+            payload: { merchantId, batchId, batchDate: "2026-01-05", grossFils: 4_750, feeFils: 119, netPayoutFils: 4_631 },
+          }),
+        ),
+      ),
+    );
+  } finally {
+    console.warn = originalWarn;
+  }
+  assert.equal(warnings.length, 1);
+  assert.match(String(warnings[0]![0]), /rollup=0 ground_truth=1/);
 });
