@@ -26,7 +26,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
-import { dash, dateTime } from "../../format.js";
+import { businessDate, dash, dateTime } from "../../format.js";
 import { formatCount } from "../../utils/helpers.js";
 import type { PayoutTrendsResponse, TopLinksResponse, VolumesResponse } from "../../types.js";
 
@@ -50,9 +50,11 @@ const VOLUME_CHART_CONFIG = {
   bd: { label: "Sales", color: "var(--color-chart-1)" },
 } satisfies ChartConfig;
 
-function shortDate(date: string): string {
-  // YYYY-MM-DD → MM-DD; the full date is in the tooltip and the table.
-  return date.length === 10 ? date.slice(5) : date;
+function shortDate(ymd: string): string {
+  // YYYY-MM-DD (a Bahrain business date) → "30 Oct". Noon UTC keeps the
+  // calendar day fixed; the full date is in the tooltip and the table.
+  if (ymd.length !== 10) return ymd;
+  return new Date(`${ymd}T12:00:00Z`).toLocaleDateString("en-GB", { timeZone: "UTC", day: "numeric", month: "short" });
 }
 
 export function OverviewPage() {
@@ -239,7 +241,7 @@ export function OverviewPage() {
         <FadeContent trigger="mount" duration={0.5} delay={0.2} className="min-w-0">
           <SectionCard
             title="Sales by day"
-            description="Sales per day, in BD."
+            description="Sales per day, in BHD."
             action={volumes ? <StalenessBadge readModelAsOf={volumes.readModelAsOf} live={volumes.live} /> : null}
             className="h-full"
           >
@@ -283,7 +285,7 @@ export function OverviewPage() {
                         content={
                           <ChartTooltipContent
                             hideIndicator
-                            labelFormatter={(label) => <span className="font-mono">{String(label)}</span>}
+                            labelFormatter={(label) => businessDate(String(label))}
                             formatter={(_value, _name, item) => {
                               const row = item.payload as VolumeRow | undefined;
                               if (!row) return null;
