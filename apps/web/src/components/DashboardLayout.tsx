@@ -46,6 +46,12 @@ export function DashboardLayout() {
   const { pathname } = useLocation();
   return (
     <SidebarProvider>
+      <a
+        href="#main"
+        className="sr-only bg-primary px-3 py-2 text-primary-foreground focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50"
+      >
+        Skip to content
+      </a>
       <AppSidebar />
       <SidebarInset className="bg-ambient">
         <header className="dark sticky top-0 z-20 flex h-14 shrink-0 items-center gap-2 border-b-2 border-b-[#c8102e] bg-[var(--bg-header)] px-4 text-[var(--on-dark)]">
@@ -76,11 +82,13 @@ export function DashboardLayout() {
           <AnimatePresence mode="wait" initial={false}>
             <motion.main
               key={pathname}
+              id="main"
+              tabIndex={-1}
               initial={{ opacity: 0, y: 8, filter: "blur(4px)" }}
               animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
               exit={{ opacity: 0, y: -6, filter: "blur(4px)" }}
               transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-              className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-6 p-4 pb-24 md:p-6 md:pb-8 lg:p-8"
+              className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-6 p-4 pb-24 md:p-6 md:pb-8 lg:p-8 outline-none"
             >
               <Outlet />
             </motion.main>
