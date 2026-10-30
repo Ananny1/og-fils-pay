@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { login, resendOtp, verifyOtp } from "../../api/dashboardAuth.js";
 import { ApiError, describeError } from "../../api/client.js";
+import { dateTime } from "../../format.js";
 import {
   readLastMerchantId,
   useDashboardAuth,
@@ -243,7 +244,7 @@ export function LoginPage() {
                         A one-time code was issued for{" "}
                         <span className="font-medium text-foreground">{email}</span>. It expires at{" "}
                         <span className="font-mono tabular-nums text-foreground">
-                          {new Date(step.challenge.otpExpiresAt).toLocaleTimeString()}
+                          {dateTime(step.challenge.otpExpiresAt)}
                         </span>
                         .
                       </>
