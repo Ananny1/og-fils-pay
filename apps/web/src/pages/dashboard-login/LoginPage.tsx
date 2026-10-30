@@ -232,7 +232,7 @@ export function LoginPage() {
             </FadeContent>
           </div>
 
-          <div className="flex min-w-0 flex-col gap-14 lg:sticky lg:top-24">
+          <div className="order-first flex min-w-0 flex-col gap-14 lg:sticky lg:top-24 lg:order-none">
           <FadeContent trigger="mount" duration={0.7} delay={0.15}>
               <Card className="w-full rounded-2xl border-border/70 shadow-elegant">
                 <CardHeader>
