@@ -490,6 +490,14 @@ button[type="submit"]:disabled,
   border: 1px dashed var(--text-muted);
 }
 
+/* Small secondary action next to a form (Back, Use this code). */
+button.admin-btn-quiet {
+  align-self: flex-start;
+  min-height: 32px;
+  padding: 0.3rem 0.75rem;
+  font-size: 0.68rem;
+}
+
 /* Destructive (Reject ...): outlined in red ink, filled red on hover, so it
    never reads like its Approve neighbour. Same idea as web's destructive button. */
 button.admin-btn-danger:not(:disabled) {

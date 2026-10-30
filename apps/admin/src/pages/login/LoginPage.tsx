@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { login, verifyOtp } from "../../api/auth.js";
-import { describeError } from "../../api/client.js";
+import { ApiError, describeError } from "../../api/client.js";
 import { useAdminAuth } from "../../auth/AdminAuthContext.js";
 import type { AdminLoginResponse } from "../../types.js";
 import { ThemeToggle } from "../../components/ThemeToggle.js";
@@ -66,6 +66,20 @@ export function LoginPage() {
       navigate(redirectTo, { replace: true });
     } catch (err) {
       setError(describeError(err));
+      // Locked out of this code, or the pending sign-in is gone: the code
+      // step can no longer succeed, so go back to email + password.
+      if (
+        err instanceof ApiError &&
+        ((err.statusCode === 429 && err.code === "too_many_attempts") ||
+          err.code === "otp_expired" ||
+          err.code === "no_pending_session")
+      ) {
+        if (err.statusCode === 429) {
+          setError("Too many wrong codes. Sign in again to get a new code.");
+        }
+        setStep({ kind: "credentials" });
+        setCode("");
+      }
     } finally {
       setSubmitting(false);
     }
@@ -75,7 +89,9 @@ export function LoginPage() {
     <main className="admin-centered">
       <ThemeToggle />
       <h1>FilsPay Admin</h1>
-      <p className="admin-muted">Internal operations console.</p>
+      <p className="admin-muted">
+        {step.kind === "otp" ? "Check your inbox" : "Internal operations console."}
+      </p>
 
       {reason === "expired" && !error && step.kind === "credentials" ? (
         <p className="admin-notice" role="status">Your session ended. Please sign in again.</p>
@@ -116,7 +132,14 @@ export function LoginPage() {
           </p>
           {step.challenge.devOtpCode ? (
             <p className="admin-muted">
-              Development code: <code>{step.challenge.devOtpCode}</code>
+              Development code: <code>{step.challenge.devOtpCode}</code>{" "}
+              <button
+                type="button"
+                className="admin-btn-quiet"
+                onClick={() => setCode(step.challenge.devOtpCode ?? "")}
+              >
+                Use this code
+              </button>
             </p>
           ) : null}
           <label>
@@ -125,9 +148,12 @@ export function LoginPage() {
               type="text"
               inputMode="numeric"
               autoComplete="one-time-code"
+              pattern="\d{6}"
+              maxLength={6}
+              autoFocus
               required
               value={code}
-              onChange={(e) => setCode(e.target.value)}
+              onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
             />
           </label>
           <button type="submit" disabled={submitting}>
@@ -135,13 +161,14 @@ export function LoginPage() {
           </button>
           <button
             type="button"
+            className="admin-btn-quiet"
             onClick={() => {
               setStep({ kind: "credentials" });
               setCode("");
               setError(null);
             }}
           >
-            Start over
+            Back
           </button>
         </form>
       )}
