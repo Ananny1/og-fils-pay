@@ -43,7 +43,6 @@ const SEARCH_DEBOUNCE_MS = 300;
  * query param — nothing fetches an unfiltered page and narrows it in the
  * browser, which would both lie about the result count and break pagination.
  */
-// YA: from/to are UTC day starts, see dayStartIso
 export function TransactionListPage() {
   const [statuses, setStatuses] = useState<TransactionStatus[]>([]);
   const [from, setFrom] = useState("");
@@ -107,11 +106,15 @@ export function TransactionListPage() {
   }
 
   const initialLoading = loading && transactions.length === 0;
-  const empty = !loading && transactions.length === 0;
+  // A failed load is not "no sales": the empty state only shows after a
+  // successful load that really returned nothing.
+  const empty = !loading && !error && transactions.length === 0;
 
   const countLine = initialLoading
     ? "Loading…"
-    : `Page ${pager.page + 1} · ${pluralize(transactions.length, "transaction")}${nextCursor ? "" : " · last page"}`;
+    : error
+      ? "Couldn't load"
+      : `Page ${pager.page + 1} · ${pluralize(transactions.length, "transaction")}${nextCursor ? "" : " · last page"}`;
 
   return (
     <>
@@ -168,7 +171,7 @@ export function TransactionListPage() {
             <div className="p-6">
               <EmptyState
                 icon={SearchX}
-                title="Nothing matches these filters"
+                title={hasFilters ? "Nothing matches these filters" : "No transactions yet"}
                 description={
                   hasFilters
                     ? "Try widening the date range or clearing a status."
