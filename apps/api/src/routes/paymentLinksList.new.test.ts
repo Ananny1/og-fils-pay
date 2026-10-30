@@ -86,3 +86,10 @@ test("BUG-102: a real nextCursor still pages through every link exactly once", a
   assert.equal(seen.length, 3);
   assert.equal(new Set(seen).size, 3);
 });
+
+test("BUG-103: cancelling a link id that is not a UUID is a 404, not a 500", async () => {
+  const { merchantId, headers } = await merchantWithLinks(0);
+  const res = await app.inject({ method: "DELETE", url: `/v1/merchants/${merchantId}/payment-links/not-a-uuid`, headers });
+  assert.equal(res.statusCode, 404, res.body);
+  assert.equal(res.json().error, "payment_link_not_found");
+});
