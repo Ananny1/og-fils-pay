@@ -1,6 +1,7 @@
 import { Clock, Radio } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { dateTime } from "@/format";
 
 /**
  * Renders the `readModelAsOf`/`live` pair every analytics response carries.
@@ -53,15 +54,15 @@ export function StalenessBadge({
       </Badge>
     );
   }
-  const asOf = new Date(readModelAsOf);
+  // Bahrain time, 24-hour, like every other time in the dashboard.
   return (
     <Badge
       variant="outline"
       className={cn("gap-1 border-warning/30 bg-warning/10 text-warning", className)}
-      title={`Read model last updated ${asOf.toLocaleString()}`}
+      title={`Read model last updated ${dateTime(readModelAsOf)}`}
     >
       <Clock />
-      Data as of {asOf.toLocaleTimeString()}
+      Data as of {dateTime(readModelAsOf)}
     </Badge>
   );
 }
