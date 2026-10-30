@@ -34,14 +34,17 @@ test.after(async () => {
   await rm(kycUploadDir, { recursive: true, force: true });
 });
 
-test("a non-UUID merchant id on the public login is a 400, not a 500", async () => {
+// BUG-102: a non-UUID merchant id is now handled like an unknown user (401,
+// counted by the login throttle) instead of a 400 that tells a caller the id
+// is malformed. The point of this test — never a 500, no DB text — stays.
+test("a non-UUID merchant id on the public login is a 401, not a 500", async () => {
   const res = await app.inject({
     method: "POST",
     url: "/v1/auth/login",
     payload: { merchantId: "not-a-uuid", email: "someone@example.test", password: "whatever-password-1" },
   });
-  assert.equal(res.statusCode, 400, res.body);
-  assert.equal(res.json().error, "invalid_input");
+  assert.equal(res.statusCode, 401, res.body);
+  assert.equal(res.json().error, "invalid_credentials");
   assert.doesNotMatch(res.body, /uuid|syntax|SELECT/i, "no database text leaks to the client");
 });
 

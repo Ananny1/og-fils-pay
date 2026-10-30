@@ -60,3 +60,6 @@ Before the fix:
 ✔ BUG-102: a well-formed but unknown merchantId still gets the generic 401
 ```
 After the fix (with `auth.new.test.ts` and `auth.throttle.test.ts`): `ℹ pass 28  ℹ fail 0`.
+
+## Note on an existing test
+`apps/api/src/plugins/errorHandler.test.ts` (from SEC-RT-6) expected `400 invalid_input` for a non-UUID merchant id at login. It now expects `401 invalid_credentials`: the same answer as an unknown user, so the response does not reveal that the id is malformed, and the attempt counts toward the login throttle. Its real point (never a 500, no database text in the body) is unchanged.
