@@ -78,6 +78,20 @@ export interface Config {
    *  has no other reason to know where apps/web is hosted, and no route
    *  redirects there. Default matches Vite's own default dev port. */
   checkoutBaseUrl: string;
+
+  /** Dashboard assistant (routes/assistant.ts). An empty key disables it
+   *  (the route answers 503 assistant_not_configured). */
+  anthropicApiKey: string;
+  assistantModel: string;
+  /** Hard cap on Claude's output per reply. */
+  assistantMaxTokens: number;
+  assistantEffort: "low" | "medium" | "high";
+  /** Max data lookups Claude may chain for one question. */
+  assistantMaxToolRounds: number;
+  /** How many past chat turns are sent back to Claude. */
+  assistantMaxHistory: number;
+  /** Longest user message accepted, in characters. */
+  assistantMaxMessageChars: number;
   /** How long a payment link stays 'reserved' (claimed by an in-flight pay
    *  attempt) before it self-expires back to claimable, closing the gap
    *  between claim and finalize without a sweep job. */
@@ -125,6 +139,10 @@ function parseNodeEnv(value: string | undefined): Config["nodeEnv"] {
     return value;
   }
   return "development";
+}
+
+function parseAssistantEffort(value: string | undefined): "low" | "medium" | "high" {
+  return value === "medium" || value === "high" ? value : "low";
 }
 
 function parseIntEnv(value: string | undefined, fallback: number): number {
@@ -244,6 +262,16 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     settlementInternalRequestTimeoutMs: parseIntEnv(env.SETTLEMENT_INTERNAL_REQUEST_TIMEOUT_MS, 30_000),
 
     checkoutBaseUrl: env.CHECKOUT_BASE_URL ?? "http://localhost:5173",
+
+    // Keys pasted from chat/PDFs often carry invisible characters (U+2028,
+    // zero-width spaces) that cannot go in an HTTP header; keep printable ASCII.
+    anthropicApiKey: (env.ANTHROPIC_API_KEY ?? "").replace(/[^\x21-\x7e]/g, ""),
+    assistantModel: env.ASSISTANT_MODEL || "claude-opus-5-5",
+    assistantMaxTokens: parseIntEnv(env.ASSISTANT_MAX_TOKENS, 1024),
+    assistantEffort: parseAssistantEffort(env.ASSISTANT_EFFORT),
+    assistantMaxToolRounds: parseIntEnv(env.ASSISTANT_MAX_TOOL_ROUNDS, 3),
+    assistantMaxHistory: parseIntEnv(env.ASSISTANT_MAX_HISTORY, 12),
+    assistantMaxMessageChars: parseIntEnv(env.ASSISTANT_MAX_MESSAGE_CHARS, 2000),
     paymentLinkReservationTimeoutSeconds: parseIntEnv(env.PAYMENT_LINK_RESERVATION_TIMEOUT_SECONDS, 60),
 
     webhookSecretEncryptionKey: parseWebhookSecretEncryptionKey(

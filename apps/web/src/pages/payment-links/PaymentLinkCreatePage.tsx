@@ -1,8 +1,20 @@
+import { ArrowLeft } from "lucide-react";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 import { createPaymentLink } from "../../api/paymentLinks.js";
 import { describeError } from "../../api/client.js";
 import { useDashboardAuth } from "../../auth/DashboardAuthContext.js";
+import FadeContent from "@/components/ui/FadeContent";
+import { ErrorAlert } from "@/components/dashboard/error-alert";
+import { Money } from "@/components/dashboard/money";
+import { PageHeader } from "@/components/dashboard/page-header";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { Spinner } from "@/components/ui/spinner";
+import { Textarea } from "@/components/ui/textarea";
 import { localDateTimeToIso } from "../../format.js";
 
 /**
@@ -13,7 +25,8 @@ import { localDateTimeToIso } from "../../format.js";
  * the checkout page works in. No decimal-BHD input widget: a second
  * string-to-fils parser in the browser is exactly the kind of place a money
  * bug hides, and `parseBhdToFils` exists in @filspay/money for whenever a
- * phase genuinely wants that UI.
+ * phase genuinely wants that UI. The BHD preview under the field is display
+ * only and goes through the same `formatBhd` path as every other amount.
  *
  * The two client-side checks below mirror the server's own two real checks so
  * an obviously-bad value doesn't need a round trip. They are not the
@@ -30,6 +43,10 @@ export function PaymentLinkCreatePage() {
   const [expiresAt, setExpiresAt] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Preview only: the submit path below re-derives and re-checks the number.
+  const previewAmount = Number(amountFils);
+  const previewValid = amountFils !== "" && Number.isInteger(previewAmount) && previewAmount > 0;
 
   // YA: amount typed as raw fils, no BD conversion. intentional for now
   async function handleSubmit(event: React.FormEvent): Promise<void> {
@@ -60,6 +77,7 @@ export function PaymentLinkCreatePage() {
         description: description.trim() || undefined,
         expiresAt: expiresAtIso,
       });
+      toast.success("Payment link created");
       navigate(`/dashboard/payment-links/${link.id}`, { replace: true });
     } catch (err) {
       setError(describeError(err));
@@ -69,49 +87,105 @@ export function PaymentLinkCreatePage() {
   }
 
   return (
-    <section>
-      <h1>New payment link</h1>
+    <>
+      <PageHeader
+        title="New payment link"
+        description="One link, one amount, one customer. It stops working once it's paid."
+        actions={
+          <Button variant="ghost" render={<Link to="/dashboard/payment-links" />}>
+            <ArrowLeft data-icon="inline-start" />
+            Back to payment links
+          </Button>
+        }
+      />
 
-      {error ? <p className="dash-error">{error}</p> : null}
+      <FadeContent trigger="mount" duration={0.5}>
+        <Card className="max-w-xl">
+          <form onSubmit={(e) => void handleSubmit(e)}>
+            <CardHeader>
+              <CardTitle>Link details</CardTitle>
+              <CardDescription>
+                The customer sees the amount and description on the checkout page.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="pt-6">
+              <FieldGroup>
+                <ErrorAlert message={error} title="Could not create the link" />
 
-      <form className="dash-form" onSubmit={(e) => void handleSubmit(e)}>
-        <label>
-          Amount in fils
-          <input
-            type="number"
-            min={1}
-            step={1}
-            required
-            value={amountFils}
-            onChange={(e) => setAmountFils(e.target.value)}
-          />
-        </label>
-        <p className="dash-muted dash-hint">1000 fils = 1.000 BHD.</p>
-        <label>
-          Reference (optional)
-          <input type="text" value={reference} onChange={(e) => setReference(e.target.value)} />
-        </label>
-        <label>
-          Description (optional)
-          <input type="text" value={description} onChange={(e) => setDescription(e.target.value)} />
-        </label>
-        <label>
-          Expires at
-          <input
-            type="datetime-local"
-            required
-            value={expiresAt}
-            onChange={(e) => setExpiresAt(e.target.value)}
-          />
-        </label>
-        <button type="submit" className="dash-button" disabled={submitting}>
-          {submitting ? "Creating..." : "Create payment link"}
-        </button>
-      </form>
+                <Field>
+                  <FieldLabel htmlFor="pl-amount">Amount in fils</FieldLabel>
+                  <Input
+                    id="pl-amount"
+                    type="number"
+                    inputMode="numeric"
+                    min={1}
+                    step={1}
+                    required
+                    placeholder="e.g. 4750"
+                    className="font-mono"
+                    value={amountFils}
+                    onChange={(e) => setAmountFils(e.target.value)}
+                  />
+                  <FieldDescription>
+                    1000 fils = 1.000 BHD.{" "}
+                    {previewValid ? (
+                      <>
+                        This link will charge <Money fils={previewAmount} className="text-foreground" />.
+                      </>
+                    ) : null}
+                  </FieldDescription>
+                </Field>
 
-      <p>
-        <Link to="/dashboard/payment-links">Back to payment links</Link>
-      </p>
-    </section>
+                <Field>
+                  <FieldLabel htmlFor="pl-reference">Reference</FieldLabel>
+                  <Input
+                    id="pl-reference"
+                    type="text"
+                    placeholder="INV-1042"
+                    className="font-mono"
+                    value={reference}
+                    onChange={(e) => setReference(e.target.value)}
+                  />
+                  <FieldDescription>Optional. Your own identifier, shown in the list.</FieldDescription>
+                </Field>
+
+                <Field>
+                  <FieldLabel htmlFor="pl-description">Description</FieldLabel>
+                  <Textarea
+                    id="pl-description"
+                    rows={3}
+                    placeholder="What the customer is paying for"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                  />
+                  <FieldDescription>Optional. Shown to the customer at checkout.</FieldDescription>
+                </Field>
+
+                <Field>
+                  <FieldLabel htmlFor="pl-expires">Expires at</FieldLabel>
+                  <Input
+                    id="pl-expires"
+                    type="datetime-local"
+                    required
+                    value={expiresAt}
+                    onChange={(e) => setExpiresAt(e.target.value)}
+                  />
+                  <FieldDescription>Local time. The link stops accepting payment after this.</FieldDescription>
+                </Field>
+              </FieldGroup>
+            </CardContent>
+            <CardFooter className="justify-end gap-2 pt-6">
+              <Button type="button" variant="outline" render={<Link to="/dashboard/payment-links" />}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={submitting}>
+                {submitting ? <Spinner data-icon="inline-start" /> : null}
+                {submitting ? "Creating…" : "Create payment link"}
+              </Button>
+            </CardFooter>
+          </form>
+        </Card>
+      </FadeContent>
+    </>
   );
 }

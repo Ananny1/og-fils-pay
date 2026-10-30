@@ -1,13 +1,14 @@
 # Local development stack for FilsPay. Brings up Postgres plus the three
 # services that talk to it directly (apps/api, apps/settlement,
 # apps/reporting) and runs the migration/seed jobs once against a fresh
-# database. apps/web and apps/admin are not included here — neither one
-# opens its own database connection; they call apps/api over HTTP.
+# database, plus the two Vite dashboards (web, admin), which call apps/api
+# over HTTP through a dev proxy.
 #
 #
 # The hosted demo box runs this same file. Service settings that aren't
-# listed under each service's `environment:` come from ops/.env.docker,
-# which compose picks up automatically. — AM, July
+# listed under each service's `environment:` come from ops/.env.docker
+# (copy ops/.env.docker.example). Compose does NOT pick that file up on its
+# own for containers; each service lists it under `env_file:`.
 #
 # — M?: Dockerfile.node / Dockerfile.go live next to this file. if they're
 # missing for you, pull main again.
@@ -21,8 +22,9 @@ services:
       POSTGRES_USER: filspay
       POSTGRES_PASSWORD: filspay_dev_password
       POSTGRES_DB: filspay
+    # Bound to localhost only; 5433 avoids clashing with a host Postgres.
     ports:
-      - "5432:5432"
+      - "127.0.0.1:${FILSPAY_PG_PORT:-5433}:5432"
     volumes:
       - filspay_pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -41,6 +43,9 @@ services:
       context: ..
       dockerfile: ops/Dockerfile.node
     command: ["npm", "run", "migrate"]
+    env_file:
+      - path: .env.docker
+        required: false
     environment:
       # Postgres and every app service here share the same Docker Compose
       # bridge network and never talk to the database over a link that
@@ -60,6 +65,9 @@ services:
       context: ..
       dockerfile: ops/Dockerfile.node
     command: ["npm", "run", "seed"]
+    env_file:
+      - path: .env.docker
+        required: false
     environment:
       DATABASE_URL: postgres://filspay:filspay_dev_password@postgres:5432/filspay?sslmode=disable
     depends_on:
@@ -75,6 +83,9 @@ services:
     command: ["npx", "tsx", "apps/api/src/index.ts"]
     ports:
       - "3000:3000"
+    env_file:
+      - path: .env.docker
+        required: false
     environment:
       # One application role (filspay) owns the whole database in this
       # environment. Every service here, and the one-off migrate/seed jobs
@@ -96,6 +107,9 @@ services:
     # set, so nothing extra is needed here for local runs.
     # FH: it exits at boot without the token for me. set it.
     command: ["./settlement", "daemon"]
+    env_file:
+      - path: .env.docker
+        required: false
     environment:
       DATABASE_URL: postgres://filspay:filspay_dev_password@postgres:5432/filspay?sslmode=disable
       # Batch close and scheme export get their own pool so a long close
@@ -113,11 +127,53 @@ services:
       dockerfile: ops/Dockerfile.node
     # No subcommand = `worker`. (MK)
     command: ["npx", "tsx", "apps/reporting/src/index.ts"]
+    env_file:
+      - path: .env.docker
+        required: false
     environment:
       DATABASE_URL: postgres://filspay:filspay_dev_password@postgres:5432/filspay?sslmode=disable
     depends_on:
       postgres:
         condition: service_healthy
+
+  # Shop dashboard + checkout (apps/web) and staff console (apps/admin):
+  # Vite dev servers with live reload. Source is mounted, so edits show at
+  # once without a rebuild. API calls go through Vite's /v1 proxy to the api
+  # service (same origin in the browser; the API has no CORS).
+  web:
+    build:
+      context: ..
+      dockerfile: ops/Dockerfile.node
+    working_dir: /app/apps/web
+    command: ["npx", "vite", "--host", "0.0.0.0"]
+    ports:
+      - "127.0.0.1:5173:5173"
+    environment:
+      VITE_API_BASE_URL: ""
+      VITE_PROXY_TARGET: http://api:3000
+    volumes:
+      - ../apps/web:/app/apps/web
+      - ../packages:/app/packages
+    depends_on:
+      - api
+
+  admin:
+    build:
+      context: ..
+      dockerfile: ops/Dockerfile.node
+    working_dir: /app/apps/admin
+    command: ["npx", "vite", "--host", "0.0.0.0"]
+    ports:
+      - "127.0.0.1:5174:5174"
+    environment:
+      VITE_ADMIN_API_BASE_URL: ""
+      VITE_WEB_BASE_URL: http://localhost:5173
+      VITE_PROXY_TARGET: http://api:3000
+    volumes:
+      - ../apps/admin:/app/apps/admin
+      - ../packages:/app/packages
+    depends_on:
+      - api
 
 volumes:
   filspay_pgdata:

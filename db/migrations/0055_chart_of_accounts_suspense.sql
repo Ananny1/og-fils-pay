@@ -1,0 +1,11 @@
+-- Intentionally a no-op (DEP-002).
+--
+-- This was an abandoned PR (docs/HANDOVER.md: "0039, 0041, 0054–56 are PRs I
+-- abandoned"). It inserted into chart_of_accounts(code, name, account_type,
+-- description) with account_type 'suspense', but 0007 defines the table as
+-- (id, name, kind) with kind IN ('asset', 'liability', 'revenue'), so a fresh
+-- database failed here. Neither account (fx_rounding_difference,
+-- chargeback_suspense) is referenced anywhere; scheme rounding already posts
+-- to scheme_rounding_residue (0007, ADR-0002). The file is kept so the
+-- migration number stays taken.
+SELECT 1;

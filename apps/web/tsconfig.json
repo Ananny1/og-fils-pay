@@ -4,8 +4,10 @@
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "jsx": "react-jsx",
     "types": ["vite/client", "node"],
+    "baseUrl": ".",
     "paths": {
-      "@filspay/money": ["../../packages/money/src/index.ts"]
+      "@filspay/money": ["../../packages/money/src/index.ts"],
+      "@/*": ["./src/*"]
     }
   },
   "include": ["src"]

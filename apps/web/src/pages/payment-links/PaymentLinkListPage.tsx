@@ -1,11 +1,23 @@
+import { Link as LinkIcon, Plus } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { listPaymentLinks } from "../../api/paymentLinks.js";
 import { describeError } from "../../api/client.js";
 import { useDashboardAuth } from "../../auth/DashboardAuthContext.js";
 import { RequireRole } from "../../auth/RequireRole.js";
-import { Pagination } from "../../components/Pagination.js";
-import { bhd, dash, dateTime } from "../../format.js";
+import FadeContent from "@/components/ui/FadeContent";
+import { EmptyState } from "@/components/dashboard/empty-state";
+import { ErrorAlert } from "@/components/dashboard/error-alert";
+import { FilterChips } from "@/components/dashboard/filter-chips";
+import { Pager, useCursorPages } from "@/components/dashboard/pager";
+import { Money } from "@/components/dashboard/money";
+import { PageHeader } from "@/components/dashboard/page-header";
+import { SectionCard } from "@/components/dashboard/section-card";
+import { StatusBadge } from "@/components/dashboard/status-badge";
+import { TableSkeleton } from "@/components/dashboard/table-skeleton";
+import { Button } from "@/components/ui/button";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { dash, dateTime } from "../../format.js";
 import type { PaymentLinkDto, PaymentLinkStatus } from "../../types.js";
 
 /** The four *stored* statuses, including `reserved` — the merchant-facing
@@ -14,7 +26,8 @@ import type { PaymentLinkDto, PaymentLinkStatus } from "../../types.js";
  *  mid-payment-attempt. */
 const STATUSES: PaymentLinkStatus[] = ["active", "reserved", "paid", "canceled"];
 
-const PAGE_SIZE = 25;
+
+const COLUMNS = 7;
 
 /**
  * Keyset paginated, newest first.
@@ -31,20 +44,22 @@ export function PaymentLinkListPage() {
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(
-    async (cursor: string | null) => {
-      if (!merchantId) return;
+    async (cursor: string | null, limit: number = 15): Promise<string | null> => {
+      if (!merchantId) return null;
       setLoading(true);
       setError(null);
       try {
         const result = await listPaymentLinks(merchantId, {
           status: statuses.length > 0 ? statuses : undefined,
-          limit: PAGE_SIZE,
+          limit,
           cursor: cursor ?? undefined,
         });
-        setLinks((previous) => (cursor ? [...previous, ...result.paymentLinks] : result.paymentLinks));
+        setLinks(result.paymentLinks);
         setNextCursor(result.nextCursor);
+        return result.nextCursor;
       } catch (err) {
         setError(describeError(err));
+        return null;
       } finally {
         setLoading(false);
       }
@@ -52,9 +67,7 @@ export function PaymentLinkListPage() {
     [merchantId, statuses],
   );
 
-  useEffect(() => {
-    void load(null);
-  }, [load]);
+  const pager = useCursorPages(load);
 
   function toggleStatus(status: PaymentLinkStatus): void {
     setStatuses((previous) =>
@@ -62,73 +75,115 @@ export function PaymentLinkListPage() {
     );
   }
 
+  const newLinkButton = (
+    <RequireRole allow={["owner", "finance"]}>
+      <Button render={<Link to="/dashboard/payment-links/new" />}>
+        <Plus data-icon="inline-start" />
+        New payment link
+      </Button>
+    </RequireRole>
+  );
+
+  const initialLoading = loading && links.length === 0;
+  const isEmpty = !loading && !error && links.length === 0;
+
   return (
-    <section>
-      <h1>Payment links</h1>
+    <>
+      <PageHeader
+        title="Payment links"
+        description="Links you've sent to customers, and whether they've paid."
+        actions={newLinkButton}
+      />
 
-      <RequireRole allow={["owner", "finance"]}>
-        <p>
-          <Link className="dash-button-link" to="/dashboard/payment-links/new">
-            New payment link
-          </Link>
-        </p>
-      </RequireRole>
+      <FilterChips
+        options={STATUSES}
+        selected={statuses}
+        onToggle={toggleStatus}
+        onClear={() => setStatuses([])}
+      />
 
-      <fieldset className="dash-filters">
-        <legend>Status</legend>
-        {STATUSES.map((status) => (
-          <label key={status}>
-            <input
-              type="checkbox"
-              checked={statuses.includes(status)}
-              onChange={() => toggleStatus(status)}
-            />
-            {status}
-          </label>
-        ))}
-      </fieldset>
+      <ErrorAlert message={error} />
 
-      {error ? <p className="dash-error">{error}</p> : null}
-
-      <table className="dash-table">
-        <thead>
-          <tr>
-            <th>Reference</th>
-            <th>Description</th>
-            <th>Amount</th>
-            <th>Status</th>
-            <th>Expires</th>
-            <th>Paid</th>
-            <th>Canceled</th>
-          </tr>
-        </thead>
-        <tbody>
-          {links.map((link) => (
-            <tr key={link.id}>
-              <td>
-                <Link to={`/dashboard/payment-links/${link.id}`}>{dash(link.reference)}</Link>
-              </td>
-              <td>{dash(link.description)}</td>
-              <td>{bhd(link.amountFils)}</td>
-              <td>
-                <span className={`dash-status dash-status-${link.status}`}>{link.status}</span>
-              </td>
-              <td>{dateTime(link.expiresAt)}</td>
-              <td>{dateTime(link.paidAt)}</td>
-              <td>{dateTime(link.canceledAt)}</td>
-            </tr>
-          ))}
-          {links.length === 0 && !loading ? (
-            <tr>
-              <td colSpan={7}>No payment links match these filters.</td>
-            </tr>
-          ) : null}
-        </tbody>
-      </table>
-
-      {loading ? <p>Loading...</p> : null}
-
-      <Pagination nextCursor={nextCursor} loading={loading} onLoadMore={() => void load(nextCursor)} />
-    </section>
+      <FadeContent trigger="mount" duration={0.5} className="flex flex-col gap-4">
+        {isEmpty ? (
+          <EmptyState
+            icon={LinkIcon}
+            title={statuses.length > 0 ? "No payment links match these filters" : "No payment links yet"}
+            description={
+              statuses.length > 0
+                ? "Try clearing the status filter."
+                : "Create a link, share it with a customer, and the payment shows up here."
+            }
+            action={
+              statuses.length > 0 ? (
+                <Button variant="outline" onClick={() => setStatuses([])}>
+                  Clear filters
+                </Button>
+              ) : (
+                <RequireRole allow={["owner", "finance"]}>
+                  <Button render={<Link to="/dashboard/payment-links/new" />}>
+                    <Plus data-icon="inline-start" />
+                    Create your first link
+                  </Button>
+                </RequireRole>
+              )
+            }
+          />
+        ) : (
+          <SectionCard flush>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Reference</TableHead>
+                  <TableHead>Description</TableHead>
+                  <TableHead className="text-right">Amount</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Expires</TableHead>
+                  <TableHead>Paid</TableHead>
+                  <TableHead>Canceled</TableHead>
+                </TableRow>
+              </TableHeader>
+              {initialLoading ? (
+                <TableSkeleton rows={8} cols={COLUMNS} />
+              ) : (
+                <TableBody>
+                  {links.map((link) => (
+                    <TableRow key={link.id}>
+                      <TableCell className="font-medium">
+                        <Link
+                          to={`/dashboard/payment-links/${link.id}`}
+                          className="font-mono text-foreground underline-offset-4 transition-colors hover:text-primary hover:underline"
+                        >
+                          {dash(link.reference)}
+                        </Link>
+                      </TableCell>
+                      <TableCell className="max-w-[18rem] truncate text-muted-foreground">
+                        {dash(link.description)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Money fils={link.amountFils} currency={link.currency} />
+                      </TableCell>
+                      <TableCell>
+                        <StatusBadge status={link.status} />
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap text-muted-foreground">
+                        {dateTime(link.expiresAt)}
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap text-muted-foreground">
+                        {dateTime(link.paidAt)}
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap text-muted-foreground">
+                        {dateTime(link.canceledAt)}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              )}
+            </Table>
+            <Pager pager={pager} loading={loading} rowCount={links.length} noun="payment links" className="bg-muted/30" />
+          </SectionCard>
+        )}
+      </FadeContent>
+    </>
   );
 }

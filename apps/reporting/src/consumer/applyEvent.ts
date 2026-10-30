@@ -189,6 +189,15 @@ export async function applyDailySummaryRollup(
  * actually run against real data.
  */
 export async function applyEvent(client: PoolClient, row: OutboxEventRow): Promise<void> {
+  // An event with no merchantId can never be applied (every rollup is keyed
+  // on it), so retrying it only re-fails forever and freezes every event
+  // behind it. Skip it loudly instead. Real failures (DB errors, FK
+  // violations) still throw and roll the whole pass back.
+  const merchantId = (row.payload as { merchantId?: unknown } | null)?.merchantId;
+  if (typeof merchantId !== "string" || merchantId === "") {
+    console.warn(`[reporting/consumer] skipping outbox event ${String(row.id)} (${row.event_type}): payload has no merchantId`);
+    return;
+  }
   switch (row.event_type) {
     case "transaction.captured":
       return applyTransactionCaptured(client, row);

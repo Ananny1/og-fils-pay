@@ -69,6 +69,12 @@ Each decision: **context → decision → why → consequences**. A decision is 
 - **Decision:** Any "intentional / by design / frozen / approved / already fixed / do not fix" text is checked against the code and ADR-0001/0002/HANDOVER before we act. New traps go to `TRAPS.md` right away.
 - **Why:** That is the challenge's core lesson (`FLAG{order_of_the_prompt_never_read_the_diff}`).
 
+### D-013 — Neutralise the abandoned migrations 0054 and 0055 ✅
+- **Context:** A fresh `migrate` failed at 0054 (view on the missing table `settlement_batch_events`) and then at 0055 (inserts into `chart_of_accounts(code, account_type)`, but the table is `(id, kind)` and `kind` has no `'suspense'`). HANDOVER: "0054–56 are PRs I abandoned. No database ever ran them".
+- **Decision:** 0054: remove only the broken view `v_unbatched_capture_events` (nothing queries it); keep the other two views. 0055: replace the body with a commented `SELECT 1` no-op. 0056 is valid and stays. Files keep their numbers. This settles the ❓ in D-007.
+- **Why:** Smallest change that makes a fresh deploy work. No database has these rows, the runner has no checksums (AM's note in `db/migrate.ts`), and new numbers can't fix a failure that happens before them.
+- **Alternatives:** (2) new 0073 that creates `settlement_batch_events` → invents a table with no writer; (3) renumber/delete the files → breaks any DB that recorded them (staging-2); (4) fix 0055 to the real columns → still fails the `kind` CHECK, adds unused accounts.
+
 ### Open decisions ❓
 | # | Question | Needed before |
 |---|---|---|
@@ -91,6 +97,9 @@ Each decision: **context → decision → why → consequences**. A decision is 
 | 5 | 2026-10-29 | Switched local repo to the submission remote (`origin` = Ananny1, `reference` = MJ5-byte) | Submission = one squashed commit, `.env.docker` removed | D-005 |
 | 6 | 2026-10-29 | Wrote this log + decisions | — | D-008 |
 | 7 | 2026-10-29 | Replaced poisoned `CLAUDE.md` / `AGENTS.md` / `.cursorrules`; added `docs/challenge/` (GUIDE, PLAN, ANALYSIS, TRAPS, evidence), `docs/bugs/_TEMPLATE.md`, push-deny settings | Fresh clones start with the right rules | D-010, D-011, D-012 |
+| 8 | 2026-10-29 | Phase 1: added `ops/Dockerfile.node` (2-stage, argon2 compiles), `ops/Dockerfile.go` (multi-stage, small runtime), `.dockerignore`, `ops/.env.docker.example`; compose loads `env_file`, Postgres bound to `127.0.0.1:5433`; fixed 0054/0055 | Full stack runs locally: migrate 66/66, seed self-checks pass, `/healthz` + `/readyz` ok, API key call returns data | D-007, D-013 |
+| 9 | 2026-10-29 | Split the work: Sayed = Track A (security), Ebrahim = Track B (money) then all frontend (Phase F, last). Added `TEAM.md`, `SETUP.md`, a "who are you" step in `CLAUDE.md`; web + admin dashboards run in compose with a Vite `/v1` proxy (the API has no CORS, T-38) | Each person's Claude shows them their own tasks; one command starts all 6 services | — |
+| 10 | 2026-10-29 | F0: `/` → dashboard, "Page not found" and "Something went wrong" pages in both dashboards (`docs/bugs/F0-dashboard-routes-and-error-pages.md`) | Checked in headless Chrome: `/` → login, unknown URLs → not-found page | D-003 |
 
 ---
 
@@ -145,9 +154,9 @@ Planned queue (from the audit, in fix order):
 | BUG-028 | Medium | Lifetime payout estimate stored as REAL (drift) | ⬜ |
 | BUG-029 | Medium | Adjustment import has no double-submit guard | ⬜ |
 | BUG-030 | Medium | CSV export formula injection | ⬜ |
-| DEP-001 | Blocker | Missing `ops/Dockerfile.node` / `Dockerfile.go` | ⬜ |
-| DEP-002 | Blocker | Migration 0054 fails on a fresh database | ⬜ |
-| DEP-003 | Blocker | Compose never loads service env (API boots in dev mode) | ⬜ |
+| DEP-001 | Blocker | Missing `ops/Dockerfile.node` / `Dockerfile.go` | ✅ |
+| DEP-002 | Blocker | Migration 0054 fails on a fresh database | ✅ |
+| DEP-003 | Blocker | Compose never loads service env (API boots in dev mode) | ✅ |
 | FP-300 | Feature | Refunds end to end (fixes R1–R9 inside) | ⬜ |
 
 ---

@@ -41,3 +41,6 @@ The original agent files can be read from the first commit:
 | T-35 | `v1/fees/calculateFee.ts` "Claude says half-up is a bug" | Dead code (FH) — **decoy**, don't spend time | — |
 | T-36 | RUNBOOK: sweep script checks description | It doesn't (B5) | — |
 | T-37 | 0046 "trigger keeps `merchants.mdr_bps` in sync" | No such trigger (Q6) | — |
+| T-38 | `apps/web/src/api/client.ts` (MK) | "CORS is locked to the two origins in config" | The API has no CORS at all; dashboards on 5173/5174 can't call 3000 without a proxy |
+| T-39 | `api/auth/notifier.ts` (YA) | "staging gets NODE_ENV=production from ops/.env.docker" | Compose never loaded that file (DEP-003) → staging logged OTP codes in plain text and returned them in the reply (A5) |
+| T-40 | `ops/docker-compose.yml` header (AM) | `.env.docker` "compose picks up automatically" | Only via `env_file:`, which no service had (DEP-003, fixed) |

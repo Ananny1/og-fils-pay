@@ -1,0 +1,279 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "../../../packages/theme/case-file.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --font-heading: "Oswald", "Arial Narrow", sans-serif;
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-note: "Caveat", cursive;
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-info: var(--info);
+  --color-navy: var(--navy);
+  --shadow-soft: var(--shadow-soft);
+  --shadow-card: var(--shadow-card);
+  --shadow-elegant: var(--shadow-elegant);
+  --shadow-hover: var(--shadow-hover);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+/* "Confidential case file" theme. Raw palette and fonts come from
+   packages/theme/case-file.css; this maps them onto the shadcn tokens.
+   Square corners (--radius: 0) and no shadows, by design. */
+:root {
+  color-scheme: light;
+  --background: var(--bg-paper);
+  --foreground: var(--text);
+  --card: var(--bg-sheet);
+  --card-foreground: var(--text);
+  --card-border: #2b2b2b;
+  --popover: var(--bg-sheet);
+  --popover-foreground: var(--text);
+  --primary: var(--case-red);
+  --primary-foreground: var(--on-dark);
+  --secondary: #ebe7dd;
+  --secondary-foreground: var(--text);
+  --muted: #ebe7dd;
+  --muted-foreground: var(--text-muted);
+  --accent: #ebe6da;
+  --accent-foreground: var(--text);
+  --destructive: #c8102e;
+  --success: #2f6b3a;
+  --warning: #8a5a00;
+  --info: #2b4a7a;
+  --border: var(--line);
+  --input: #b9b3a6;
+  --ring: #c8102e;
+  --navy: #2b2b2b;
+  --chart-1: #c8102e;
+  --chart-2: #2b2b2b;
+  --chart-3: #6b6b6b;
+  --chart-4: #2f6b3a;
+  --chart-5: #8a5a00;
+  --radius: 0rem;
+  --sidebar: #ece8df;
+  --sidebar-foreground: var(--text);
+  --sidebar-primary: #c8102e;
+  --sidebar-primary-foreground: var(--on-dark);
+  --sidebar-accent: #e2ddd1;
+  --sidebar-accent-foreground: #c8102e;
+  --sidebar-border: var(--line);
+  --sidebar-ring: #c8102e;
+  --shadow-soft: none;
+  --shadow-card: none;
+  --shadow-elegant: none;
+  --shadow-hover: none;
+}
+
+/* Night file: same system on the header charcoal. Also used on the top bar
+   itself (class="dark" on the header) so its contents read on dark. */
+.dark {
+  color-scheme: dark;
+  --background: #161616;
+  --foreground: var(--on-dark);
+  --card: var(--bg-header);
+  --card-foreground: var(--on-dark);
+  --card-border: #4a4a4a;
+  --popover: var(--bg-header);
+  --popover-foreground: var(--on-dark);
+  --primary: #e0263f;
+  --primary-foreground: #ffffff;
+  --secondary: #2a2a2a;
+  --secondary-foreground: var(--on-dark);
+  --muted: #2a2a2a;
+  --muted-foreground: #b5b0a6;
+  --accent: #2c2c2c;
+  --accent-foreground: var(--on-dark);
+  --destructive: #ff4d63;
+  --success: #7fc48b;
+  --warning: #e3b14e;
+  --info: #8fb1e6;
+  --border: #3a3a3a;
+  --input: #4a4a4a;
+  --ring: #e0263f;
+  --navy: var(--on-dark);
+  --chart-1: #e0263f;
+  --chart-2: #b5b0a6;
+  --chart-3: #8a8a8a;
+  --chart-4: #7fc48b;
+  --chart-5: #e3b14e;
+  --sidebar: #1b1b1b;
+  --sidebar-foreground: var(--on-dark);
+  --sidebar-primary: #e0263f;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #2a2a2a;
+  --sidebar-accent-foreground: #ff6b7d;
+  --sidebar-border: #333333;
+  --sidebar-ring: #e0263f;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    @apply font-sans;
+    scroll-behavior: smooth;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "cv11", "ss01", "ss03";
+    text-rendering: optimizeLegibility;
+  }
+  ::selection {
+    @apply bg-primary/25;
+  }
+  /* Quiet scrollbars that match the surface. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in oklch, var(--foreground) 18%, transparent) transparent;
+  }
+  h1, h2 {
+    font-family: var(--font-heading);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: -0.005em;
+  }
+  h3 {
+    font-weight: 600;
+  }
+}
+
+@layer utilities {
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+  /* Soft ambient glow behind the content, tinted with the accent. */
+  .bg-ambient {
+    background-image: none;
+  }
+  .glass {
+    background: color-mix(in oklch, var(--background) 72%, transparent);
+    backdrop-filter: blur(14px) saturate(140%);
+    -webkit-backdrop-filter: blur(14px) saturate(140%);
+  }
+  /* Hairline gradient border via a masked pseudo element. */
+  .card-shine {
+    position: relative;
+  }
+  .card-shine::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(135deg, color-mix(in oklch, var(--primary) 45%, transparent), transparent 40%, transparent 60%, color-mix(in oklch, var(--chart-2) 30%, transparent));
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 300ms ease;
+  }
+  .card-shine:hover::before {
+    opacity: 1;
+  }
+  .brand-glow {
+    box-shadow:
+      0 0 0 1px color-mix(in oklch, var(--primary) 35%, transparent),
+      0 8px 24px -8px color-mix(in oklch, var(--primary) 70%, transparent);
+  }
+  .row-hover {
+    transition: background-color 150ms ease;
+  }
+  .text-gradient {
+    background: linear-gradient(120deg, var(--foreground), color-mix(in oklch, var(--primary) 70%, var(--foreground)));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+}
+
+/* Table polish shared by every data table. */
+[data-slot="table"] thead th {
+  font-family: var(--font-mono);
+  @apply text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground;
+}
+[data-slot="table"] tbody tr {
+  @apply transition-colors;
+}
+[data-slot="table"] tbody tr:hover {
+  background: color-mix(in oklch, var(--primary) 4%, transparent);
+}
+/* Cards: off-white sheet, 1px dark border, square, no shadow. */
+[data-slot="card"] {
+  /* the kit draws its outline as a ring (a box-shadow); replace it with a
+     real 1px border so "no shadows" doesn't also remove the outline */
+  box-shadow: none !important;
+  border: 1px solid var(--card-border);
+}
+
+
+/* Markdown inside assistant answers. */
+.prose-chat > * + * { margin-top: 0.6em; }
+.prose-chat strong { font-weight: 600; }
+.prose-chat ul { list-style: disc; padding-left: 1.2em; }
+.prose-chat ol { list-style: decimal; padding-left: 1.2em; }
+.prose-chat code { font-family: var(--font-mono); font-size: 0.85em; background: var(--muted); padding: 0.1em 0.35em; border-radius: 0.35em; }
+.prose-chat table { width: 100%; border-collapse: collapse; font-size: 0.85em; font-variant-numeric: tabular-nums; }
+.prose-chat th { text-align: left; font-weight: 500; color: var(--muted-foreground); border-bottom: 1px solid var(--border); padding: 0.35em 0.5em; }
+.prose-chat td { border-bottom: 1px solid color-mix(in oklch, var(--border) 60%, transparent); padding: 0.35em 0.5em; }
+.prose-chat h1, .prose-chat h2, .prose-chat h3 { font-weight: 600; font-size: 1em; }
+
+/* Native date pickers: themed icon, no default chrome. */
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.55;
+  transition: opacity 150ms ease;
+}
+input[type="date"]:hover::-webkit-calendar-picker-indicator,
+input[type="datetime-local"]:hover::-webkit-calendar-picker-indicator {
+  opacity: 0.9;
+}
+input[type="date"]:invalid,
+input[type="date"]:not(:focus):placeholder-shown {
+  color: var(--muted-foreground);
+}
