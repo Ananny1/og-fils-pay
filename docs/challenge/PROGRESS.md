@@ -7,7 +7,7 @@ Status of all tasks: `PLAN.md` → Master order. This file is the **detail of wh
 
 | Field | Value |
 |---|---|
-| Task | Tier 2 next: BUG-003 payment link IDOR |
+| Task | **4-hour sprint** (PLAN.md "4-hour sprint"): workflow run `wf_927692e7-c3a`, 10 streams S1–S10 in worktrees, test DBs filspay_s1…s8 |
 | Owner | Ebrahim |
 | Branch | `ebrahim/track-b` |
 | Step | — (0-claimed · 1-understood · 2-planned · 3-test-red · 4-fixed · 5-verified · 6-documented · 7-pushed) |
@@ -17,7 +17,10 @@ Status of all tasks: `PLAN.md` → Master order. This file is the **detail of wh
 
 ### Notes for the current task
 
-—
+**If cut off:** resume the workflow with `Workflow({scriptPath: ~/.claude/projects/-home-ebrahim-Desktop-Cyber-Challenge-repo/612dc33b-9ffb-4dfa-bef5-f8aea6c4a5ae/workflows/scripts/filspay-4h-sprint-wf_927692e7-c3a.js, resumeFromRunId: "wf_927692e7-c3a"})`.
+Each stream commits on its own worktree branch (`git worktree list`). Organiser steps after it returns:
+cherry-pick every stream's commits onto `ebrahim/track-b` (resolve conflicts) → rebuild api → full TS suite + Go tests →
+fix reviewer issues → update IMPLEMENTATION / PLAN / TRAPS / PRESENTATION / FINDINGS-REPORT statuses → AFTER screenshots → push.
 
 ## Done (newest first)
 
