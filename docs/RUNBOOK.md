@@ -92,9 +92,9 @@ usually needs a couple of restarts while Postgres warms up.
 >
 > **— M?** bad deploy, rolled back
 
-If a merchant reports that signatures don't verify, ask them to parse the
-body and re-serialise it with sorted keys before computing the HMAC; some
-HTTP frameworks reorder JSON keys.
+If a merchant reports that signatures don't verify, check they compute
+HMAC-SHA256 over `${t}.${raw request body}` exactly as received (no parse /
+re-serialise). Since BUG-023 the signature is over the exact bytes sent.
 
 > **MK:** if signatures don't verify over the raw body, that's on us. FP-240
 

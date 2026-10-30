@@ -23,6 +23,11 @@ interface TransactionMerchantRow {
  * informational, not a state transition, so this never touches
  * transactions.status or the ledger; a confirmed-fraud outcome still needs
  * a human decision to void/refund, exactly as today.
+ *
+ * Idempotent per callbackId (BUG-006): the acquirer redelivers on timeout
+ * and withCallbackRetry may re-run this, so a repeat is a silent no-op
+ * (uq_acquirer_callback_notes_callback_id, migration 0081) and the route
+ * still answers 200 so the acquirer stops retrying.
  */
 export async function applyAcquirerCallback(pool: Pool, callback: AcquirerCallbackInput): Promise<void> {
   const txnResult = await pool.query<TransactionMerchantRow>(
@@ -37,7 +42,8 @@ export async function applyAcquirerCallback(pool: Pool, callback: AcquirerCallba
   await pool.query(
     `INSERT INTO acquirer_callback_notes
         (transaction_id, merchant_id, callback_id, callback_type, outcome, note, received_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+     VALUES ($1, $2, $3, $4, $5, $6, $7)
+     ON CONFLICT (callback_id) DO NOTHING`,
     [
       callback.transactionId,
       txnRow.merchant_id,
