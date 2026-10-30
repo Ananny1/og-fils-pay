@@ -21,7 +21,8 @@ const DURATION = __ENV.DURATION || "60s";
 
 const paid = new Counter("pay_paid");
 const declined = new Counter("pay_declined"); // correct 402/502 from the simulated acquirer
-const shed = new Counter("pay_shed"); // 503 + Retry-After (load shedding)
+const shed = new Counter("pay_shed"); // 503 + Retry-After (load shedding) or 429 (edge per-IP limit)
+const limited = new Counter("pay_limited_429"); // the part of pay_shed that was a per-IP 429 (HOST-2)
 const wrong = new Counter("pay_wrong"); // anything else: a real error
 const shedNoRetryAfter = new Counter("shed_without_retry_after");
 const checkoutTime = new Trend("checkout_ok_ms", true); // GET link + pay, successful ones only
@@ -76,6 +77,7 @@ function uuid() {
 
 function recordShed(res) {
   shed.add(1);
+  if (res.status === 429) limited.add(1);
   shedTime.add(res.timings.duration);
   if (!res.headers["Retry-After"]) shedNoRetryAfter.add(1);
 }
@@ -86,7 +88,7 @@ export default function () {
   const started = Date.now();
 
   const view = http.get(`${BASE}/v1/payment-links/${token}`, { tags: { step: "view" }, timeout: "30s" });
-  if (view.status === 503) return recordShed(view);
+  if (view.status === 503 || view.status === 429) return recordShed(view);
   if (view.status !== 200) {
     wrong.add(1, { step: "view", status: String(view.status) });
     console.warn(`view ${token} -> ${view.status}`);
@@ -98,7 +100,7 @@ export default function () {
     tags: { step: "pay" },
     timeout: "30s",
   });
-  if (res.status === 503) return recordShed(res);
+  if (res.status === 503 || res.status === 429) return recordShed(res);
   if (res.status === 200) {
     const ok = check(res, { "paid with the link amount": (r) => r.json("status") === "paid" && r.json("amountFils") === 1500 });
     if (ok) {
