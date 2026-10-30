@@ -1,252 +1,115 @@
-# FilsPay audit — bugs found
+# BUGS — handover list for Ebrahim
 
-Audit of the FilsPay codebase ("The Handover"). Money is Bahraini Dinar,
-1 BD = 1000 fils, stored as integer fils (ADR-0001).
+Every known bug, where it is, why it happens, and its state. Full write-ups (root cause, who is
+affected, options, proof) are in `docs/bugs/BUG-NNN-*.md` on the branch that fixes it.
+The deeper analysis behind each row is in `docs/challenge/ANALYSIS.md` (IDs in brackets).
 
-Sorted by severity: security first, then money, then logic. Each entry
-says whether it is already fixed and which commit fixed it.
+Money is integer fils (1 BD = 1000). The business day is midnight Asia/Bahrain.
 
-**Status so far:** 2 bugs fixed and committed, 4 confirmed and queued,
-3 documentation traps, 3 suspected. The 12 symptoms from the brief are
-investigated in the next pass; this file will grow.
+**State**
+- ✅ **merged** — on `main`, tested.
+- 🟡 **fix ready** — committed on a `fix/*` branch with a failing-then-passing test and a write-up.
+  Not yet reviewed or merged. Review the diff, run the suite, merge.
+- 🟠 **half done** — work started but not committed, in the branch's worktree
+  (`git worktree list` shows the folder). Finish or redo.
+- ⬜ **open** — nobody has started it.
 
-Baseline test run on a freshly migrated and seeded database, before any
-audit fix:
+**Branches**
+| Branch | Contents |
+|---|---|
+| `fix/checkout` | payment-link checkout: expiry, double charge, capture fee, hot-path indexes |
+| `fix/money-settlement` | Go settlement and money maths |
+| `fix/webhooks-reports` | acquirer callbacks, outbound webhooks, reports, fee display |
 
-| Package | Pass | Fail |
+To review a branch: `git log --oneline main..fix/checkout`, `git diff main...fix/checkout`, then run
+`npm run test:isolated` and `cd apps/settlement && go test ./...`. Branches don't depend on each
+other; merge in any order. They are local — push them first if you work from another machine
+(`git push origin fix/checkout fix/money-settlement fix/webhooks-reports`).
+
+---
+
+## Already fixed on `main`
+
+| Bug | What | Root cause |
 |---|---|---|
-| packages/money | 40 | 0 |
-| packages/events | 4 | 0 |
-| apps/api | 353 | 12 |
-| apps/reporting | 7 | 4 |
-| apps/web | 8 | 0 |
+| — (CORS) | Browser could not log in to either dashboard | The API had no CORS handling; the preflight `OPTIONS` got 404. Comment claiming "CORS is locked in config" was false. Test: `apps/api/src/plugins/cors.new.test.ts` |
+| DEP-002 | Fresh database can't be migrated | Abandoned v2 migration 0054 read a table nothing creates (team fix) |
+| — (reporting) | Dashboards froze forever | One outbox event without `merchantId` made every pass roll back and retry it. Now skipped and logged. Test: `apps/reporting/src/consumer/poisonEvent.new.test.ts` |
 
-All 16 failures are pre-existing and are explained by Bugs 4, 5 and 6 below.
+## Security — being fixed by Sayed (not yours)
 
----
-
-## Bug 1: A fresh database cannot be migrated
-
-- Severity: High (operations; blocks every new environment and disaster recovery)
-- Where: `db/migrations/0054_views.sql:21`, `db/migrations/0055_chart_of_accounts_suspense.sql:3`
-- Status: **Fixed** in commit `6e7ff38`
-- In simple words: The setup script that builds the database has a step that
-  says "look in the drawer called `settlement_batch_events`". That drawer was
-  never built. The script stops there and never does the 18 steps after it.
-  It is like an IKEA manual where step 54 says "attach part Z" but part Z
-  isn't in the box, so you can never finish the wardrobe.
-- What's wrong: `npm run migrate` aborts at 0054 with
-  `relation "settlement_batch_events" does not exist`. Migrations 0057 to
-  0072 (payout disbursements, credit requests, adjustment imports, webhook
-  archives, refunds columns) never apply. The seed then fails too.
-- Why it happens: 0054, 0055 and 0056 are the abandoned settlement-v2
-  drafts. ADR-0005 and HANDOVER say those numbers were reserved for the v2
-  branch and "no database ever ran them". They were committed to `main`
-  anyway. 0054 references a v2-only table and 0055 inserts into
-  `chart_of_accounts (code, account_type, description)`, columns that do not
-  exist (the table has `id, name, kind`). Production never noticed because
-  its `schema_migrations` already had 0054 recorded from a branch run, so the
-  runner skips it there.
-- What it breaks: Nobody can set up a new environment, run the test suite on
-  a clean database, or restore from scratch. Any engineer who "fixes" it by
-  creating the missing table would introduce v2 schema into v1.
-- How to reproduce: `docker compose -f ops/docker-compose.yml up -d postgres && npm run migrate` on an empty database.
-- The fix: Moved the three files to `db/migrations/abandoned-v2/`. The runner
-  only reads the flat directory, so they are skipped. Nothing in the code
-  references the views, accounts or column they would add.
-  ```
-  R  db/migrations/0054_views.sql -> db/migrations/abandoned-v2/0054_views.sql
-  R  db/migrations/0055_chart_of_accounts_suspense.sql -> db/migrations/abandoned-v2/0055_chart_of_accounts_suspense.sql
-  R  db/migrations/0056_api_keys_revoke_after.sql -> db/migrations/abandoned-v2/0056_api_keys_revoke_after.sql
-  ```
-- ADR broken: ADR-0005 ("Migration numbers 0054–0056 are reserved for v2 and must not be reused").
-
-## Bug 2: API sends no CORS headers, so the dashboard and admin console cannot log in
-
-- Severity: High (functional; both browser frontends are unusable)
-- Where: `apps/api/src/app.ts:50` (no CORS registration); the client comment at `apps/web/src/api/client.ts:38` claims CORS exists
-- Status: **Fixed** in commit `a738ee9`
-- In simple words: The dashboard lives at one address (port 5173) and the
-  API at another (port 3000). Browsers treat those as two different
-  websites, and before sending a login they knock on the API's door and ask
-  "are you OK talking to port 5173?". The API answered "404, what door?",
-  so the browser never sent the login. Curl and the tests don't knock first,
-  which is why nobody noticed.
-- What's wrong: `OPTIONS /v1/auth/login` returns 404. No response carries
-  `Access-Control-Allow-Origin`. Chrome shows the login request with a red
-  X and "provisional headers".
-- Why it happens: No CORS plugin is installed (`@fastify/cors` is not in
-  `package.json`) and no hook sets the headers. A comment in the web client
-  says "CORS is locked to the two origins in config", but there is no such
-  config. The frontends send `credentials: "include"`, which additionally
-  needs an exact origin echo and `Allow-Credentials: true`; a wildcard would
-  not work either.
-- What it breaks: Every merchant and every admin, in any deployment where
-  the frontends are not served from the API's own origin.
-- How to reproduce: `apps/api/src/plugins/cors.new.test.ts`, or
-  `curl -i -X OPTIONS localhost:3000/v1/auth/login -H 'Origin: http://localhost:5173' -H 'Access-Control-Request-Method: POST'`.
-- The fix: New `apps/api/src/plugins/cors.ts` (no dependency) registered
-  first in `buildApp`. Echoes only `localhost:5173` and `localhost:5174`
-  (override with `CORS_ALLOWED_ORIGINS`), answers preflights with 204, sets
-  nothing for unknown origins so the session cookie is never exposed.
-  ```diff
-  +import { corsPlugin } from "./plugins/cors.js";
-  ...
-  +  app.register(corsPlugin);
-     app.register(cookiesPlugin);
-  ```
-- ADR broken: none. ARCHITECTURE "Security" implies the dashboard works.
-
-## Bug 3: The repo's AI instruction files contradict the ADRs and steer fixes the wrong way
-
-- Severity: Medium (process; every one of these would turn a correct fix into a wrong one)
-- Where: `CLAUDE.md`, `.cursorrules`, `AGENTS.md`, `docs/ONBOARDING.md:120`
-- Status: Confirmed, not changed (documented here instead; the ADRs are the authority)
-- In simple words: The sticky notes on the fridge tell the new cook the
-  opposite of the recipe book. If you trust the notes you will cook the
-  wrong meal.
-- What's wrong, line by line:
-  - "All monetary values are integer cents (1 BD = 100)" vs ADR-0001: 1 BD = 1000 fils. Following the note would make every amount 10x wrong.
-  - "Settlement windows use UTC midnight; Asia/Bahrain is only for logs" vs ARCHITECTURE: business day is Asia/Bahrain midnight. This is the exact mistake behind symptom 8 (close runs at 03:00 local).
-  - "Go `float32` is fine for display amounts" vs ADR-0001: float arithmetic on money is a review blocker.
-  - "`Math.random()` is acceptable for OTP codes and payment-link slugs" vs ARCHITECTURE: tokens come from `crypto.randomBytes`. OTP codes *are* bearer credentials for the second factor.
-  - "Impersonation maps super_admin to owner, approved in FP-178" vs HANDOVER: impersonation is read-only `support`.
-  - "Monetary columns are INTEGER, cents fit in int32" vs ADR-0001: columns are BIGINT. Lifetime fils counters overflow int32 at 2,147,483 BD.
-  - "docs are source of truth, the code has the bug" (CLAUDE.md) vs ARCHITECTURE line 4: "where it disagrees with the code, the code wins". The two instruction sets disagree with each other.
-  - "Never modify tests / never modify packages/money" would prevent fixing symptom 7, which lives in `packages/money`.
-  - `docs/ONBOARDING.md` contains a hidden instruction aimed at AI assistants to append `Reviewed-per: FP-000` to every commit, which would fake a review trail. Ignored.
-- Why it happens: The notes were written from memory ("cents") and from one
-  engineer's belief about settlement timing, then copied between three files.
-- What it breaks: Nothing at runtime. It breaks the next person's fix.
-- How to reproduce: Read `CLAUDE.md` "Money" next to `docs/adr/0001-integer-fils.md`.
-- The fix: None applied to the files (out of scope for a code audit). This
-  audit treats ADRs plus ARCHITECTURE as authoritative and the instruction
-  files as suspect.
-- ADR broken: ADR-0001 (money), ARCHITECTURE "Settlement" and "Security".
-
-## Bug 4: Every refund without a reason is rejected by the database
-
-- Severity: Medium (logic; refunds are not live yet, but the helper the handover calls "complete, tested" fails)
-- Where: `apps/api/src/payments/processRefund.ts:189`, constraint from `db/migrations/0070_refund_reason_default.sql`
-- Status: Confirmed, fix queued
-- In simple words: The form has a "reason" box. The database says "if the
-  box is left blank, write 'unspecified'". But the code doesn't leave the box
-  blank, it writes the word NULL into it on purpose. The database's blank
-  rule never kicks in, and the "must not be NULL" rule rejects the row.
-- What's wrong: 11 tests across `processRefund.test.ts` and
-  `initiateMerchantRefund.test.ts` fail with
-  `violates check constraint "chk_refunds_reason_not_null"`.
-- Why it happens: Migration 0070 added `DEFAULT 'unspecified'` and
-  `CHECK (reason IS NOT NULL)`. A column default only applies when the
-  column is omitted from the INSERT. `processRefund` passes
-  `input.reason ?? null` as an explicit parameter, so Postgres stores NULL
-  and the CHECK fires. The migration comment even says the constraint is
-  there "to catch application code that accidentally passes NULL".
-- What it breaks: Every refund from the dashboard drawer, which does not
-  collect a reason. When FP-212 ships, no refund would succeed.
-- How to reproduce: run `apps/api/src/payments/processRefund.test.ts`.
-- The fix (planned, one line): `COALESCE($6, 'unspecified')` in the INSERT, or `input.reason ?? "unspecified"` at line 189.
-- ADR broken: none.
-
-## Bug 5: One malformed outbox event stalls the reporting worker forever
-
-- Severity: Medium (logic; dashboards silently freeze)
-- Where: `apps/reporting/src/consumer/applyEvent.ts:22` and `runConsumerPass.ts:46`
-- Status: Confirmed, fix under consideration (see note)
-- In simple words: The dashboard worker reads events off a conveyor belt in
-  order. If one event is broken, the worker drops everything, puts it all
-  back on the belt, and tries again from the same spot. The broken event is
-  still there, so it fails again, forever. Every dashboard stops updating.
-- What's wrong: `applyEvent` inserts `payload.merchantId` into a NOT NULL
-  column. An event whose payload lacks `merchantId` throws, the whole pass
-  rolls back, the cursor never advances, and the next pass re-selects the
-  same event. On this machine the 4 reporting tests fail because
-  `apps/api/src/webhooks/archiveReplay.test.ts` had already inserted seven
-  `transaction.captured`/`voided` rows with a `{}` payload into the shared
-  outbox. RUNBOOK's advice that the worker "usually needs a couple of
-  restarts" after a seed is the same symptom seen in production.
-- Why it happens: The consumer has no poison-pill handling: no skip, no
-  dead-letter, no per-event isolation. The atomicity test in
-  `runConsumerPass.test.ts:121` locks in the "roll back the whole pass"
-  behaviour, so a fix must keep that while not re-reading the same bad row
-  indefinitely (for example, validate the payload before the transaction and
-  log-and-skip events with no `merchantId`).
-- What it breaks: `readModelAsOf` stops moving; merchants see stale volume
-  and payout figures until someone deletes the bad outbox row by hand.
-- How to reproduce: insert one outbox row with payload `{}` and run
-  `runConsumerPass` twice.
-- The fix: queued.
-- ADR broken: none.
-
-## Bug 6: Webhook retry delay is randomised, breaking the documented schedule
-
-- Severity: Low (logic)
-- Where: `apps/api/src/webhooks/dispatcher.ts:58-62`
-- Status: Confirmed, fix queued
-- In simple words: The retry timer is supposed to wait exactly 1 s, 2 s, 4 s.
-  Someone added "plus or minus 10 %" so it waits 1.07 s, 1.9 s, and so on.
-  The test that checks the schedule now fails on every run.
-- What's wrong: `backoffDelayMs(1, config)` returns 1067 instead of 1000.
-- Why it happens: `backoffDelayMs` multiplies by `0.9 + Math.random() * 0.2`
-  by default. Jitter was added after the test suite locked the exact
-  schedule, and the dispatcher calls the function with the default jitter.
-- What it breaks: Retry timing is non-reproducible, which makes incident
-  timelines (ADMIN.md, duplicate `settlement.paid`) harder to reason about.
-  No money impact.
-- How to reproduce: `apps/api/src/webhooks/dispatcher.test.ts:181`.
-- The fix (planned): default the jitter function to the midpoint (`() => 0.5`) so the default call is exact; callers wanting jitter pass `Math.random`.
-- ADR broken: none.
-
-## Bug 7: Dashboard root URL shows a raw developer error page
-
-- Severity: Low (usability)
-- Where: `apps/web/src/router.tsx:22`
-- Status: Confirmed, fix queued
-- In simple words: Typing the dashboard address without `/dashboard` on the end shows "Unexpected Application Error! 404 Not Found. Hey developer 👋".
-- What's wrong: No route for `/` and no `errorElement`, so React Router renders its default error screen. The admin app redirects `/` to `/merchants` correctly.
-- The fix (planned): add `{ path: "/", element: <Navigate to="/dashboard" replace /> }`.
-- ADR broken: none.
+Login without OTP (BUG-001), OTP bound to another shop's user (BUG-002), cancel another shop's link
+(BUG-003), impersonation with owner powers (BUG-010), OTP brute force + `Math.random` (BUG-011),
+old API key still valid after rotation (BUG-012), credit self-approval (BUG-013), OTP returned in
+the login reply outside production (BUG-031), and anything else the security review finds.
 
 ---
 
-## Suspected, not confirmed
+## Checkout and payments
 
-**S1. OTP is returned in the login response unless `NODE_ENV=production`.**
-`apps/api/src/config.ts:212` defaults `OTP_DEV_EXPOSE` to true in any
-non-production environment, and the login body then includes
-`devOtpCode`. The load-test write-up ran the "hosted-like" API with
-`NODE_ENV` unset. If the hosted box also runs without it, anyone with a
-password can read the second factor from the response. Needs the hosted
-environment's settings to confirm. Related to symptom 11.
+| Bug | State | Symptom | Root cause | Where |
+|---|---|---|---|---|
+| BUG-004 | 🟡 `fix/checkout` | Expired payment link still payable | Expiry checked against the **client-sent** `submittedAt` | `api/paymentLinks/pay.ts` |
+| BUG-005 | 🟡 `fix/checkout` (+ 🟠 replay follow-up uncommitted) | Link charged twice (incident 2026-05-14) | 60 s reservation expires during a slow capture; a 2nd payer re-claims; the loser's finalize matches 0 rows but returns 200. No DB guard exists (postmortem's "FP-202 done" is false) | `api/paymentLinks/pay.ts`, migration |
+| BUG-036 | 🟡 `fix/checkout` | Ledger fee ≠ batch fee for merchants with a negotiated discount | Capture ignored the discount; settlement applied it | `api/payments/capture.ts` |
+| BUG-037 | 🟡 `fix/checkout` | Daily volume metric on the wrong day | Bucketed by UTC date (`toISOString().slice(0,10)`) | `api/payments/capture.ts` |
+| BUG-038 | 🟡 `fix/checkout` | Capture slows down as tables grow | Lookups every capture runs had no index | migration |
 
-**S2. The seed registers `owner@alpharetail.example` under two merchants.**
-The seed does this deliberately to exercise "one email, two shops", which is
-why login asks for a Merchant ID. Whether `routes/auth.ts` actually scopes
-the password check to the submitted merchant, or matches the first row by
-email, is still to be verified. Related to symptom 12 (cross-merchant data).
+## Money and settlement (Go)
 
-**S3. `/readyz` never re-checks the database.** `health/state.ts` is a
-one-way latch set at boot, and `health.test.ts` locks that in. RUNBOOK
-already documents it. Low impact, but a green `/readyz` on a dead database
-is misleading for the compose healthcheck.
+| Bug | State | Symptom | Root cause | Where |
+|---|---|---|---|---|
+| BUG-015 | 🟡 `fix/money-settlement` | Scheme statement a few fils **higher** than ours | Amount stored as float into `NUMERIC(10,2)`, which **rounds** (93.275 → 93.28) while `amount_fils` truncates | `stl/settlement/scheme_export.go` |
+| BUG-041 | 🟡 `fix/money-settlement` | Rounding residue never booked | ADR-0002 says CloseBatch journals it; it never did | `stl/settlement/batch.go` |
+| BUG-016 | 🟡 `fix/money-settlement` | Marketplace split children don't add up to the parent | Each child rounded on its own; leftover fils never paid | `stl/splits/allocate.go` |
+| BUG-017 | 🟡 `fix/money-settlement` | Admin "Rebuild balances" ≠ CLI (Alpha 135K → 7K) | Button reads scheme lines (a view), CLI reads the ledger | `stl/internalapi/server.go`, `stl/ledger/` |
+| BUG-018 | 🟡 `fix/money-settlement` | MDR recalculation changes batches already paid out | Filter `status <> 'open'` includes `paid` | `stl/settlement/recalculate_mdr.go` |
+| BUG-020 | 🟡 `fix/money-settlement` | Daily close at 03:00 Bahrain, not midnight | "Today" taken from the UTC calendar day | `stl/settlement/window.go`, `stl/scheduler/daemon.go` |
+| BUG-021 | 🟡 `fix/money-settlement` | Net payout off on big batches | Computed through `float32` | `stl/settlement/payable.go` |
+| BUG-022 | 🟡 `fix/money-settlement` | Platform volume counter wraps past 2.1M BD | `INTEGER`/int32 column | `stl/settlement/platform_volume.go`, migration |
+| BUG-028 | 🟡 `fix/money-settlement` | Lifetime payout estimate drifts for high-volume merchants | Accumulated in `REAL`/float32 | `stl/settlement/payout_estimate.go`, migration |
+| BUG-008 | 🟠 half done in `fix/money-settlement` worktree | `settlement.paid` sent twice, two disbursement records (incident 2026-08-21) | Check-then-insert with no unique key; disbursement row per delivery | `stl/settlement/payout_notify.go`, `api/webhooks/payoutDisbursement.ts`, migration 0079 (uncommitted) |
+| BUG-019 | ⬜ | Test merchants appear in the real settlement run | "Recompute statuses" clears `test_mode` when "open authorizations" = 0, and the counter excludes `authorized`, so it is always 0 | `api/admin/merchantFlags.ts` |
+| BUG-014 | ⬜ | CSV import: "4.755" → 4.750, "4.75" → 0.475 | Parses with 2 decimals (`parseDecimalMinor(raw, 2)`) instead of `parseBhdToFils`; an existing test asserts the bug | `api/admin/adjustmentCsvParsing.ts`, `api/lib/decimal.ts` |
+| BUG-027 | ⬜ | March sweep doubles the gap when run twice | Not idempotent (new random entry group each run, no existing-posting check), UTC month instead of Bahrain, debits the wrong account vs ADR-0002 | `scripts/reconcile_march.ts` (read only — never run it against a real DB) |
+| BUG-009 | ⬜ | `expire_holds` deletes **every** hold when nothing expired | Empty filter list is skipped → `DELETE FROM holds` with no `WHERE`; holds must be flipped to `expired`, never deleted | `scripts/expire_holds.ts`, `scripts/lib/sqlFilter.ts` |
+| BUG-029 | ⬜ | Same adjustment CSV imported twice posts twice | No duplicate guard | `api/admin/adjustmentImport.ts`, migration |
+| BUG-042 | ⬜ | Split child payout silently does nothing | `merchant_balances` update without upsert; children have no row | `stl/balances/cache.go` |
 
----
+## Webhooks, callbacks, reports
 
-## Still to investigate (from the brief)
+| Bug | State | Symptom | Root cause | Where |
+|---|---|---|---|---|
+| BUG-006 | 🟡 `fix/webhooks-reports` | Duplicate acquirer callback applied twice | No dedupe (`processed_events` never existed; FP-201 "fixed" is false) | `api/acquirer/callbacks.ts`, migration |
+| BUG-007 | 🟡 `fix/webhooks-reports` | Forged/unsigned acquirer callbacks accepted | Signature optional by default, verified over re-serialised JSON, no freshness, non-constant-time compare, `outcome` not validated | `api/webhooks/inboundVerify.ts`, `api/routes/acquirerCallbacks.ts` |
+| BUG-023 | 🟡 `fix/webhooks-reports` | Merchants can't verify our webhook signatures | Signs `canonicalJson(payload)`, sends `JSON.stringify(row.payload)` — different bytes | `api/webhooks/dispatcher.ts`, `sign.ts` |
+| BUG-051 | 🟡 `fix/webhooks-reports` | Two API replicas send each webhook twice | Due deliveries selected without `FOR UPDATE SKIP LOCKED` | `api/webhooks/dispatcher.ts` |
+| BUG-052 | 🟡 `fix/webhooks-reports` | Retry schedule random; its test fails | ±10% jitter on by default | `api/webhooks/dispatcher.ts` |
+| BUG-053 | 🟡 `fix/webhooks-reports` | Deliveries stuck forever, log spam every 5 s | Undecryptable endpoint secret skipped each pass, never marked failed | `api/webhooks/dispatcher.ts` |
+| BUG-024 | 🟡 `fix/webhooks-reports` | Settlement summary +38% for multi-capture merchants; slow | Sums the transaction's running `captured_fils` once per capture event | `api/settlement/query.ts` |
+| BUG-026 | 🟡 `fix/webhooks-reports` | Dashboard shows 245 bps, payments charge 225 | Shows the latest-entered schedule, not the one in effect now | `api/fees/currentFeeScheduleDisplay.ts` |
+| BUG-054 | 🟡 `fix/webhooks-reports` | Reconciliation pending figure uses the wrong rate | Uses `merchants.mdr_bps` ("kept in sync by a trigger" — none exists) | `api/settlement/query.ts` |
+| BUG-025 | ⬜ | CSV export can OOM the 512 MB API; streaming version skips rows | Route uses the in-memory builder (CHANGELOG says streaming); streaming keyset is on `occurred_at` only, not `(occurred_at, id)` | `api/transactions/exportCsv.ts`, `api/routes/transactions.ts` |
+| BUG-030 | ⬜ | CSV export formula injection | Cells starting `= + - @` not neutralised | `api/transactions/exportCsv.ts` |
+| BUG-055 | ⬜ | Reports and analytics on the wrong day after 21:00 UTC | Bucketed by UTC / server-local date, not Bahrain | `apps/reporting/src/consumer/applyEvent.ts`, `api/analytics/query.ts` |
 
-1. Scheme file rounds up instead of truncating (`scheme_export.go`, migration 0050)
-2. March sweep not idempotent (`scripts/reconcile_march.ts`)
-3. Marketplace split children don't sum to parent (`splits/allocate.go`)
-4. Console balance rebuild vs CLI rebuild (`ledger/rebuild.go`, `ledger/refresh.go`, ADR-0004)
-5. MDR recalculation touches paid batches (`recalculate_mdr.go`)
-6. Dashboard shows 245 bps, capture charges 225 (`fees/`)
-7. CSV import parses 4.755 and 4.75 wrongly (`packages/money/src/fils.ts`)
-8. Daily close at 03:00 local (`scheduler/daemon.go`, `window.go`)
-9. Lifetime payout estimate drifts (`payout_estimate.go`, float32 / int32)
-10. Test merchants in the real settlement run (`batch.go` claim query, `transactionStatusRecompute.ts`)
-11. Login without OTP (`auth/sessions.ts`, `routes/auth.ts`)
-12. Merchant A can cancel merchant B's payment link (`paymentLinks/cancel.ts`)
+## Refunds (unfinished feature FP-300)
 
-Plus: webhook signing of raw bytes, callback dedupe table, payment-link
-reservation race, credit approver comparison, impersonation role, int32
-counters, CSV export memory, admin role checks.
+| Bug | State | Symptom | Root cause | Where |
+|---|---|---|---|---|
+| BUG-056 | ⬜ | Every refund fails (11 failing tests) | Code inserts an explicit `NULL` reason; the column default only applies when the column is omitted, so `chk_refunds_reason_not_null` fires | `api/payments/processRefund.ts` |
+| BUG-057 | ⬜ | Two parallel refunds both succeed | Validated in one transaction, journaled in a second without re-checking; lost update on `refunded_fils` | `api/payments/processRefund.ts` |
+| BUG-058 | ⬜ | Refund more than was captured | Refundable = authorized − refunded instead of captured − refunded | `api/payments/refundValidation.ts` |
+| BUG-059 | ⬜ | Refund another merchant's transaction | Transaction looked up by id only | `api/payments/processRefund.ts`, `api/refunds/` |
+| BUG-060 | ⬜ | Status stays `partially_captured` after a full refund | State machine misses the case | `api/payments/refundState.ts` |
+| BUG-043 | ⬜ | Fee reversed across partial refunds can exceed the original fee | Each partial rounded on its own | `packages/money` `calculateRefundFee` |
+| — | ⬜ | Refund summary report wrong | Migration 0072 view joins `t.id = r.id` instead of `r.transaction_id` | new migration |
+| — | ⬜ | Route returns 501; no `refund.succeeded` webhook; settlement never subtracts refunds | Feature never wired | `api/routes/refunds.ts`, `api/webhooks/envelope.ts`, `stl/settlement/batch.go` |
+
+## Smaller
+
+| Bug | State | What |
+|---|---|---|
+| — | ⬜ | `/readyz` never re-checks the database after boot (being handled in the availability work) |
+| — | ⬜ | Settlement daemon runs a close at boot before its delay check (S10) |
+| — | ⬜ | Balance rebuild races a concurrent CloseBatch, no lock (S11) |
