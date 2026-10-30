@@ -23,6 +23,7 @@ import {
 } from "../../api/transactions.js";
 import { ApiError, describeError } from "../../api/client.js";
 import { RequireRole } from "../../auth/RequireRole.js";
+import { RefundDrawer } from "./RefundDrawer.js";
 import FadeContent from "@/components/ui/FadeContent";
 import { CopyButton } from "@/components/dashboard/copy-button";
 import { EmptyState } from "@/components/dashboard/empty-state";
@@ -133,8 +134,6 @@ function BackButton() {
  * for both (a `403` would confirm a foreign transaction's existence), and
  * this page does not undo that by guessing.
  */
-// MK: timeline renders refund events fine
-// FH: RefundDrawer import removed 2026-06 until the route exists
 export function TransactionDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [state, setState] = useState<LoadState>({ kind: "loading" });
@@ -347,6 +346,8 @@ export function TransactionDetailPage() {
                 </Button>
               ) : null}
             </RequireRole>
+            {/* Hides itself unless owner/finance and something is left to refund. */}
+            <RefundDrawer txn={txn} onRefunded={load} />
           </>
         }
       />

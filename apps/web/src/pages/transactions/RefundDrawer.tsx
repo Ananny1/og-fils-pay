@@ -1,28 +1,19 @@
-// YA (Mar): parked until the refunds API exists — FP-212
-// MK: drawer is done, just uncomment + add the route. 30 min job
-// FH: claude review: posts to /v1/refunds but initiateMerchantRefund expects /v1/merchants/:id/refunds,
-// and it makes a new idempotency key per click. check before uncommenting
-// max refund = captured is right, partial refunds are tracked server side — am
 /**
- * Parked, not wired. The drawer is finished, but `POST /v1/refunds` still
- * answers 501, so shipping the control would only put a dead button on every
- * transaction page. Restore this file and add its route in the same change —
- * it is deliberately imported nowhere in the meantime so the bundle does not
- * carry it.
+ * Refund drawer on the transaction detail page (FP-300). Posts to
+ * `POST /v1/merchants/:merchantId/refunds` (FP-300.1). Shown only to owner and
+ * finance (the server also answers 403 to support) and only while something
+ * captured is still left to refund.
  *
- * Restyled to the shadcn `Sheet` + `Field` primitives while parked so it
- * matches the rest of the dashboard the day it is switched on. Logic, API
- * call and role gate are unchanged from the original.
+ * Amounts are typed in BD with up to 3 decimals and turned into integer fils
+ * with `parseBhdToFils` (string maths, never a float).
  */
-
-/*
 import { Undo2 } from "lucide-react";
 import { useState } from "react";
-import { request } from "../../api/client.js";
-import { describeError } from "../../api/client.js";
+import { parseBhdToFils } from "@filspay/money";
+import { ApiError, describeError, request } from "../../api/client.js";
 import { useDashboardAuth } from "../../auth/DashboardAuthContext.js";
 import { RequireRole } from "../../auth/RequireRole.js";
-import { Money } from "@/components/dashboard/money";
+import { Money, formatMoney } from "@/components/dashboard/money";
 import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
@@ -55,6 +46,41 @@ interface RefundDrawerProps {
   onRefunded: () => Promise<void>;
 }
 
+const REFUNDABLE_STATUSES = new Set(["captured", "partially_captured", "partially_refunded"]);
+
+/** The refund API's error codes in plain words. Validation errors come back
+ *  as `{ code }`, the rest as `{ error }`. */
+export function describeRefundError(err: unknown): string {
+  if (err instanceof ApiError) {
+    const code = err.body.error ?? (err.body.code as string | undefined);
+    switch (code) {
+      case "refund_exceeds_refundable": {
+        const left = typeof err.body.refundableFils === "number" ? err.body.refundableFils : null;
+        return left === null
+          ? "That is more than can still be refunded on this payment."
+          : `That is more than can still be refunded. At most ${formatMoney(left)} BHD can go back.`;
+      }
+      case "request_in_progress":
+        return "A refund for this payment is already being processed. Wait a moment, then refresh the page.";
+      case "transaction_not_refundable":
+        return "This payment can no longer be refunded.";
+      case "refund_amount_invalid":
+        return "Enter an amount above 0.000 BHD.";
+      case "refund_declined":
+        return "The card network declined the refund. Nothing was refunded.";
+      case "acquirer_unavailable":
+        return "The card network did not answer. Nothing was refunded. Please try again.";
+      case "refunds_on_hold":
+        return "Refunds are on hold for your account. Please contact FilsPay support.";
+      case "transaction_not_found":
+        return "This payment was not found on your account.";
+      default:
+        break;
+    }
+  }
+  return describeError(err);
+}
+
 export function RefundDrawer({ txn, onRefunded }: RefundDrawerProps) {
   const { me } = useDashboardAuth();
   const [open, setOpen] = useState(false);
@@ -63,27 +89,38 @@ export function RefundDrawer({ txn, onRefunded }: RefundDrawerProps) {
   const [error, setError] = useState<string | null>(null);
 
   const merchantId = me?.merchant.id;
-  const refundable = txn.status === "captured" || txn.status === "partially_captured";
+  const refundableFils = Math.max(0, txn.capturedFils - (txn.refundedFils ?? 0));
+  const refundable = REFUNDABLE_STATUSES.has(txn.status) && refundableFils > 0;
 
   async function handleRefund(event: React.FormEvent): Promise<void> {
     event.preventDefault();
     if (!merchantId) return;
-    if (!window.confirm("Refund this transaction? The money goes back to the cardholder and cannot be recalled.")) {
-      return;
+
+    const trimmed = amount.trim();
+    let amountFils: number | undefined;
+    if (trimmed !== "") {
+      try {
+        amountFils = parseBhdToFils(trimmed);
+      } catch {
+        setError("Enter the amount in BHD, for example 2.500 (at most 3 decimals).");
+        return;
+      }
+      if (amountFils <= 0) {
+        setError("Enter an amount above 0.000 BHD.");
+        return;
+      }
     }
 
     setSubmitting(true);
     setError(null);
     try {
-      const trimmed = amount.trim();
-      // Left blank, amountFils is omitted entirely and the API refunds
-      // everything still refundable — its own documented default, same
-      // affordance the capture form has.
-      const body = trimmed === "" ? { transactionId: txn.id } : { transactionId: txn.id, amountFils: Number(trimmed) };
+      // Left blank, amountFils is omitted and the API refunds everything
+      // still refundable — its own default, same as the capture form.
+      const body = amountFils === undefined ? { transactionId: txn.id } : { transactionId: txn.id, amountFils };
 
       await request<RefundResponse>(`/v1/merchants/${encodeURIComponent(merchantId)}/refunds`, {
         method: "POST",
-        // A fresh key per click, including a retry after a decline — same
+        // A fresh key per attempt, including a retry after a decline — same
         // discipline as capture and the checkout page's submit handler.
         headers: { "Idempotency-Key": crypto.randomUUID() },
         body: JSON.stringify(body),
@@ -95,7 +132,7 @@ export function RefundDrawer({ txn, onRefunded }: RefundDrawerProps) {
       // row server-side, so the timeline is stale, not merely shorter.
       await onRefunded();
     } catch (err) {
-      setError(describeError(err));
+      setError(describeRefundError(err));
     } finally {
       setSubmitting(false);
     }
@@ -108,7 +145,10 @@ export function RefundDrawer({ txn, onRefunded }: RefundDrawerProps) {
       <Sheet
         open={open}
         onOpenChange={(next) => {
-          if (!submitting) setOpen(next);
+          if (!submitting) {
+            setOpen(next);
+            setError(null);
+          }
         }}
       >
         <SheetTrigger render={<Button variant="outline" />}>
@@ -118,30 +158,28 @@ export function RefundDrawer({ txn, onRefunded }: RefundDrawerProps) {
         <SheetContent side="right">
           <form className="flex h-full flex-col" onSubmit={(e) => void handleRefund(e)}>
             <SheetHeader>
-              <SheetTitle>Refund transaction</SheetTitle>
+              <SheetTitle>Refund payment</SheetTitle>
               <SheetDescription>
-                The money goes back to the cardholder and cannot be recalled.
+                The money goes back to the cardholder. This cannot be undone.
               </SheetDescription>
             </SheetHeader>
             <div className="flex flex-col gap-4 px-4">
               <Field>
-                <FieldLabel htmlFor="refund-amount">Amount in fils</FieldLabel>
+                <FieldLabel htmlFor="refund-amount">Amount (BHD)</FieldLabel>
                 <Input
                   id="refund-amount"
-                  type="number"
-                  min={1}
-                  step={1}
-                  max={txn.capturedFils}
-                  inputMode="numeric"
-                  placeholder="Everything still refundable"
+                  type="text"
+                  inputMode="decimal"
+                  autoComplete="off"
+                  placeholder={formatMoney(refundableFils)}
                   className="font-mono tabular-nums"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
                   disabled={submitting}
                 />
                 <FieldDescription>
-                  Leave blank to refund everything still refundable. Captured so far:{" "}
-                  <Money fils={txn.capturedFils} />.
+                  Leave blank to refund everything left: <Money fils={refundableFils} />. Captured{" "}
+                  <Money fils={txn.capturedFils} />, already refunded <Money fils={txn.refundedFils ?? 0} />.
                 </FieldDescription>
                 {error ? <FieldError>{error}</FieldError> : null}
               </Field>
@@ -159,6 +197,3 @@ export function RefundDrawer({ txn, onRefunded }: RefundDrawerProps) {
     </RequireRole>
   );
 }
-*/
-
-export {};

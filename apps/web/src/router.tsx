@@ -19,7 +19,8 @@ import { ReconciliationPage } from "./pages/settlement/ReconciliationPage.js";
 import { OverviewPage } from "./pages/overview/OverviewPage.js";
 import { NotFoundPage, RouteErrorPage } from "./components/RouteErrorPage.js";
 
-// MK: /refunds route removed until FP-212
+// Refunds have no page of their own: they are made from the transaction
+// detail page (RefundDrawer -> POST /v1/merchants/:merchantId/refunds).
 export const router = createBrowserRouter([
   // The app has no home page of its own; the dashboard is the entry point.
   { path: "/", element: <Navigate to="/dashboard" replace />, errorElement: <RouteErrorPage /> },
