@@ -201,7 +201,6 @@ test("pay charges exactly the link's own amount — the request body carries no 
   assert.equal(Number(txnRow.rows[0]!.captured_fils), 9_999);
 });
 
-// only without submittedAt. with a past submittedAt it pays — that's the terminal case (FH)
 test("expired link is rejected: read reports 'expired', pay is rejected 410", async () => {
   const { rawKey, merchantId } = await createApprovedMerchantWithApiKey("expired");
   const link = await createLink(rawKey, merchantId, {
@@ -217,6 +216,26 @@ test("expired link is rejected: read reports 'expired', pay is rejected 410", as
   const payRes = await pay(link.token, APPROVED_CARD);
   assert.equal(payRes.statusCode, 410, payRes.body);
   assert.equal(payRes.json().error, "payment_link_expired");
+});
+
+// BUG-004: the public pay route must judge expiry by the server clock, not a
+// client-supplied submittedAt (anyone can send an old timestamp).
+test("expired link: a past submittedAt in the body is ignored — pay still rejected 410", async () => {
+  const { rawKey, merchantId } = await createApprovedMerchantWithApiKey("expired-submittedat");
+  const link = await createLink(rawKey, merchantId, {});
+  await pool.query(`UPDATE payment_links SET expires_at = now() - interval '1 minute' WHERE token = $1`, [link.token]);
+
+  const payRes = await app.inject({
+    method: "POST",
+    url: `/v1/payment-links/${link.token}/pay`,
+    headers: { "idempotency-key": randomUUID() },
+    payload: { card: APPROVED_CARD, submittedAt: new Date(Date.now() - 86_400_000).toISOString() },
+  });
+  assert.equal(payRes.statusCode, 410, payRes.body);
+  assert.equal(payRes.json().error, "payment_link_expired");
+
+  const txns = await pool.query(`SELECT 1 FROM transactions WHERE merchant_id = $1`, [merchantId]);
+  assert.equal(txns.rowCount, 0);
 });
 
 test("canceled link is rejected via both read and pay", async () => {
