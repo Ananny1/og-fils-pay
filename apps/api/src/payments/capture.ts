@@ -54,6 +54,11 @@ export interface CaptureInput {
    *  call captureTransaction() directly. routes/transactions.ts's capture
    *  route always supplies a real session/API-key actor. */
   actor: { type: "merchant_session" | "merchant_api_key" | "system"; id: string };
+  /** Payment-link checkout only (BUG-005). The capture runs only while this
+   *  reservation still owns the link, checked under a row lock on the link
+   *  that is held through the acquirer call; the link is marked paid in the
+   *  same database transaction as the capture. */
+  paymentLink?: { id: string; reservationId: string };
 }
 
 export interface CaptureResult {
@@ -167,6 +172,24 @@ export async function captureTransaction(
     const effectiveMdrBps = await getEffectiveMdrBps(client, input.merchantId, new Date(), merchant.mdr_bps);
     const volumeTierBonusBps = await getVolumeTierBonusBps(client);
 
+    // BUG-005: a payment-link capture may only proceed while its own
+    // reservation still holds the link. The FOR UPDATE lock is kept through
+    // the acquirer call, so a second payer's claim UPDATE waits for us and
+    // then sees 'paid'; a payer whose reservation was taken over stops here,
+    // before any money moves.
+    if (input.paymentLink) {
+      const linkResult = await client.query<{ status: string; reservation_id: string | null }>(
+        `SELECT status, reservation_id FROM payment_links WHERE id = $1 FOR UPDATE`,
+        [input.paymentLink.id],
+      );
+      const linkRow = linkResult.rows[0];
+      if (!linkRow || linkRow.status !== "reserved" || linkRow.reservation_id !== input.paymentLink.reservationId) {
+        const body = { error: "payment_link_reservation_lost", linkStatus: linkRow?.status ?? null };
+        await completeIdempotencyKey(client, claim.row.id, { statusCode: 409, body });
+        return { statusCode: 409, body };
+      }
+    }
+
     // Call the acquirer — awaited here, with the row lock from above still
     // held (same client, same open transaction). No other process can
     // read-lock, write-lock, or update this transaction row while this
@@ -204,6 +227,16 @@ export async function captureTransaction(
     const updatedTxn = updateResult.rows[0];
     if (!updatedTxn) {
       throw new Error("captureTransaction: update to transactions returned no row");
+    }
+
+    if (input.paymentLink) {
+      // Still holding the link row lock taken above, so this always matches.
+      await client.query(
+        `UPDATE payment_links
+            SET status = 'paid', paid_at = now(), transaction_id = $2, reserved_at = NULL, reservation_id = NULL
+          WHERE id = $1`,
+        [input.paymentLink.id, txn.id],
+      );
     }
 
     // Double-entry journaling. One entry_group_id per capture event; the

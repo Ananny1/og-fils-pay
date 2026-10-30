@@ -22,6 +22,9 @@ export interface AuthorizeInput {
    *  actor when omitted. POST /v1/transactions always supplies the calling
    *  API key here. */
   actor?: { type: "merchant_session" | "merchant_api_key" | "system"; id?: string | null };
+  /** Set by the payment-link checkout: the link this transaction pays.
+   *  Backs the one-capture-per-link unique index (migration 0075). */
+  paymentLinkId?: string;
 }
 
 /**
@@ -100,10 +103,10 @@ export async function authorizeTransaction(
 
     if (acquirerResult.outcome === "approved") {
       const insertResult = await client.query<TransactionRow>(
-        `INSERT INTO transactions (merchant_id, status, amount_fils, captured_fils, acquirer_reference, reference)
-         VALUES ($1, 'authorized', $2, 0, $3, $4)
+        `INSERT INTO transactions (merchant_id, status, amount_fils, captured_fils, acquirer_reference, reference, payment_link_id)
+         VALUES ($1, 'authorized', $2, 0, $3, $4, $5)
          RETURNING *`,
-        [input.merchantId, input.amountFils, acquirerResult.acquirerReference, input.reference ?? null],
+        [input.merchantId, input.amountFils, acquirerResult.acquirerReference, input.reference ?? null, input.paymentLinkId ?? null],
       );
       const txnRow = insertResult.rows[0];
       if (!txnRow) {

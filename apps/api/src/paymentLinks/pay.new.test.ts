@@ -11,6 +11,10 @@ import { buildApp } from "../app.js";
 import { loadConfig } from "../config.js";
 import { issueApiKey } from "../apiKeys/issue.js";
 import { recordKycReview } from "../onboarding/review.js";
+import { setTimeout as sleep } from "node:timers/promises";
+import { createAcquirerSimulator } from "../acquirer/simulator.js";
+import type { AcquirerSimulator } from "../acquirer/types.js";
+import { payPaymentLink } from "./pay.js";
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) {
@@ -83,4 +87,121 @@ test("BUG-004: an expired link cannot be paid by sending an old submittedAt", as
     link.id,
   ]);
   assert.equal(txns.rowCount, 0, "no card may be authorized against an expired link");
+});
+
+// ---------------------------------------------------------------- BUG-005
+
+/**
+ * Wraps the real simulator so one chosen call is slow (the "big basket /
+ * 3DS step-up" capture from the 2026-05-14 incident) while every other
+ * call is instant.
+ */
+function slowAcquirer(slow: { op: "authorize" | "capture"; callIndex: number; ms: number }): AcquirerSimulator {
+  const inner = createAcquirerSimulator(config);
+  const calls = { authorize: 0, capture: 0 };
+  const delay = async (op: "authorize" | "capture") => {
+    const index = calls[op]++;
+    if (op === slow.op && index === slow.callIndex) await sleep(slow.ms);
+  };
+  return {
+    async authorize(req) {
+      await delay("authorize");
+      return inner.authorize(req);
+    },
+    async capture(req) {
+      await delay("capture");
+      return inner.capture(req);
+    },
+    refund: (req) => inner.refund(req),
+  };
+}
+
+async function capturedTransactions(merchantId: string) {
+  const r = await pool.query<{ id: string; status: string }>(
+    `SELECT id, status FROM transactions WHERE merchant_id = $1 AND captured_fils > 0`,
+    [merchantId],
+  );
+  return r.rows;
+}
+
+const SHORT_RESERVATION = { paymentLinkReservationTimeoutSeconds: 1 };
+
+test("BUG-005: slow first capture outlives the reservation -> second payer cannot also be charged", async () => {
+  const { merchantId, link } = await createMerchantWithLink(12_500);
+  const acquirer = slowAcquirer({ op: "capture", callIndex: 0, ms: 2_500 });
+
+  const first = payPaymentLink(pool, acquirer, SHORT_RESERVATION, {
+    token: link.token,
+    card: APPROVED_CARD,
+    idempotencyKey: randomUUID(),
+  });
+  await sleep(1_300); // first payer's reservation (1 s) has run out; its capture is still in flight
+  const second = payPaymentLink(pool, acquirer, SHORT_RESERVATION, {
+    token: link.token,
+    card: APPROVED_CARD,
+    idempotencyKey: randomUUID(),
+  });
+  const results = await Promise.all([first, second]);
+
+  const captured = await capturedTransactions(merchantId);
+  assert.equal(captured.length, 1, `exactly one capture per link, got ${captured.length}`);
+  assert.deepEqual(
+    results.map((r) => r.statusCode).sort(),
+    [200, 409],
+    `one payer succeeds, the other gets a clean 409: ${JSON.stringify(results)}`,
+  );
+  const ok = results.find((r) => r.statusCode === 200)!.body as { transactionId: string };
+  const linkRow = await pool.query<{ status: string; transaction_id: string }>(
+    `SELECT status, transaction_id FROM payment_links WHERE id = $1`,
+    [link.id],
+  );
+  assert.equal(linkRow.rows[0]!.status, "paid");
+  assert.equal(linkRow.rows[0]!.transaction_id, ok.transactionId);
+  assert.equal(captured[0]!.id, ok.transactionId);
+});
+
+test("BUG-005: slow first authorize outlives the reservation -> late payer is refused and its hold voided", async () => {
+  const { merchantId, link } = await createMerchantWithLink(8_000);
+  const acquirer = slowAcquirer({ op: "authorize", callIndex: 0, ms: 2_500 });
+
+  const first = payPaymentLink(pool, acquirer, SHORT_RESERVATION, {
+    token: link.token,
+    card: APPROVED_CARD,
+    idempotencyKey: randomUUID(),
+  });
+  await sleep(1_300);
+  const second = await payPaymentLink(pool, acquirer, SHORT_RESERVATION, {
+    token: link.token,
+    card: APPROVED_CARD,
+    idempotencyKey: randomUUID(),
+  });
+  assert.equal(second.statusCode, 200, JSON.stringify(second.body));
+  const late = await first;
+  assert.equal(late.statusCode, 409, JSON.stringify(late.body));
+
+  const captured = await capturedTransactions(merchantId);
+  assert.equal(captured.length, 1);
+  assert.equal(captured[0]!.id, (second.body as { transactionId: string }).transactionId);
+
+  // The late payer's authorization must not leave a hold on their card.
+  const leftover = await pool.query<{ status: string; hold_status: string }>(
+    `SELECT t.status, h.status AS hold_status FROM transactions t JOIN holds h ON h.transaction_id = t.id
+      WHERE t.merchant_id = $1 AND t.captured_fils = 0`,
+    [merchantId],
+  );
+  assert.equal(leftover.rows.length, 1);
+  assert.equal(leftover.rows[0]!.status, "voided");
+  assert.equal(leftover.rows[0]!.hold_status, "released");
+});
+
+test("BUG-005: the database itself refuses a second captured transaction for one link", async () => {
+  const { merchantId, link } = await createMerchantWithLink(1_000);
+  const insert = () =>
+    pool.query(
+      `INSERT INTO transactions (merchant_id, status, amount_fils, captured_fils, acquirer_reference, payment_link_id)
+       VALUES ($1, 'captured', 1000, 1000, $2, $3)`,
+      [merchantId, `acq_${randomUUID()}`, link.id],
+    );
+  await insert();
+  await assert.rejects(insert, /uq_transactions_payment_link_captured/);
 });
