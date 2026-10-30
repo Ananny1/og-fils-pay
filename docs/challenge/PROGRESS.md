@@ -7,7 +7,7 @@ Status of all tasks: `PLAN.md` → Master order. This file is the **detail of wh
 
 | Field | Value |
 |---|---|
-| Task | **Paused 17:05 (internet cut ~30 min).** All bug, refund, security and email-OTP work is merged and pushed (API 502/502, reporting 12/12, Go ok). In progress: HOST-2 agent (worktree `.claude/worktrees/agent-ad4408bb195862add`, uncommitted edits to prod nginx/env/seed) wiring per-IP edge limits into `ops/prod/nginx.conf` and re-measuring capacity. Next: merge HOST-2 → deploy to Dilmune (needs access from the 17:00 talk; ask Q-7) → after screenshots → Ebrahim opens the PR by 21:30. |
+| Task | **Merged with Sayed (D-017), pushed `ebrahim/track-b` = 65c2c8b+.** Contains Sayed's main + 8 unique fixes from his branches + all our work. API 550/550, reporting 13/13, Go ok, web/admin build ok, prod images + nginx -t ok. Next: deploy to Dilmune (ask Q-7; set TRUST_PROXY, SEED_*_PASSWORD, real secrets in ops/.env.prod), after screenshots of Sayed's UI, Ebrahim opens PR ebrahim/track-b → main by 21:30. |
 | Owner | Ebrahim |
 | Branch | `ebrahim/track-b` |
 | Step | — (0-claimed · 1-understood · 2-planned · 3-test-red · 4-fixed · 5-verified · 6-documented · 7-pushed) |
