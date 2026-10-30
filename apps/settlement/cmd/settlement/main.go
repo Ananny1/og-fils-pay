@@ -81,14 +81,25 @@ func main() {
 		if err := cfg.RequireInternalToken(); err != nil {
 			log.Fatalf("settlement: %v", err)
 		}
+		serveDone := make(chan struct{})
 		go func() {
+			defer close(serveDone)
 			if err := internalapi.Serve(ctx, pool, cfg); err != nil {
 				log.Fatalf("settlement daemon: internal api: %v", err)
 			}
 		}()
 
 		// FH: if internalapi fails to bind we log.Fatalf from the goroutine and skip the deferred pool.Close -- ok?
+		// (yes: nothing was started yet, and Postgres drops the connections when the process exits.)
 		scheduler.Run(ctx, pool, cfg)
+
+		// Graceful shutdown (OPS-003): scheduler.Run returns as soon as the
+		// signal arrives, but the internal API may still be finishing a
+		// request. Wait for Serve's own graceful Shutdown before main returns
+		// and the deferred pool.Close() runs, so an in-flight handler is never
+		// left without its pool and its response is written before exit.
+		<-serveDone
+		log.Printf("settlement daemon: stopped")
 
 	case "run-batch":
 		fs := flag.NewFlagSet("run-batch", flag.ExitOnError)

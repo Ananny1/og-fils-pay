@@ -40,6 +40,17 @@ async function main(): Promise<void> {
     if (shuttingDown) return;
     shuttingDown = true;
     console.log(`[index] received ${signal}, shutting down`);
+    // Backstop: if anything below hangs (a stuck query, a client that never
+    // finishes), exit anyway before Docker's stop_grace_period SIGKILLs us,
+    // so the restart policy brings up a fresh process. Committed work is
+    // safe either way — it is in Postgres; an open transaction rolls back.
+    setTimeout(() => {
+      console.error(`[index] shutdown did not finish in ${config.shutdownTimeoutMs}ms, exiting`);
+      process.exit(1);
+    }, config.shutdownTimeoutMs).unref();
+    // app.close() stops accepting new connections, answers requests that
+    // arrive meanwhile with 503 (Fastify return503OnClosing), and resolves
+    // once every in-flight request has finished; only then is the pool ended.
     dispatcher
       .stop()
       .then(() => app.close())
