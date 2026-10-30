@@ -125,6 +125,7 @@ export function WebhookEndpointListPage() {
 
   const initialLoading = loading && endpoints.length === 0;
   const isEmpty = !loading && !error && endpoints.length === 0;
+  const loadFailed = !loading && !!error && endpoints.length === 0;
 
   return (
     <>
@@ -134,10 +135,17 @@ export function WebhookEndpointListPage() {
         actions={newEndpointButton}
       />
 
-      <ErrorAlert message={error} />
+      <ErrorAlert message={error} title="Could not load webhook endpoints" />
+      {error ? (
+        <div>
+          <Button variant="outline" size="sm" onClick={() => void load()}>
+            Try again
+          </Button>
+        </div>
+      ) : null}
 
       <FadeContent trigger="mount" duration={0.5}>
-        {isEmpty ? (
+        {loadFailed ? null : isEmpty ? (
           <EmptyState
             icon={Webhook}
             title="No addresses yet"

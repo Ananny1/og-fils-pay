@@ -42,6 +42,8 @@ export function PaymentLinkListPage() {
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Bumped by "Try again": a new load identity makes the pager reload.
+  const [reloadKey, setReloadKey] = useState(0);
 
   const load = useCallback(
     async (cursor: string | null, limit: number = 15): Promise<string | null> => {
@@ -64,7 +66,7 @@ export function PaymentLinkListPage() {
         setLoading(false);
       }
     },
-    [merchantId, statuses],
+    [merchantId, statuses, reloadKey],
   );
 
   const pager = useCursorPages(load);
@@ -86,6 +88,7 @@ export function PaymentLinkListPage() {
 
   const initialLoading = loading && links.length === 0;
   const isEmpty = !loading && !error && links.length === 0;
+  const loadFailed = !loading && !!error && links.length === 0;
 
   return (
     <>
@@ -102,10 +105,17 @@ export function PaymentLinkListPage() {
         onClear={() => setStatuses([])}
       />
 
-      <ErrorAlert message={error} />
+      <ErrorAlert message={error} title="Could not load payment links" />
+      {error ? (
+        <div>
+          <Button variant="outline" size="sm" onClick={() => setReloadKey((k) => k + 1)}>
+            Try again
+          </Button>
+        </div>
+      ) : null}
 
       <FadeContent trigger="mount" duration={0.5} className="flex flex-col gap-4">
-        {isEmpty ? (
+        {loadFailed ? null : isEmpty ? (
           <EmptyState
             icon={LinkIcon}
             title={statuses.length > 0 ? "No payment links match these filters" : "No payment links yet"}

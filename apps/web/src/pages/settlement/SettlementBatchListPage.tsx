@@ -43,6 +43,8 @@ export function SettlementBatchListPage() {
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Bumped by "Try again": a new load identity makes the pager reload.
+  const [reloadKey, setReloadKey] = useState(0);
 
   const load = useCallback(
     async (cursor: string | null, limit: number = 15): Promise<string | null> => {
@@ -66,7 +68,7 @@ export function SettlementBatchListPage() {
         setLoading(false);
       }
     },
-    [from, to, statuses],
+    [from, to, statuses, reloadKey],
   );
 
   const pager = useCursorPages(load);
@@ -147,7 +149,15 @@ export function SettlementBatchListPage() {
       </FadeContent>
 
       <ErrorAlert message={error} title="Could not load settlement batches" />
+      {error ? (
+        <div>
+          <Button variant="outline" size="sm" onClick={() => setReloadKey((k) => k + 1)}>
+            Try again
+          </Button>
+        </div>
+      ) : null}
 
+      {noData ? null : (
       <FadeContent trigger="mount" duration={0.5} delay={0.2}>
         <SectionCard
           flush
@@ -231,6 +241,7 @@ export function SettlementBatchListPage() {
           <Pager pager={pager} loading={loading} rowCount={batches.length} noun="batches" className="bg-muted/30" />
         </SectionCard>
       </FadeContent>
+      )}
     </>
   );
 }

@@ -190,6 +190,13 @@ export function OverviewPage() {
       </FadeContent>
 
       <ErrorAlert message={error} title="Could not load analytics" />
+      {error ? (
+        <div>
+          <Button variant="outline" size="sm" onClick={() => void load()}>
+            Try again
+          </Button>
+        </div>
+      ) : null}
 
       <FadeContent trigger="mount" duration={0.5} delay={0.12}>
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

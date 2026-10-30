@@ -261,7 +261,19 @@ export function TransactionDetailPage() {
     return (
       <>
         <PageHeader title="Transaction" actions={<BackButton />} />
-        <ErrorAlert message={state.message} title="Couldn't load this transaction" />
+        <ErrorAlert message={state.message} title="Could not load this transaction" />
+        <div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setState({ kind: "loading" });
+              void load();
+            }}
+          >
+            Try again
+          </Button>
+        </div>
       </>
     );
   }

@@ -54,6 +54,8 @@ export function TransactionListPage() {
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Bumped by "Try again": a new fetchPage identity makes the pager reload.
+  const [reloadKey, setReloadKey] = useState(0);
 
   // Debounce only the text box — the checkbox/date controls fire immediately,
   // since those are discrete choices, not a stream of keystrokes.
@@ -86,7 +88,7 @@ export function TransactionListPage() {
         setLoading(false);
       }
     },
-    [statuses, from, to, search],
+    [statuses, from, to, search, reloadKey],
   );
   const pager = useCursorPages(fetchPage);
 
@@ -109,11 +111,13 @@ export function TransactionListPage() {
   // A failed load is not "no sales": the empty state only shows after a
   // successful load that really returned nothing.
   const empty = !loading && !error && transactions.length === 0;
+  // Nothing loaded and the load failed: no header-only table, just the error.
+  const loadFailed = !loading && !!error && transactions.length === 0;
 
   const countLine = initialLoading
     ? "Loading…"
     : error
-      ? "Couldn't load"
+      ? "Could not load"
       : `Page ${pager.page + 1} · ${pluralize(transactions.length, "transaction")}${nextCursor ? "" : " · last page"}`;
 
   return (
@@ -163,8 +167,16 @@ export function TransactionListPage() {
         </CardContent>
       </Card>
 
-      <ErrorAlert message={error} title="Couldn't load transactions" />
+      <ErrorAlert message={error} title="Could not load transactions" />
+      {error ? (
+        <div>
+          <Button variant="outline" size="sm" onClick={() => setReloadKey((k) => k + 1)}>
+            Try again
+          </Button>
+        </div>
+      ) : null}
 
+      {loadFailed ? null : (
       <FadeContent trigger="mount" duration={0.5} initialOpacity={0}>
         <SectionCard flush title="Results" description={countLine}>
           {empty ? (
@@ -242,6 +254,7 @@ export function TransactionListPage() {
           <Pager pager={pager} loading={loading} rowCount={transactions.length} noun="transactions" className="bg-muted/30" />
         </SectionCard>
       </FadeContent>
+      )}
     </>
   );
 }
