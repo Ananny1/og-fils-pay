@@ -453,7 +453,7 @@ function CheckoutStatusCard({
         {link ? (
           <div className="flex flex-col items-center gap-1">
             <p className="text-sm font-medium text-muted-foreground">{link.merchantDisplayName}</p>
-            <Money fils={link.amountFils} currency={link.currency} className="text-3xl font-semibold" />
+            <CheckoutAmount fils={link.amountFils} currency={link.currency} className="text-3xl font-semibold" />
           </div>
         ) : null}
       </CardContent>
