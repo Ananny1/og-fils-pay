@@ -203,7 +203,7 @@ export function SettlementBatchDetailPage() {
             <DetailRow label="Payments in this day">
               <span className="font-mono tabular-nums">{batch.includedTransactionCount.toLocaleString()}</span>
             </DetailRow>
-            <DetailRow label="Card payments in this day">
+            <DetailRow label="Capture events in this batch">
               <span className="font-mono tabular-nums">{batch.includedEventCount.toLocaleString()}</span>
               {countsDiffer ? (
                 <p className="mt-1 text-xs text-muted-foreground">
