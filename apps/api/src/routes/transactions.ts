@@ -74,6 +74,11 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
       if (amountFils === undefined || !card) {
         throw new BadRequestError("invalid_request", "amountFils and card are required");
       }
+      // BUG-081: checked here, so a bad amount is a 400 and never reaches the
+      // acquirer or the amount_fils > 0 CHECK (both were a 500).
+      if (typeof amountFils !== "number" || !Number.isSafeInteger(amountFils) || amountFils <= 0) {
+        throw new BadRequestError("invalid_amount", "amountFils must be a positive whole number of fils");
+      }
       const cardProblem = checkCard(card);
       if (cardProblem) {
         throw new BadRequestError(cardProblem);
@@ -101,6 +106,11 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
     async (request, reply) => {
       const idempotencyKey = getIdempotencyKey(request);
       const { amountFils } = request.body ?? {};
+      // BUG-081: a non-integer or negative amount is the client's mistake (400),
+      // not a toFils RangeError (500). 0 still reaches capture's own 422.
+      if (amountFils !== undefined && (typeof amountFils !== "number" || !Number.isSafeInteger(amountFils) || amountFils < 0)) {
+        throw new BadRequestError("invalid_amount", "amountFils must be a whole number of fils");
+      }
 
       const result = await captureTransaction(app.db, app.acquirer, {
         transactionId: request.params.id,
