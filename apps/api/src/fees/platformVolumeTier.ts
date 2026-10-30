@@ -22,9 +22,10 @@ const VOLUME_TIER_BONUS_BPS = 15; // 0.15%
  * differently on the two sides.
  */
 export async function getVolumeTierBonusBps(client: PoolClient): Promise<number> {
-  const result = await client.query<{ total_processed_fils: number }>(
+  // BIGINT since 0077 (BUG-022): pg returns it as text.
+  const result = await client.query<{ total_processed_fils: string }>(
     `SELECT total_processed_fils FROM platform_stats WHERE id = 1`,
   );
-  const total = result.rows[0]?.total_processed_fils ?? 0;
+  const total = Number(result.rows[0]?.total_processed_fils ?? 0);
   return total >= VOLUME_TIER_THRESHOLD_FILS ? VOLUME_TIER_BONUS_BPS : 0;
 }

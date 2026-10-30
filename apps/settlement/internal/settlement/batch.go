@@ -59,7 +59,8 @@ type eligibleEvent struct {
 // so a row can never be picked up by two batches.
 func CloseBatch(ctx context.Context, db *pgxpool.Pool, merchantID uuid.UUID, businessDate time.Time) (BatchResult, error) {
 	start, end := BusinessDayWindow(businessDate)
-	batchDateOnly := time.Date(businessDate.Year(), businessDate.Month(), businessDate.Day(), 0, 0, 0, 0, time.UTC)
+	// batch_date is the Bahrain calendar date the window covers (BUG-020).
+	batchDateOnly := time.Date(start.Year(), start.Month(), start.Day(), 0, 0, 0, 0, time.UTC)
 
 	tx, err := db.Begin(ctx)
 	if err != nil {
@@ -255,6 +256,21 @@ func CloseBatch(ctx context.Context, db *pgxpool.Pool, merchantID uuid.UUID, bus
 		`, batchID, line.transactionID, int64(truncated), SchemeAmountBD(line.grossFils), i+1)
 		if err != nil {
 			return BatchResult{}, fmt.Errorf("settlement: CloseBatch: insert scheme export line: %w", err)
+		}
+
+		// ADR-0002: journal the 0-9 fils the scheme never receives for this
+		// line, so the ledger ties to the scheme file (BUG-041).
+		if residue := line.grossFils - truncated; residue > 0 {
+			_, err = tx.Exec(ctx, `
+				INSERT INTO ledger_entries
+				  (entry_group_id, merchant_id, transaction_id, settlement_batch_id, account_id, direction, amount_fils, occurred_at, description)
+				VALUES
+				  ($1, $2, $3, $4, 'card_scheme_clearing',    'credit', $5, now(), 'scheme rounding residue'),
+				  ($1, $2, $3, $4, 'scheme_rounding_residue', 'debit',  $5, now(), 'scheme rounding residue')
+			`, uuid.New(), merchantID, line.transactionID, batchID, int64(residue))
+			if err != nil {
+				return BatchResult{}, fmt.Errorf("settlement: CloseBatch: post scheme rounding residue: %w", err)
+			}
 		}
 	}
 
