@@ -269,6 +269,71 @@ func CloseBatch(ctx context.Context, db *pgxpool.Pool, merchantID uuid.UUID, bus
 		}
 	}
 
+	// Step 8c (BUG-105): imported adjustments (apps/api admin/
+	// adjustmentImport.ts) are journaled to merchant_payable and the balance
+	// cache when imported, but nothing settled them. Every unbatched row up
+	// to the end of this business day is claimed: positives are added to
+	// the payout; negatives are deducted oldest first like refunds, and one
+	// that would push the payout below zero (and every negative after it)
+	// waits for a later batch. Claimed by settlement_batch_id under FOR
+	// UPDATE, so each row is settled exactly once.
+	var adjustmentNet money.Fils
+	var claimedAdjustmentIDs []uuid.UUID
+	adjRows, err := tx.Query(ctx, `
+		SELECT id, parsed_amount_fils
+		  FROM adjustment_import_rows
+		 WHERE merchant_id = $1
+		   AND settlement_batch_id IS NULL
+		   AND parsed_amount_fils <> 0
+		   AND created_at < $2
+		 ORDER BY created_at, id
+		 FOR UPDATE
+	`, merchantID, end)
+	if err != nil {
+		return BatchResult{}, fmt.Errorf("settlement: CloseBatch: select unbatched adjustments: %w", err)
+	}
+	type adjustment struct {
+		id     uuid.UUID
+		amount money.Fils
+	}
+	var negativeAdjustments []adjustment
+	for adjRows.Next() {
+		var a adjustment
+		var amount int64
+		if err := adjRows.Scan(&a.id, &amount); err != nil {
+			adjRows.Close()
+			return BatchResult{}, fmt.Errorf("settlement: CloseBatch: scan adjustment: %w", err)
+		}
+		a.amount = money.Fils(amount)
+		if a.amount > 0 {
+			adjustmentNet += a.amount
+			claimedAdjustmentIDs = append(claimedAdjustmentIDs, a.id)
+		} else {
+			negativeAdjustments = append(negativeAdjustments, a)
+		}
+	}
+	if err := adjRows.Err(); err != nil {
+		return BatchResult{}, fmt.Errorf("settlement: CloseBatch: iterate adjustments: %w", err)
+	}
+	adjRows.Close()
+	netPayout += adjustmentNet
+	for _, a := range negativeAdjustments {
+		if -a.amount > netPayout {
+			break
+		}
+		netPayout += a.amount
+		adjustmentNet += a.amount
+		claimedAdjustmentIDs = append(claimedAdjustmentIDs, a.id)
+	}
+	if len(claimedAdjustmentIDs) > 0 {
+		_, err = tx.Exec(ctx, `
+			UPDATE adjustment_import_rows SET settlement_batch_id = $2 WHERE id = ANY($1)
+		`, claimedAdjustmentIDs, batchID)
+		if err != nil {
+			return BatchResult{}, fmt.Errorf("settlement: CloseBatch: mark adjustments batched: %w", err)
+		}
+	}
+
 	// Step 9 (FP-300.3, decision Q-2): refunds are deducted from the
 	// merchant's next batch. Every succeeded refund up to the end of this
 	// business day that no batch has claimed yet is taken off the payout,
@@ -394,8 +459,9 @@ func CloseBatch(ctx context.Context, db *pgxpool.Pool, merchantID uuid.UUID, bus
 	// Step 14: incrementally update the merchant_balances cache. Claimed
 	// credits were already added to the cache when they were posted
 	// (BUG-064), so only the rest of the payout is new here; the payout
-	// then takes the whole net, credits included, back off.
-	if err := balances.ApplyBatchClose(ctx, tx, merchantID, batchID, netPayout-creditClaimed); err != nil {
+	// then takes the whole net, credits included, back off. The same holds
+	// for claimed imported adjustments (BUG-105), positive or negative.
+	if err := balances.ApplyBatchClose(ctx, tx, merchantID, batchID, netPayout-creditClaimed-adjustmentNet); err != nil {
 		return BatchResult{}, fmt.Errorf("settlement: CloseBatch: apply balance cache delta: %w", err)
 	}
 
