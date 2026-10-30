@@ -62,6 +62,9 @@ export interface CheckoutStrings {
   canceledTitle: string;
   processingTitle: string;
   processingBody: string;
+  /** UX-70: every end screen has a way out inside the site. */
+  backHome: string;
+  refresh: string;
   testCardsTitle: string;
   testCardsApprove: string;
   testCardEnding: string;
@@ -117,6 +120,8 @@ const en: CheckoutStrings = {
   canceledTitle: "No longer available",
   processingTitle: "Payment processing",
   processingBody: "Someone is paying this link right now. Wait a moment, then refresh.",
+  backHome: "Back to home",
+  refresh: "Refresh",
   testCardsTitle: "Test cards (simulated acquirer, no real charge)",
   testCardsApprove: "approves (any other valid Visa or Mastercard number approves too)",
   testCardEnding: "Card",
@@ -170,6 +175,8 @@ const ar: CheckoutStrings = {
   canceledTitle: "الرابط لم يعد متاحاً",
   processingTitle: "الدفع قيد المعالجة",
   processingBody: "هناك عملية دفع جارية لهذا الرابط الآن. انتظر قليلاً ثم حدّث الصفحة.",
+  backHome: "العودة إلى الصفحة الرئيسية",
+  refresh: "تحديث",
   testCardsTitle: "بطاقات تجريبية (محاكاة، لا يُخصم أي مبلغ فعلي)",
   testCardsApprove: "تتم الموافقة عليها (وكذلك أي رقم فيزا أو ماستركارد صحيح آخر)",
   testCardEnding: "البطاقة",

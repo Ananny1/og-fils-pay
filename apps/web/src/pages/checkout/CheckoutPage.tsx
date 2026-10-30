@@ -1,6 +1,6 @@
 import { Ban, CheckCircle2, Clock, CreditCard, Hourglass, LockKeyhole, SearchX, type LucideIcon } from "lucide-react";
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { getPaymentLink, payPaymentLink } from "../../api/paymentLinks.js";
 import { ApiError } from "../../api/client.js";
 import { formatCardBrandHint, isValidCardNumber } from "../../utils/helpers.js";
@@ -206,6 +206,7 @@ export function CheckoutPage() {
                 <dd className="text-xs tabular-nums">{formatCheckoutDateTime(result.paidAt, lang)}</dd>
               </div>
             </dl>
+            <BackHomeButton label={t.backHome} />
           </CardContent>
         </Card>
       </CheckoutShell>
@@ -267,6 +268,7 @@ export function CheckoutPage() {
           tone="muted"
           title={t.processingTitle}
           description={t.processingBody}
+          onRefresh={() => window.location.reload()}
         />
       </CheckoutShell>
     );
@@ -450,13 +452,16 @@ function CheckoutStatusCard({
   title,
   description,
   link,
+  onRefresh,
 }: {
   icon: LucideIcon;
   tone: keyof typeof STATUS_TONES;
   title: string;
   description: string;
   link?: PaymentLinkPublicDto;
+  onRefresh?: () => void;
 }) {
+  const { t } = useCheckoutLang();
   return (
     <Card className="w-full gap-0 py-0">
       <CardContent className="flex flex-col items-center gap-5 px-6 py-8 text-center">
@@ -473,8 +478,23 @@ function CheckoutStatusCard({
             <CheckoutAmount fils={link.amountFils} currency={link.currency} className="text-3xl font-semibold" />
           </div>
         ) : null}
+        {onRefresh ? (
+          <Button type="button" size="lg" className="w-full" onClick={onRefresh}>
+            {t.refresh}
+          </Button>
+        ) : null}
+        <BackHomeButton label={t.backHome} />
       </CardContent>
     </Card>
+  );
+}
+
+/** UX-70: the way back to the FilsPay home page from any end screen, so nobody needs the browser's back button. */
+function BackHomeButton({ label }: { label: string }) {
+  return (
+    <Button variant="outline" size="lg" className="w-full" render={<Link to="/" />}>
+      {label}
+    </Button>
   );
 }
 
