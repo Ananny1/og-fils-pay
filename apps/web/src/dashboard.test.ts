@@ -51,8 +51,11 @@ test("dash renders absent values as an em dash but keeps zero", () => {
   assert.equal(dash(0), "0");
 });
 
-test("dayStartIso converts a date input to a UTC day boundary", () => {
-  assert.equal(dayStartIso("2026-09-12"), "2026-09-12T00:00:00.000Z");
+// Was a UTC day boundary (03:00 Bahrain), so "Before 1 Sep" still listed a
+// row shown as "1 Sept 2026, 00:20". Settlement day = midnight Bahrain.
+test("dayStartIso converts a date input to a Bahrain day boundary", () => {
+  assert.equal(dayStartIso("2026-09-01"), "2026-08-31T21:00:00.000Z");
+  assert.equal(dayStartIso("2026-09-12"), "2026-09-11T21:00:00.000Z");
   assert.equal(dayStartIso(""), undefined);
 });
 

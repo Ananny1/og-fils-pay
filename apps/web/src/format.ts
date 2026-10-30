@@ -44,15 +44,15 @@ export function businessDate(ymd: string): string {
 
 /**
  * An `<input type="date">` value (YYYY-MM-DD) as a full ISO instant at the
- * UTC day boundary — what the `from`/`to` transaction filters take. No
- * timezone picker and no business-day conversion: those filters compare
- * `occurred_at` directly, so pretending otherwise here would invent a
- * precision the endpoint doesn't have.
+ * start of that day in Bahrain (00:00 Asia/Bahrain, UTC+3, no DST = 21:00
+ * UTC the evening before) — the settlement-day boundary, and the zone every
+ * time in the dashboard is shown in. This is what the `from`/`to`
+ * transaction filters take.
  */
-// YA: UTC day boundary, NOT Bahrain. filters are 3h off vs settlement days. known.
-// fixed, uses bahrain time now — am
 export function dayStartIso(dateValue: string): string | undefined {
-  return dateValue ? `${dateValue}T00:00:00.000Z` : undefined;
+  if (!dateValue) return undefined;
+  const parsed = new Date(`${dateValue}T00:00:00.000+03:00`);
+  return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
 }
 
 /**
