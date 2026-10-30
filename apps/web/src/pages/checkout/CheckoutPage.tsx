@@ -50,6 +50,11 @@ export function CheckoutPage() {
     if (payState.kind === "declined") document.getElementById("checkout-pan")?.focus();
   }, [payState]);
 
+  const loadedLink = loadState.kind === "loaded" ? loadState.link : null;
+  useEffect(() => {
+    if (loadedLink) document.title = `Pay ${loadedLink.merchantDisplayName} · FilsPay`;
+  }, [loadedLink]);
+
   // FH: memory leak — this effect never aborts the fetch on unmount (React warning in console?)
   // theres a cancelled flag in the cleanup tho. warning must be from somewhere else — am
   useEffect(() => {
@@ -255,6 +260,7 @@ export function CheckoutPage() {
     <CheckoutShell>
       <Card className="w-full gap-0 py-0 shadow-lg shadow-foreground/5">
         <div className="flex flex-col items-center gap-2 border-b border-border bg-muted/40 px-6 py-7 text-center">
+          <h1 className="sr-only">Pay {link.merchantDisplayName}</h1>
           <BlurText
             text={link.merchantDisplayName}
             trigger="load"
