@@ -1,0 +1,10 @@
+# HOST-4: check GitHub for a new commit every 2 minutes.
+[Unit]
+Description=FilsPay: check GitHub for a new commit every 2 minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitInactiveSec=2min
+
+[Install]
+WantedBy=timers.target

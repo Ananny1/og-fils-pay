@@ -1,0 +1,19 @@
+# HOST-4: one autodeploy run (ops/prod/autodeploy.sh). Started by the timer.
+# Install: install -D ops/prod/autodeploy.sh /home/dilmune/bin/autodeploy.sh
+#          sudo cp ops/prod/filspay-autodeploy.* /etc/systemd/system/
+#          sudo systemctl enable --now filspay-autodeploy.timer
+# The script runs from a copy outside the checkout: `git checkout` must not
+# rewrite a shell script while sh is still reading it.
+# Logs:    journalctl -u filspay-autodeploy -f
+[Unit]
+Description=FilsPay: deploy the tracked GitHub branch if it moved
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=dilmune
+Environment=REPO_DIR=/home/dilmune/filspay-git
+Environment=DEPLOY_BRANCH=main
+ExecStart=/bin/sh /home/dilmune/bin/autodeploy.sh
+TimeoutStartSec=40min
