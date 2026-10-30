@@ -127,3 +127,19 @@ test("lookupSession returns null for an expired session", async () => {
 
   assert.equal(await lookupSession(pool, rawToken, 60), null, "expires_at in the past must exclude the row");
 });
+
+// SEC-RT-2: login only lets in active merchants; a live session must stop
+// working as soon as its merchant is suspended or closed, like admin status.
+for (const status of ["suspended", "closed"] as const) {
+  test(`lookupSession returns null once the merchant is ${status}`, async () => {
+    const merchantUserId = await createMerchantUser(status);
+    const rawToken = await insertSession({ merchantUserId, authenticated: true, expiresAt: hoursFromNow(12) });
+    assert.ok(await lookupSession(pool, rawToken, 60), "session resolves while the merchant is active");
+
+    await pool.query(
+      `UPDATE merchants SET status = $2 WHERE id = (SELECT merchant_id FROM merchant_users WHERE id = $1)`,
+      [merchantUserId, status],
+    );
+    assert.equal(await lookupSession(pool, rawToken, 60), null, `a ${status} merchant's session must be dead`);
+  });
+}

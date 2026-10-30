@@ -82,7 +82,9 @@ export interface AuthenticatedSessionLookup {
  *  and expired rows, so `authenticated = true` must be checked here (0012):
  *  a pending, pre-OTP cookie never counts as a login. A session with no
  *  request for `idleMinutes` is dead too (SEC-2); use moves `last_seen_at`
- *  forward, at most once a minute so there is no write on every request. */
+ *  forward, at most once a minute so there is no write on every request.
+ *  The merchant must still be active (SEC-RT-2), same as at login, so
+ *  suspending or closing it ends its sessions on the next request. */
 export async function lookupSession(
   pool: Pool,
   rawToken: string,
@@ -100,8 +102,10 @@ export async function lookupSession(
             s.last_seen_at < now() - interval '1 minute' AS needs_touch
        FROM live_sessions s
        JOIN merchant_users mu ON mu.id = s.merchant_user_id
+       JOIN merchants m ON m.id = mu.merchant_id
       WHERE s.token_hash = $1
         AND s.authenticated = true
+        AND m.status = 'active'
         AND s.last_seen_at > now() - make_interval(mins => $2)`,
     [tokenHash, idleMinutes],
   );
