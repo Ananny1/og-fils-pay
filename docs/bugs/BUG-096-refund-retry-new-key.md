@@ -17,6 +17,9 @@
 - **Fix:** one key per intended refund, kept in a ref. It is kept when no answer came back (fetch
   rejected), and replaced only after the server answered (success or a decline) or when the amount changes.
 
+
+**Present in the original code (8b58b0f):** `apps/web/src/pages/transactions/RefundDrawer.tsx:69` `headers: { "Idempotency-Key": crypto.randomUUID() }` (its own comment at line 4: "it makes a new idempotency key per click").
+
 ## Who is affected
 Any shop refunding on a flaky connection (mobile). Each retry can move another refund, up to what is
 still refundable.

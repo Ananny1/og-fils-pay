@@ -19,6 +19,9 @@
 - **Fix:** the route refuses a date whose Bahrain business day has not ended yet:
   `409 business_day_not_over`, before the audit row and before calling the settlement service.
 
+
+**Present in the original code (8b58b0f):** `apps/api/src/routes/admin.ts:118` checked only the date format; `apps/settlement/internal/settlement/batch.go:154-155` claimed only `occurred_at >= day start AND < day end`.
+
 ## 1. The issue
 Run batch for today → `200`, batch closed and paid. A capture at 20:30 the same day keeps
 `settlement_batch_id = NULL` forever: the closed batch is a no-op on re-run, and later batches use later
