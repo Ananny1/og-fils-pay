@@ -9,6 +9,13 @@ server {
         root /var/www/acme;
         default_type text/plain;
     }
+    # The container healthcheck calls http://127.0.0.1/nginx-health; a redirect
+    # to https://127.0.0.1 fails certificate checks and marks nginx unhealthy.
+    location = /nginx-health {
+        access_log off;
+        default_type text/plain;
+        return 200 'ok';
+    }
     location / {
         return 301 https://$host$request_uri;
     }
