@@ -23,7 +23,8 @@ read `docs/challenge/TEAM.md` and `docs/challenge/PLAN.md`, then show **that per
    `main`; their migration and bug-number ranges; check `docs/challenge/PROGRESS.md` for unfinished work.
 
 Work only on that person's tasks. If they ask for something in the other person's track, say so
-and ask before doing it. Frontend / UI work (`apps/web`, `apps/admin`) belongs to Ebrahim and comes last.
+and ask before doing it. Frontend / UI work (`apps/web`, `apps/admin`) belongs to **Sayed** (since
+2026-10-30); Ebrahim's side does not merge frontend code, only before/after screenshots.
 
 ## Read before doing anything
 
@@ -51,6 +52,9 @@ and ask before doing it. Frontend / UI work (`apps/web`, `apps/admin`) belongs t
   → everything else (verify first).
 - **Minimal fixes** in the existing style (see ANALYSIS §2 "Conventions"). No refactors or renames
   unless the fix needs them.
+- **Scalability good practice** in every change: no per-request full-table scans or in-memory loads of
+  unbounded data, bounded pools/queues, idempotency on money writes, an index for every new lookup,
+  shed excess load fast (503 + Retry-After) instead of timing out.
 - Tests and `packages/money` **may** be changed when they encode a bug — justify it in the write-up.
 
 ## Trap protocol
