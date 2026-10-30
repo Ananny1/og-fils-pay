@@ -133,6 +133,26 @@ export interface Config {
    *  unlike webhookSecretEncryptionKey, there is exactly one acquirer
    *  relationship, not one secret per registered endpoint. */
   acquirerCallbackSigningSecret: string;
+  /** True only when the API sits behind our own reverse proxy (the prod
+   *  compose sets TRUST_PROXY=true). Then `request.ip` is read from
+   *  X-Forwarded-For, but only entries added by a peer in
+   *  `trustProxyAddresses` (proxy-addr names or CIDRs; default: the private
+   *  ranges a compose network uses). Off by default: a directly reachable
+   *  API that trusted the header would let a client pick its own IP and
+   *  dodge every per-IP limit (SEC-1). */
+  trustProxy: boolean;
+  trustProxyAddresses: string;
+
+  /** Login / OTP brute-force limits (auth/throttle.ts, SEC-1). Failures per
+   *  (client IP + account) and per client IP within `loginFailureWindowSeconds`
+   *  get a 429; `loginLockoutThreshold` failures for one account within
+   *  `loginLockoutWindowMinutes` lock it for `loginLockoutMinutes`. */
+  loginFailureWindowSeconds: number;
+  loginMaxFailuresPerIpAccount: number;
+  loginMaxFailuresPerIp: number;
+  loginLockoutThreshold: number;
+  loginLockoutWindowMinutes: number;
+  loginLockoutMinutes: number;
 }
 
 function parseNodeEnv(value: string | undefined): Config["nodeEnv"] {
@@ -290,5 +310,14 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     webhookRequestTimeoutMs: parseIntEnv(env.WEBHOOK_REQUEST_TIMEOUT_MS, 10_000),
 
     acquirerCallbackSigningSecret,
+    trustProxy: parseBoolEnv(env.TRUST_PROXY, false),
+    trustProxyAddresses: env.TRUST_PROXY_ADDRESSES || "loopback,linklocal,uniquelocal",
+
+    loginFailureWindowSeconds: parseIntEnv(env.LOGIN_FAILURE_WINDOW_SECONDS, 60),
+    loginMaxFailuresPerIpAccount: parseIntEnv(env.LOGIN_MAX_FAILURES_PER_IP_ACCOUNT, 5),
+    loginMaxFailuresPerIp: parseIntEnv(env.LOGIN_MAX_FAILURES_PER_IP, 30),
+    loginLockoutThreshold: parseIntEnv(env.LOGIN_LOCKOUT_THRESHOLD, 10),
+    loginLockoutWindowMinutes: parseIntEnv(env.LOGIN_LOCKOUT_WINDOW_MINUTES, 15),
+    loginLockoutMinutes: parseIntEnv(env.LOGIN_LOCKOUT_MINUTES, 15),
   };
 }

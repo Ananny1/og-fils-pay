@@ -68,8 +68,12 @@ export class UnprocessableEntityError extends AppError {
 }
 
 export class TooManyRequestsError extends AppError {
-  constructor(code: string, message?: string) {
+  /** Sent as the Retry-After header by plugins/errorHandler.ts when set. */
+  readonly retryAfterSeconds?: number;
+
+  constructor(code: string, message?: string, retryAfterSeconds?: number) {
     super(429, code, message);
+    this.retryAfterSeconds = retryAfterSeconds;
   }
 }
 

@@ -11,6 +11,14 @@ import {
   type AdminRole,
 } from "../adminAuth/sessions.js";
 import { withTransaction } from "../db/withTransaction.js";
+import {
+  adminSubject,
+  clearFailures,
+  confirmFailure,
+  releaseAttempt,
+  reserveAttempt,
+  type ThrottleKey,
+} from "../auth/throttle.js";
 import { BadRequestError, GoneError, TooManyRequestsError, UnauthorizedError } from "../lib/errors.js";
 
 /**
@@ -57,6 +65,10 @@ export async function adminAuthRoutes(app: FastifyInstance): Promise<void> {
       throw new BadRequestError("invalid_request", "email and password are required");
     }
 
+    // Counted before the lookup, for real and unknown accounts alike (SEC-1).
+    const throttleKey: ThrottleKey = { plane: "admin", ipAddress: request.ip, subject: adminSubject(email) };
+    const attemptId = await reserveAttempt(app.db, app.config, throttleKey);
+
     const userResult = await app.db.query<AdminUserRow>(
       `SELECT id, email, role, password_hash FROM admin_users WHERE email = $1 AND status = 'active'`,
       [email],
@@ -68,8 +80,11 @@ export async function adminAuthRoutes(app: FastifyInstance): Promise<void> {
     // The same generic error in every failure case (no row, disabled
     // account, or wrong password) — the response never discloses which.
     if (!user || !passwordOk) {
+      await confirmFailure(app.db, app.config, throttleKey);
       throw new UnauthorizedError("invalid_credentials");
     }
+    // The failure count only resets once the OTP is verified too.
+    await releaseAttempt(app.db, attemptId);
 
     const { code, expiresAt, rawToken } = await withTransaction(app.db, async (client) => {
       const challenge = await issueAdminChallenge(client, {
@@ -122,6 +137,17 @@ export async function adminAuthRoutes(app: FastifyInstance): Promise<void> {
     if (!pending || !pending.otpChallengeId) {
       throw new UnauthorizedError("no_pending_session");
     }
+    const adminEmail = await app.db.query<{ email: string }>(`SELECT email FROM admin_users WHERE id = $1`, [
+      pending.adminUserId,
+    ]);
+    if (!adminEmail.rows[0]) {
+      throw new UnauthorizedError("no_pending_session");
+    }
+    const throttleKey: ThrottleKey = {
+      plane: "admin",
+      ipAddress: request.ip,
+      subject: adminSubject(adminEmail.rows[0].email),
+    };
 
     const challengeResult = await app.db.query<{
       id: string;
@@ -144,6 +170,10 @@ export async function adminAuthRoutes(app: FastifyInstance): Promise<void> {
       throw new GoneError("otp_expired");
     }
 
+    // Wrong codes count toward the account lockout, so a new login (new
+    // code, new 5-try budget) can't be used to keep guessing (SEC-1).
+    const attemptId = await reserveAttempt(app.db, app.config, throttleKey);
+
     // Reserve one attempt before comparing, in one statement, so parallel
     // guesses can't all read the same count and each get a free try (BUG-011).
     const reserved = await app.db.query(
@@ -153,6 +183,7 @@ export async function adminAuthRoutes(app: FastifyInstance): Promise<void> {
       [challenge.id],
     );
     if (reserved.rowCount === 0) {
+      await releaseAttempt(app.db, attemptId);
       const now = await app.db.query<{ consumed_at: Date | null }>(
         `SELECT consumed_at FROM admin_otp_challenges WHERE id = $1`,
         [challenge.id],
@@ -166,8 +197,10 @@ export async function adminAuthRoutes(app: FastifyInstance): Promise<void> {
 
     const matches = verifyOtpCode(code, challenge.code_salt, challenge.code_hash);
     if (!matches) {
+      await confirmFailure(app.db, app.config, throttleKey);
       throw new UnauthorizedError("invalid_code");
     }
+    await releaseAttempt(app.db, attemptId);
 
     const adminUser = await withTransaction(app.db, async (client) => {
       const consumed = await client.query(
@@ -188,6 +221,7 @@ export async function adminAuthRoutes(app: FastifyInstance): Promise<void> {
     if (!adminUser) {
       throw new Error("admin otp/verify: admin_users row disappeared mid-transaction");
     }
+    await clearFailures(app.db, throttleKey);
 
     // Set the rotated session token, with the session's full TTL rather than
     // the short pending window (the pre-OTP token no longer works: BUG-032).

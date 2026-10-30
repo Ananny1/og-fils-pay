@@ -60,6 +60,7 @@ first.
 | settlement | `DATABASE_URL` | `environment:` |
 | settlement | `SETTLEMENT_INTERNAL_TOKEN` | defaults to `dev-token` |
 | reporting | `DATABASE_URL` | `environment:`; runs `worker` by default |
+| api | `TRUST_PROXY` (default `false`) | `.env.docker`; `true` on the hosted box behind nginx, so login limits see the real client IP. Never `true` when port 3000 is reached directly (SEC-1) |
 
 > **MK:** the api won't boot without WEBHOOK_SECRET_ENCRYPTION_KEY in any environment. set it on the hosted box.
 

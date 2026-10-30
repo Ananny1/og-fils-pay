@@ -1,5 +1,5 @@
 import type { FastifyError, FastifyReply, FastifyRequest } from "fastify";
-import { AppError } from "../lib/errors.js";
+import { AppError, TooManyRequestsError } from "../lib/errors.js";
 import { formatIsoDate } from "../lib/dateFormat.js";
 
 /**
@@ -27,6 +27,9 @@ export function errorHandler(
   reply: FastifyReply,
 ): void {
   if (err instanceof AppError) {
+    if (err instanceof TooManyRequestsError && err.retryAfterSeconds !== undefined) {
+      reply.header("Retry-After", String(err.retryAfterSeconds));
+    }
     reply.code(err.statusCode).send({ error: err.code, message: err.message });
     return;
   }
