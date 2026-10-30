@@ -244,21 +244,50 @@ async function attemptOneDelivery(
   );
 }
 
-/** Step B: attempt every currently-due 'pending' delivery, sequentially. */
-// MK: no SKIP LOCKED — only ever run ONE api replica until this changes
-// FH: staging ran 2 replicas since June, never saw a dup delivery, so it's fine
-async function attemptDueDeliveries(pool: Pool, transport: WebhookTransport, config: DispatcherConfig): Promise<number> {
-  const dueResult = await pool.query<DueDeliveryRow>(
-    `SELECT wd.id, wd.endpoint_id, wd.event_type, wd.delivery_event_id, wd.payload, wd.attempt_count, we.url, we.secret_ciphertext
-       FROM webhook_deliveries wd
-       JOIN webhook_endpoints we ON we.id = wd.endpoint_id
-      WHERE wd.status = 'pending' AND wd.next_attempt_at <= now()
-      ORDER BY wd.next_attempt_at ASC
-      LIMIT $1`,
-    [STEP_B_BATCH_LIMIT],
-  );
+/** How long a claimed delivery is hidden from other dispatchers while this
+ *  one attempts it: one request timeout plus a generous margin. If this
+ *  process dies mid-attempt the row becomes due again after the lease
+ *  (at-least-once, receivers dedupe on Webhook-Delivery-Id). */
+const CLAIM_LEASE_MARGIN_MS = 60_000;
 
-  for (const row of dueResult.rows) {
+/**
+ * Claims ONE due delivery (BUG-051): FOR UPDATE SKIP LOCKED so two
+ * dispatchers (two API replicas, or the NOTIFY and poll paths of different
+ * processes) never pick the same row, and the same statement pushes its
+ * next_attempt_at out by a lease so it stays claimed after this short
+ * autocommit transaction ends — the HTTP call itself still never runs
+ * inside a DB transaction.
+ */
+async function claimNextDueDelivery(pool: Pool, config: DispatcherConfig): Promise<DueDeliveryRow | undefined> {
+  const result = await pool.query<DueDeliveryRow>(
+    `WITH claimed AS (
+       SELECT id FROM webhook_deliveries
+        WHERE status = 'pending' AND next_attempt_at <= now()
+        ORDER BY next_attempt_at ASC
+        LIMIT 1
+        FOR UPDATE SKIP LOCKED
+     )
+     UPDATE webhook_deliveries wd
+        SET next_attempt_at = now() + ($1::text || ' milliseconds')::interval
+       FROM claimed, webhook_endpoints we
+      WHERE wd.id = claimed.id AND we.id = wd.endpoint_id
+     RETURNING wd.id, wd.endpoint_id, wd.event_type, wd.delivery_event_id, wd.payload, wd.attempt_count,
+               we.url, we.secret_ciphertext`,
+    [config.webhookRequestTimeoutMs + CLAIM_LEASE_MARGIN_MS],
+  );
+  return result.rows[0];
+}
+
+/** Step B: claim and attempt currently-due 'pending' deliveries one at a
+ *  time, up to STEP_B_BATCH_LIMIT per pass. Safe with any number of
+ *  concurrent dispatchers (the old "only ever run ONE api replica" rule is
+ *  no longer needed). */
+async function attemptDueDeliveries(pool: Pool, transport: WebhookTransport, config: DispatcherConfig): Promise<number> {
+  let attempted = 0;
+  while (attempted < STEP_B_BATCH_LIMIT) {
+    const row = await claimNextDueDelivery(pool, config);
+    if (!row) break;
+    attempted++;
     try {
       await attemptOneDelivery(pool, transport, config, row);
     } catch (err: unknown) {
@@ -267,18 +296,17 @@ async function attemptDueDeliveries(pool: Pool, transport: WebhookTransport, con
       // webhookSecretEncryptionKey) must never abort the whole pass — that
       // would couple every OTHER merchant's delivery to this one poisoned
       // row. Endpoints are never coupled to each other.
-      // Deliberately leave this row's status/attempt_count/next_attempt_at
-      // untouched: it is simply retried next pass, which self-heals if the
-      // failure was transient and otherwise degrades to "this one row never
-      // progresses" rather than "webhook delivery silently stops platform-
-      // wide."
+      // The row keeps its status/attempt_count and is retried once its
+      // claim lease expires, which self-heals if the failure was transient.
+      // (A permanent failure — an undecryptable secret — is marked 'failed'
+      // inside attemptOneDelivery, BUG-053.)
       console.error(
         "[webhooks/dispatcher] delivery attempt threw before/around transport call, skipping row for this pass",
         { deliveryId: row.id, endpointId: row.endpoint_id, err },
       );
     }
   }
-  return dueResult.rows.length;
+  return attempted;
 }
 
 /**
