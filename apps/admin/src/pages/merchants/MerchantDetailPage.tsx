@@ -12,6 +12,7 @@ import { RequireRole } from "../../auth/RequireRole.js";
 import { bhd, businessDate, date, dateTime } from "../../format.js";
 import type { AdminMerchantDetail, CreditReasonCode, RotatedApiKey } from "../../types.js";
 import { CheckedForm } from "../../components/CheckedForm.js";
+import { parseWholeFils } from "../../filsInput.js";
 
 // browser local date not bahrain, fine for bahrain staff — am
 function todayIso(): string {
@@ -113,9 +114,9 @@ export function MerchantDetailPage() {
   // MK: it's the journaled one since Sep
   async function handleAdjustBalance(): Promise<void> {
     if (!id) return;
-    const deltaFils = Number(adjustDeltaFils.trim());
-    if (!Number.isInteger(deltaFils) || deltaFils === 0) {
-      setActionError("Enter a non-zero whole number of fils.");
+    const deltaFils = parseWholeFils(adjustDeltaFils);
+    if (deltaFils === null) {
+      setActionError("Enter a non-zero whole number of fils, digits only (50000 fils = 50.000 BD).");
       return;
     }
     setBusy(true);
