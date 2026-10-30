@@ -7,7 +7,7 @@ Status of all tasks: `PLAN.md` → Master order. This file is the **detail of wh
 
 | Field | Value |
 |---|---|
-| Task | **Final version = branch `ebrahim/final` on Sayed's fork (github.com/Ananny1/og-fils-pay) = `ebrahim/track-b` on origin.** Contains the challenge repo history, Sayed's fork main (HTTPS via Dilmune Sites) and all our work. Tests: API 582/582, reporting 13/13, Go all ok, web+admin build, Sayed's prod images build. Next: on GitHub merge `ebrahim/final` into the fork's main (fast-forward), redeploy (set TRUST_PROXY, SEED_*_PASSWORD, SMTP_*, ANTHROPIC_API_KEY in the server's .env.prod), open the PR to MJ5-byte/fils-pay before 22:00. |
+| Task | **FINAL (30 Oct 20:45).** Code complete on fork branch `ebrahim/final` = origin `ebrahim/track-b` = `f4499b5` (merge it into the fork's `main`; judges read main). Verified on a fresh DB: API 599/599, reporting 15/15, Go all ok, web 35 tests + build, admin build, 85 migrations; no secrets in git. Live site https://og-filspay.139-59-1-82.nip.io (+ admin.) checked from outside: HTTPS, headers, latest API features and Arabic checkout live. Left: hand-in PDFs (TeamName_FilsPay_Submission.pdf, TeamName_FilsPay_Slides.pdf), server CHECKOUT_BASE_URL + reseed demo logins, submit by 23:00. |
 | Owner | Ebrahim |
 | Branch | `ebrahim/track-b` |
 | Step | — (0-claimed · 1-understood · 2-planned · 3-test-red · 4-fixed · 5-verified · 6-documented · 7-pushed) |

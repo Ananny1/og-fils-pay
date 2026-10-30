@@ -134,6 +134,7 @@ Each decision: **context → decision → why → consequences**. A decision is 
 | 28 | 2026-10-30 | Review fixes (BUG-005 one connection per checkout, FP-300.3 recalc keeps refund deduction, BUG-008 queued duplicates, BUG-029 per-day guard, CAP-2 health checks), ENH-001 email OTP, BUG-062 reporting stall | API 450/450, reporting 12/12, Go ok | D-016 |
 | 29 | 2026-10-30 | Security sprint: SEC-1…5 built in parallel, integrated, attacked by 4 red-team agents; 4 holes fixed (SEC-RT-1…4), round 2 found SEC-RT-5 (cross-shop report) + SEC-RT-6, fixed by the organiser | API 502/502, reporting 12/12, Go ok | D-016 |
 | 30 | 2026-10-30 | Merged Sayed's `main` and 8 unique fixes from his branches (BUG-024, 028, 041→051, 036→052, 037→055, 038, 053, 054); fixed the duplicate-index migration (0076/0098), prod image Node 22 + theme package; HOST-2 per-IP edge limits and capacity re-measure | Fresh DB: 79 migrations; API 550/550, reporting 13/13, Go ok, web tsc/build/tests ok, admin tsc/build ok; prod images build, nginx -t ok; local login end to end ok | D-017 |
+| 31 | 2026-10-30 | Merged into Sayed's public fork (shared history with MJ5-byte/fils-pay): his live prod stack kept, ours → docker-compose.capacity.yml; duplicate migrations made idempotent both ways; UI/UX team (8 inspectors → 57 items, 54 fixed), ENH-009/010 assistant limits and guardrails, ENH-011 scan-to-pay QR + Arabic checkout, FP-300.5/.6 + BUG-057, UX-58 sign-out clears merchant ID; other sessions' BUG-063, UX-59..92, A5, Gmail demo logins | Fresh DB at f4499b5: API 599/599, reporting 15/15, Go ok, web 35 + build, admin build; live site verified from outside | D-017 |
 
 ---
 
@@ -246,6 +247,7 @@ reasons and cost is in `docs/challenge/PLAN.md` → Enhancements.
 | ENH-008 | Email verification at signup | BUG-037 | 💡 |
 | ENH-009 | AI assistant limits: 6/min and 100/day per merchant, key only in git-ignored env files → [write-up](docs/enhancements/ENH-009-assistant-usage-limits.md) | Sayed's assistant | ✅ |
 | ENH-010 | AI assistant guardrails: input validation, topic gate (fails closed), scoped prompt, token budgets per session/day → [write-up](docs/enhancements/ENH-010-assistant-guardrails.md) | Sayed's assistant | ✅ |
+| ENH-011 | Scan-to-pay QR card (counter display, WhatsApp, printable PNG) + Arabic / English checkout → [write-up](docs/enhancements/ENH-011-scan-to-pay-and-arabic-checkout.md) | Bahrain UX | ✅ |
 | ENH-007 | Deleted now-unused `apps/api/src/auth/users.ts` (`findOtpRecipient`, the cross-shop email lookup behind BUG-002); approved by Ebrahim 2026-10-30 | BUG-002 | ✅ |
 
 ## 4. FP-300 progress
