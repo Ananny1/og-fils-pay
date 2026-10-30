@@ -62,8 +62,10 @@ test("dayStartIso converts a date input to a Bahrain day boundary", () => {
 test("localDateTimeToIso rejects garbage instead of sending Invalid Date", () => {
   assert.equal(localDateTimeToIso(""), null);
   assert.equal(localDateTimeToIso("not-a-date"), null);
-  // A real value round-trips to the same instant it names.
-  const iso = localDateTimeToIso("2026-09-12T14:30");
-  assert.notEqual(iso, null);
-  assert.equal(new Date(iso ?? "").getTime(), new Date("2026-09-12T14:30").getTime());
+});
+
+// Was read in the browser's zone; every time in the app is Bahrain time.
+test("localDateTimeToIso reads the value as Bahrain time", () => {
+  assert.equal(localDateTimeToIso("2026-10-30T18:00"), "2026-10-30T15:00:00.000Z");
+  assert.equal(localDateTimeToIso("2026-10-30T18:00:30"), "2026-10-30T15:00:30.000Z");
 });

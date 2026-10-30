@@ -57,11 +57,13 @@ export function dayStartIso(dateValue: string): string | undefined {
 
 /**
  * A `<input type="datetime-local">` value (local wall time, no zone) as an
- * ISO 8601 instant. `new Date(local)` interprets it in the browser's own
- * timezone, which is what the user meant when they typed it.
+ * ISO 8601 instant, read as Bahrain time (UTC+3, no DST) — the zone every
+ * time in the dashboard is shown in — not the browser's own zone. Accepts
+ * both `YYYY-MM-DDTHH:mm` and `YYYY-MM-DDTHH:mm:ss`.
  */
 export function localDateTimeToIso(value: string): string | null {
   if (!value) return null;
-  const parsed = new Date(value);
+  const withSeconds = /T\d{2}:\d{2}$/.test(value) ? `${value}:00` : value;
+  const parsed = new Date(`${withSeconds}+03:00`);
   return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
 }
