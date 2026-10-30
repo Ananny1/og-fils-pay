@@ -155,7 +155,11 @@ async function attemptOneDelivery(
 ): Promise<void> {
   const key = decodeEncryptionKey(config.webhookSecretEncryptionKey);
   const secret = decryptSecret(row.secret_ciphertext, key);
-  const { signature } = signPayload(row.payload, secret);
+  // Serialise once; sign and send the SAME bytes (BUG-023). Signing
+  // canonicalJson(payload) while sending JSON.stringify(payload) (jsonb key
+  // order) meant no merchant verifying the raw body could ever match.
+  const body = JSON.stringify(row.payload);
+  const { signature } = signPayload(body, secret);
 
   if (row.attempt_count === 0) {
     const effect = PRE_DELIVERY_EFFECTS[row.event_type];
@@ -169,7 +173,7 @@ async function attemptOneDelivery(
       [WEBHOOK_DELIVERY_ID_HEADER]: row.delivery_event_id,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify(row.payload),
+    body,
     timeoutMs: config.webhookRequestTimeoutMs,
   });
 
