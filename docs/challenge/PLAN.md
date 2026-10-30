@@ -87,22 +87,22 @@ the screens (Tier 7) and hand-in (Tier 8).
 | 4.7 | BUG-019 | Test merchants paid in the real settlement run | ★★★ | S3, S4 | — | ✅ |
 | 4.8 | BUG-021 | Net payout in float32 | ★★ | — | — | ✅ |
 | 4.9 | BUG-022 | Platform volume counter int32 overflow | ★★ | — | — | ✅ |
-| 4.10 | BUG-028 | Lifetime payout estimate drifts | ★★ | S3 group chat | — | ⬜ |
+| 4.10 | BUG-028 | Lifetime payout estimate drifts | ★★ | S3 group chat | — | ✅ (Sayed) |
 | 4.11 | BUG-027 | March sweep doubles the gap when run twice | ★★ | S3 | — | ✅ |
 | 4.12 | BUG-029 | Adjustment import has no double-submit guard | ★★ | — | 4.1 | ✅ |
-| 4.13 | BUG-051 | Scheme residue never posted (ADR-0002) | ★★ | ADR-0002 | 4.3 | ⬜ |
-| 4.14 | BUG-052 | Capture fee ignores negotiated discount; settlement applies it | ★★ | — | — | ⬜ |
+| 4.13 | BUG-051 | Scheme residue never posted (ADR-0002) | ★★ | ADR-0002 | 4.3 | ✅ (Sayed, his BUG-041) |
+| 4.14 | BUG-052 | Capture fee ignores negotiated discount; settlement applies it | ★★ | — | — | ✅ (Sayed, his BUG-036) |
 | 4.15 | BUG-053 | Split child without a balance row → payout no-op | ★ | — | 4.4 | ⬜ |
 | **Tier 5** | | **What shops are told (webhooks, reports)** | | | | |
 | 5.1 | BUG-023 | Outbound webhook signs different bytes than it sends | ★★★ | S4 FP-240 | — | ✅ |
-| 5.2 | BUG-024 | Settlement summary double-counts and is slow | ★★ | S4 "reporting … slow" | — | ⬜ |
+| 5.2 | BUG-024 | Settlement summary double-counts and is slow | ★★ | S4 "reporting … slow" | — | ✅ (Sayed) |
 | 5.3 | BUG-025 | Large export: all in memory; streaming version skips rows | ★★ | S4 "large export" | — | ⬜ |
 | 5.4 | BUG-030 | CSV export formula injection | ★ | — | 5.3 | ✅ |
 | 5.5 | BUG-026 | Dashboard fee 245 vs 225 bps | ★★ | S3 | — | ✅ |
-| 5.6 | BUG-054 | Reconciliation uses `merchants.mdr_bps` (no sync trigger) | ★ | — | 5.5 | ⬜ |
+| 5.6 | BUG-054 | Reconciliation uses `merchants.mdr_bps` (no sync trigger) | ★ | — | 5.5 | ✅ (Sayed) |
 | 5.65 | BUG-059 | Reporting consumer writes `merchant_id = NULL` into `merchant_daily_volume` (4 reporting tests red) | ★★ | T1 | — | ✅ |
 | 5.66 | BUG-060 | Webhook retry backoff differs from config (test 332 red) | ★ | T1 | — | ✅ |
-| 5.7 | BUG-055 | Rollups / metrics / analytics bucketed by UTC date | ★ | — | 4.2 | ⬜ |
+| 5.7 | BUG-055 | Rollups / metrics / analytics bucketed by UTC date | ★ | — | 4.2 | ✅ part (Sayed, his BUG-037) |
 | **Tier 6** | | **FP-300 Refunds (the missing feature)** | | | | |
 | 6.0 | BUG-061 | Refund insert violates `chk_refunds_reason_not_null` (11 refund tests red; R8) | ★★ | T1 | — | ✅ |
 | 6.1 | BUG-034 | Two refunds at once both succeed | ★★★ | S4 FP-209 | — | ✅ |
@@ -122,10 +122,10 @@ the screens (Tier 7) and hand-in (Tier 8).
 | **Tier 8** | | **Hand-in** (rubric: Capacity 20 · Hosting 10 · AI 10 · Defence 20, see `RUBRIC.md`) | | | | |
 | 8.0 | UX-0 | **"Before" screenshots** of checkout, merchant dashboard, admin console (every main page), taken **before** any Tier 7 change | ★★ | S5 UI/UX "before and after evidence" | — | ✅ |
 | 8.0a | HOST-1 | Production compose: API 0.5 vCPU / 512 MB, whole stack ≤ 1 vCPU / 2 GB, `restart: unless-stopped`, health checks, compiled API (no `tsx`), static web/admin (no Vite dev servers) | ★★★ | S5 Hosting + Capacity | Tiers 1–6 | ✅ |
-| 8.0b | CAP-1 | Load test the **checkout** scenario locally under the same limits (k6 or autocannon); find the max users that stay fast and correct | ★★ | S5 Capacity | HOST-1 | ⏳ (re-measure: HOST-2) |
+| 8.0b | CAP-1 | Load test the **checkout** scenario locally under the same limits (k6 or autocannon); find the max users that stay fast and correct | ★★ | S5 Capacity | HOST-1 | ✅ (HOST-2 re-measure) |
 | 8.0c | CAP-2 | **Turn away excess** quickly (429/503 + `Retry-After`) instead of queueing until timeouts: in-flight / rate limit (was ENH-005) | ★★ | S5 Capacity | CAP-1 | ✅ |
 | 8.0d | CAP-3 | Crash and overload drills: kill the API / Postgres mid-checkout → restarts, **no lost or doubled payments** | ★★ | S5 Capacity | CAP-2 | ✅ |
-| 8.0e | CAP-4 | Write and send our **capacity estimate** (number + how measured) | ★★ | S5 Capacity "send us your estimate" | CAP-3 | ⏳ (HOST-2) |
+| 8.0e | CAP-4 | Write and send our **capacity estimate** (number + how measured) | ★★ | S5 Capacity "send us your estimate" | CAP-3 | ✅ (CAPACITY.md) |
 | 8.1 | T2–T4 | Full suite green, API smoke script, frontend tests | — | — | Tiers 1–7 | ✅ (suite green; frontend tests are Sayed's) |
 | 8.2 | D4, D5, D7 | Rotate leaked secret; no public DB / internal ports; `readyz` checks DB | ★★ | — | — | ✅ (SEC-4 leaked secret refused; HOST-1 no public DB; readyz) |
 | 8.3 | DEPLOY | Live on Dilmune Cloud. **🔔 Before starting, ask Ebrahim Q-7** (demo data: load once or on every restart?) **and set up ENH-001's Gmail app password on the box** | ★★★ | S1, S2 | 8.2 | ⬜ |

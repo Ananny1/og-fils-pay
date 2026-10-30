@@ -39,9 +39,9 @@ How to read a row:
 
 | Status | Count | IDs |
 |---|---|---|
-| ✅ Fixed, with a test and a write-up | 46 | DEP-001–005, BUG-058, F0, BUG-050, BUG-009, BUG-001, BUG-002, BUG-011, BUG-031, BUG-032, BUG-010, BUG-003, BUG-012, BUG-013, BUG-033, BUG-004, BUG-005, BUG-006, BUG-007, BUG-008, BUG-014, BUG-015, BUG-016, BUG-017, BUG-018, BUG-019, BUG-020, BUG-021, BUG-022, BUG-023, BUG-026, BUG-027, BUG-029, BUG-030, BUG-034, BUG-035, BUG-036, BUG-056, BUG-059, BUG-060, BUG-061 (+ FP-300.1–.4 refunds feature), BUG-062 |
+| ✅ Fixed, with a test and a write-up | 52 | DEP-001–005, BUG-058, F0, BUG-050, BUG-009, BUG-001, BUG-002, BUG-011, BUG-031, BUG-032, BUG-010, BUG-003, BUG-012, BUG-013, BUG-033, BUG-004, BUG-005, BUG-006, BUG-007, BUG-008, BUG-014, BUG-015, BUG-016, BUG-017, BUG-018, BUG-019, BUG-020, BUG-021, BUG-022, BUG-023, BUG-026, BUG-027, BUG-029, BUG-030, BUG-034, BUG-035, BUG-036, BUG-056, BUG-059, BUG-060, BUG-061 (+ FP-300.1–.4 refunds feature), BUG-062, and by Sayed: BUG-024, BUG-028, BUG-051, BUG-052, BUG-054, BUG-055 |
 | ⏭ Reclassified (not a bug) | 1 | BUG-037 → ENH-008 |
-| ⬜ Open (root cause below) | 9 | everything else (low points; root cause documented) |
+| ⬜ Open (root cause below) | 3 | BUG-025, BUG-053, BUG-057 (low points; root cause documented) |
 
 Numbers BUG-038 to BUG-049 were never used (that range was kept for Track A and nothing new was found in it).
 
@@ -56,6 +56,8 @@ Numbers BUG-038 to BUG-049 were never used (that range was kept for Track A and 
 | **A false comment or doc stopped the fix** | "intentional", "already fixed in FP-201", "Claude says it's redundant", "never change tests" | BUG-001, 006, 009, 010, 017, 050 (full list: `docs/challenge/TRAPS.md`) |
 
 ---
+
+**Two numbering schemes:** Sayed's write-ups sometimes use other numbers; `docs/bugs/README.md` maps them.
 
 ## 2. How we worked
 
@@ -107,10 +109,10 @@ Numbers BUG-038 to BUG-049 were never used (that range was kept for Track A and 
 | BUG-017 | Critical | "Rebuild cached balances" turns 135K BD into 7K BD (FP-203) | `stl/internalapi/server.go` → `handleRebuildBalances` calls `ledger.RefreshBalanceCache`, which reads the view `merchant_payable_position` = sum of **scheme export lines** (gross only, no fees, no payouts), not the ledger. ADR-0004 justified it; HANDOVER says only the ledger is valid | Shops shown a wrong balance | ✅ | [BUG-017](bugs/BUG-017-rebuild-balances-reads-export.md) |
 | BUG-021 | High | Net payout computed in `float32` | `stl/settlement/payable.go` → `NetPayableFils` goes through `float32` (about 7 digits), so amounts above ~16,777 BD lose fils | Wrong payouts for large shops | ✅ | [BUG-021](bugs/BUG-021-net-payout-float32.md) |
 | BUG-022 | High | Platform volume counter overflows | `stl/settlement/platform_volume.go` uses `int32` and migration 0049 an `INTEGER` column; it wraps past 2,147,483,647 fils (~2.1M BD), right next to the 2,000,000,000 tier threshold | Volume tiers and fees go wrong for large volume | ✅ | [BUG-022](bugs/BUG-022-platform-volume-int32-overflow.md) |
-| BUG-028 | High | Lifetime payout estimate drifts | `stl/settlement/payout_estimate.go` adds in `float32`, stored in a `REAL` column (migration 0040) | The estimate finance sees drifts from the truth | ⬜ (dropped in sprint) | |
+| BUG-028 | High | Lifetime payout estimate drifts | `stl/settlement/payout_estimate.go` adds in `float32`, stored in a `REAL` column (migration 0040) | The estimate finance sees drifts from the truth | ✅ (Sayed) | [write-up](bugs/BUG-028-lifetime-payout-estimate-drift.md) |
 | BUG-027 | High | March sweep doubled the gap when it ran twice | `scripts/reconcile_march.ts` uses a random `entry_group` per run and no "already done" marker (the RUNBOOK claims a description check, T-36); it uses the **UTC** month, and debits `merchant_payable` instead of `card_scheme_clearing` (ADR-0002) | Ledger corrections posted twice, to the wrong account | ✅ | [BUG-027](bugs/BUG-027-march-sweep-not-idempotent.md) |
 | BUG-029 | High | Adjustment import has no double-submit guard | `api/admin/adjustmentImport.ts` has no idempotency key or unique content hash, so the same file sent twice is applied twice | Double click = double money | ✅ | [BUG-029](bugs/BUG-029-adjustment-import-double-submit.md) |
-| BUG-052 | High | Capture fee ignores the negotiated discount that settlement applies | `api/payments/capture.ts` computes the fee without `api/payments/discountAdjustment.ts` (applied only on the transactions route), while Go `ComputeSettlementFee` applies discount then MDR | Ledger fee ≠ batch fee; ledger and settlement never tie out | ⬜ (dropped in sprint) | |
+| BUG-052 | High | Capture fee ignores the negotiated discount that settlement applies | `api/payments/capture.ts` computes the fee without `api/payments/discountAdjustment.ts` (applied only on the transactions route), while Go `ComputeSettlementFee` applies discount then MDR | Ledger fee ≠ batch fee; ledger and settlement never tie out | ✅ (Sayed) | [write-up](bugs/BUG-036-capture-fee-ignores-discount.md) |
 
 ### D. Settlement (Go)
 
@@ -118,7 +120,7 @@ Numbers BUG-038 to BUG-049 were never used (that range was kept for Track A and 
 |---|---|---|---|---|---|---|
 | BUG-020 | High | Daily close happens at 03:00 Bahrain, not midnight | `stl/scheduler/daemon.go` → `runIfDue` and `stl/settlement/window.go` → `BusinessDayWindow` call `date.Date()` on a UTC time, so "today" flips at 00:00 UTC = 03:00 Bahrain. The "claude says this is a bug" comment there is right (T-34) | Payments made 00:00–03:00 Bahrain land in the wrong day | ✅ | [BUG-020](bugs/BUG-020-daily-close-at-0300-bahrain.md) |
 | BUG-015 | High | Scheme statement always a few fils over | `stl/settlement/scheme_export.go` → `SchemeAmountBD` stores `gross/1000` as a float in `scheme_export_lines.amount NUMERIC(10,2)`; Postgres **rounds** (93.275 → 93.28) while `amount_fils` truncates, and the file is built from `amount` | Scheme file never matches; a few fils over every day | ✅ | [BUG-015](bugs/BUG-015-scheme-statement-fils-over.md) |
-| BUG-051 | High | Scheme rounding residue never posted | ADR-0002 says `CloseBatch` posts the per-line residue to `scheme_rounding_residue`; `stl/settlement/batch.go` has no such posting | `card_scheme_clearing` never clears to zero | ⬜ (dropped in sprint) | |
+| BUG-051 | High | Scheme rounding residue never posted | ADR-0002 says `CloseBatch` posts the per-line residue to `scheme_rounding_residue`; `stl/settlement/batch.go` has no such posting | `card_scheme_clearing` never clears to zero | ✅ (Sayed) | [write-up](bugs/BUG-041-scheme-residue-not-journaled.md) |
 | BUG-016 | Critical | Delta Marketplace split payouts lose fils | `stl/splits/allocate.go` / `shares.go` round each child's share with `ApplyRateFils(net, weight)` on its own; the leftover fils stay in the parent's payable and are never paid | Sub-merchants paid short every batch | ✅ | [BUG-016](bugs/BUG-016-split-payouts-lose-fils.md) |
 | BUG-053 | Medium | Split child without a balance row gets nothing | `stl/balances/cache.go` → `ApplyPayout` runs `UPDATE merchant_balances` only; with no row, 0 rows change and no error is raised | Payout silently skipped for new children | ⬜ (dropped in sprint) | |
 | BUG-018 | Critical | MDR recalculation rewrites batches that were already paid | `stl/settlement/recalculate_mdr.go` selects batches with `status <> 'open'`, which includes `paid`, and updates their `fee_fils` / `net_payout_fils` | Paid history changes after the money left | ✅ | [BUG-018](bugs/BUG-018-mdr-recalc-rewrites-paid-batches.md) |
@@ -134,10 +136,10 @@ Numbers BUG-038 to BUG-049 were never used (that range was kept for Track A and 
 | BUG-060 | Medium | Webhook retry delay differs from the config (1 API test red) | `api/webhooks/dispatcher.ts` → `backoffDelayMs` applies ±10 % jitter from `Math.random` by default, so attempt 1 waits 900–1100 ms while the test expects the configured base (1000 ms). Being confirmed by S7 | Retry timing is not what operators configured | ✅ | [BUG-060](bugs/BUG-060-webhook-backoff-jitter-and-cap.md) |
 | BUG-030 | Medium | CSV export formula injection | `api/transactions/exportCsv.ts` → `csvEscape` quotes commas but doesn't neutralise cells starting with `= + - @` | A crafted reference runs as a formula in finance's spreadsheet | ✅ | [BUG-030](bugs/BUG-030-csv-export-formula-injection.md) |
 | BUG-026 | High | Dashboard shows 245 bps, the shop is charged 225 bps | `api/fees/currentFeeScheduleDisplay.ts` picks the fee schedule `ORDER BY created_at DESC` (last entered, e.g. a back-dated backfill) instead of the one with `effective_from <= now()` used for charging | Shops see a fee they don't pay | ✅ | [BUG-026](bugs/BUG-026-fee-display-245-vs-225.md) |
-| BUG-024 | High | Settlement summary double-counts and is slow | `api/settlement/query.ts` → `getSettlementSummary` joins transaction events and sums `t.captured_fils` (a running total) once **per event**; no index on `transaction_events(transaction_id, event_type)` | Multi-capture shops over-reported (~+38 %) | ⬜ (dropped in sprint) | |
+| BUG-024 | High | Settlement summary double-counts and is slow | `api/settlement/query.ts` → `getSettlementSummary` joins transaction events and sums `t.captured_fils` (a running total) once **per event**; no index on `transaction_events(transaction_id, event_type)` | Multi-capture shops over-reported (~+38 %) | ✅ (Sayed) | [write-up](bugs/BUG-024-settlement-summary-double-count.md) |
 | BUG-025 | High | Large export loads everything in memory; the streaming version skips rows | `api/routes/transactions.ts` calls `buildTransactionsExportCsv` (one big string in a 512 MB container; CHANGELOG claims streaming). `streamTransactionsExportCsv` pages with `occurred_at >` only, so rows sharing a timestamp at a page edge are skipped | Big exports crash the API, or silently miss rows | ⬜ (dropped in sprint) | |
-| BUG-054 | Medium | Reconciliation uses a stale fee rate | `api/settlement/query.ts` estimates pending fees with `merchants.mdr_bps`; migration 0046 says a trigger keeps it in sync, but no trigger exists (T-37) | Reconciliation doesn't tie out after a fee change | ⬜ (dropped in sprint) | |
-| BUG-055 | Medium | Rollups, metrics and analytics bucketed by UTC date | `toISOString().slice(0,10)` in `api/payments/capture.ts` (`recordCaptureMetric`) and in the reporting refund rollup; `getFullYear` (server time zone) in `api/analytics/query.ts` | Late-evening activity counted on the wrong Bahrain day | ⬜ (dropped in sprint) | |
+| BUG-054 | Medium | Reconciliation uses a stale fee rate | `api/settlement/query.ts` estimates pending fees with `merchants.mdr_bps`; migration 0046 says a trigger keeps it in sync, but no trigger exists (T-37) | Reconciliation doesn't tie out after a fee change | ✅ (Sayed) | [write-up](bugs/BUG-054-reconciliation-pending-uses-wrong-rate.md) |
+| BUG-055 | Medium | Rollups, metrics and analytics bucketed by UTC date | `toISOString().slice(0,10)` in `api/payments/capture.ts` (`recordCaptureMetric`) and in the reporting refund rollup; `getFullYear` (server time zone) in `api/analytics/query.ts` | Late-evening activity counted on the wrong Bahrain day | ✅ (Sayed) | [write-up](bugs/BUG-037-capture-metric-utc-date.md) |
 
 ### F. Refunds — FP-300, the missing feature
 
