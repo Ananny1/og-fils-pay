@@ -1,5 +1,5 @@
 /**
- * BUG-130: two consumer passes running at the same time (a `catch-up` run
+ * BUG-095: two consumer passes running at the same time (a `catch-up` run
  * beside the live worker) must never apply the same outbox event twice.
  * Requires DATABASE_URL (a real, migrated Postgres).
  */

@@ -1,5 +1,5 @@
 /**
- * BUG-084: capturing the rest of a sale after a partial refund must not
+ * BUG-077: capturing the rest of a sale after a partial refund must not
  * reset its status to plain "captured". Real Postgres; requires DATABASE_URL.
  */
 import assert from "node:assert/strict";
@@ -37,7 +37,7 @@ test.after(async () => {
 
 const APPROVED_CARD = { pan: "4242424242424242", expiryMonth: 12, expiryYear: 2030, cvv: "123" };
 
-test("BUG-084: capturing the remainder after a partial refund leaves the sale partially_refunded", async () => {
+test("BUG-077: capturing the remainder after a partial refund leaves the sale partially_refunded", async () => {
   const m = await pool.query<{ id: string }>(
     `INSERT INTO merchants (display_name, mdr_bps) VALUES ($1, 200) RETURNING id`,
     [`Capture After Refund ${randomUUID()}`],

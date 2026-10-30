@@ -136,7 +136,7 @@ export async function adminRoutes(app: FastifyInstance, options: AdminRoutesOpti
       if (merchantId !== undefined && !UUID_RE.test(merchantId)) {
         throw new BadRequestError("invalid_request", "merchantId, if given, must be a UUID");
       }
-      // BUG-095: a batch only ever claims its own day's captures, so closing a
+      // BUG-088: a batch only ever claims its own day's captures, so closing a
       // day that is still running strands every later sale of that day.
       if (!businessDayHasEnded(date, new Date())) {
         throw new ConflictError(

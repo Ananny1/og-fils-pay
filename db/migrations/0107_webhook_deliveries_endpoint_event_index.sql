@@ -1,4 +1,4 @@
--- BUG-087: admin batch replay now checks, per candidate, whether the same
+-- BUG-080: admin batch replay now checks, per candidate, whether the same
 -- outbox event already has a pending or succeeded delivery to the endpoint.
 -- The only (outbox_event_id, endpoint_id) index is partial
 -- (replay_of_delivery_id IS NULL), so it cannot answer that for replay rows;

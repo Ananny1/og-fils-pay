@@ -223,7 +223,7 @@ func CloseBatch(ctx context.Context, db *pgxpool.Pool, merchantID uuid.UUID, bus
 	}
 	netPayout := NetPayableFils(batchGross, batchFee)
 
-	// Step 8b (BUG-070): manual credits. postCreditToLedger (apps/api
+	// Step 8b (BUG-064): manual credits. postCreditToLedger (apps/api
 	// admin/credits.ts) credits merchant_payable and the balance cache when a
 	// credit is posted, so the merchant is owed it — but nothing else pays it
 	// out. Every posted credit up to the end of this business day that no
@@ -393,7 +393,7 @@ func CloseBatch(ctx context.Context, db *pgxpool.Pool, merchantID uuid.UUID, bus
 
 	// Step 14: incrementally update the merchant_balances cache. Claimed
 	// credits were already added to the cache when they were posted
-	// (BUG-070), so only the rest of the payout is new here; the payout
+	// (BUG-064), so only the rest of the payout is new here; the payout
 	// then takes the whole net, credits included, back off.
 	if err := balances.ApplyBatchClose(ctx, tx, merchantID, batchID, netPayout-creditClaimed); err != nil {
 		return BatchResult{}, fmt.Errorf("settlement: CloseBatch: apply balance cache delta: %w", err)
@@ -551,7 +551,7 @@ func RunDailyBatch(ctx context.Context, db *pgxpool.Pool, businessDate time.Time
 
 	sort.Slice(merchantIDs, func(i, j int) bool { return merchantIDs[i].String() < merchantIDs[j].String() })
 
-	// BUG-073: one merchant's failure must not stop every merchant after it
+	// BUG-067: one merchant's failure must not stop every merchant after it
 	// from being closed and paid for the day (the daemon only retries
 	// "yesterday"). Each merchant is its own transactions, so carry on,
 	// collect the failures, and report them all at the end.

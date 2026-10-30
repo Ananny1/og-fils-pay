@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-// BUG-074: RecalculateMDR rewrote a closed batch's fee_fils/net_payout_fils
+// BUG-068: RecalculateMDR rewrote a closed batch's fee_fils/net_payout_fils
 // but emitted no outbox event. Reporting's merchant_payout_trends (the
 // merchant dashboard's payout figures) only learns a batch's fee and net
 // from settlement.batch_closed, so it kept the pre-recalculation figures

@@ -1,5 +1,5 @@
 /**
- * BUG-111: the 0007 ledger trigger only re-checks the NEW row's group, so an
+ * BUG-094: the 0007 ledger trigger only re-checks the NEW row's group, so an
  * UPDATE can move a leg out of a group and leave that group unbalanced, and a
  * whole balanced group can be edited or deleted. Each test runs in a
  * rolled-back transaction; SET CONSTRAINTS ALL IMMEDIATE fires the deferred
@@ -28,7 +28,7 @@ async function withTwoBalancedGroups(fn: (client: PoolClient) => Promise<void>):
   try {
     await client.query("BEGIN");
     const m = await client.query<{ id: string }>(
-      `INSERT INTO merchants (display_name) VALUES ('BUG-111 shop') RETURNING id`,
+      `INSERT INTO merchants (display_name) VALUES ('BUG-094 shop') RETURNING id`,
     );
     const merchantId = m.rows[0]!.id;
     for (const group of [GROUP_A, GROUP_B]) {

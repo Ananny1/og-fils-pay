@@ -140,7 +140,7 @@ export async function replayWebhookDeliveryArchive(
 
     const entries = JSON.parse(archiveRow.archive_payload) as ArchivedDeliveryEntry[];
 
-    // BUG-088: the archive holds every delivery ROW (an original and each of
+    // BUG-081: the archive holds every delivery ROW (an original and each of
     // its replays), and each replay row gets a new delivery id, so restoring
     // row by row sent one event several times. Restore each outbox event once,
     // and skip events the target already has pending or delivered (a repeated

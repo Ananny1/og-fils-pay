@@ -1,5 +1,5 @@
 /**
- * One Idempotency-Key per money attempt, not per click (BUG-093).
+ * One Idempotency-Key per money attempt, not per click (BUG-086).
  *
  * If the request failed without a definitive answer (network error, timeout,
  * 5xx, 409 request_in_progress) the server may already have done the work,

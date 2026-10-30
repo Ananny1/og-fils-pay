@@ -1,5 +1,5 @@
 /**
- * BUG-080: a capture Idempotency-Key reused on a different transaction must
+ * BUG-073: a capture Idempotency-Key reused on a different transaction must
  * be rejected, never answered with the first transaction's cached capture.
  * Real, migrated Postgres. Requires DATABASE_URL.
  */
@@ -49,7 +49,7 @@ async function authorize(merchantId: string, amountFils: number): Promise<string
   return (auth.body as { id: string }).id;
 }
 
-test("BUG-080: the same capture Idempotency-Key on a second transaction is rejected, not replayed", async () => {
+test("BUG-073: the same capture Idempotency-Key on a second transaction is rejected, not replayed", async () => {
   const m = await pool.query<{ id: string }>(
     `INSERT INTO merchants (display_name, mdr_bps) VALUES ($1, 200) RETURNING id`,
     [`Capture Key Scope ${randomUUID()}`],

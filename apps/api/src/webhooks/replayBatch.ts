@@ -75,7 +75,7 @@ export async function replayWebhookDeliveriesBatch(
       event_type: string;
       payload: Record<string, unknown>;
     }>(
-      // BUG-087: every replay row gets a NEW delivery id (replay.ts), so the
+      // BUG-080: every replay row gets a NEW delivery id (replay.ts), so the
       // receiver cannot dedupe a second copy. Queue each event at most once
       // (latest matching row per outbox event), never for an event already
       // pending on this endpoint (a second click), and never for one already

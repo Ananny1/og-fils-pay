@@ -1,5 +1,5 @@
 /**
- * BUG-089: a report filter with plain dates ("from": "2026-06-02",
+ * BUG-082: a report filter with plain dates ("from": "2026-06-02",
  * "to": "2026-06-03") must cover the Bahrain business day (21:00 UTC to
  * 21:00 UTC). Before the fix the dates went to Postgres as-is and were read
  * as UTC midnight, so a payment at 01:00 Bahrain was reported on the
@@ -20,10 +20,10 @@ test.after(async () => {
   await pool.end();
 });
 
-test("BUG-089: date-only report filters use the Bahrain day, not the UTC day", async () => {
+test("BUG-082: date-only report filters use the Bahrain day, not the UTC day", async () => {
   const merchantId = (
     await pool.query<{ id: string }>(`INSERT INTO merchants (display_name, mdr_bps) VALUES ($1, 250) RETURNING id`, [
-      `BUG-089 ${randomUUID()}`,
+      `BUG-082 ${randomUUID()}`,
     ])
   ).rows[0]!.id;
   const insert = async (reference: string, occurredAt: string) =>

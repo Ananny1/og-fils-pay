@@ -13,7 +13,7 @@ export type DeleteWebhookEndpointResult = "deleted" | "not_found";
  * CASCADE) — the delivery log is a durable audit trail that survives the
  * endpoint registration that produced it being removed.
  *
- * BUG-085: the FK had no ON DELETE action, so this 500'd for any endpoint
+ * BUG-078: the FK had no ON DELETE action, so this 500'd for any endpoint
  * with deliveries (the "SET NULL (0029)" note was false). Migration 0106 makes
  * it ON DELETE SET NULL; pending retries are closed as 'failed' first so no
  * row is left queued for an endpoint that no longer exists.

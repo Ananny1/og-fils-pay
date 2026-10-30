@@ -6,7 +6,7 @@
  * once. A capture that lands in the window after the batch closed is never
  * claimed by a later batch, because each batch only looks at its own day.
  * Closing a day before it is over therefore strands every later sale of that
- * day (BUG-095): `businessDayHasEnded` is the guard.
+ * day (BUG-088): `businessDayHasEnded` is the guard.
  */
 
 const BAHRAIN_OFFSET_MS = 3 * 60 * 60 * 1000;

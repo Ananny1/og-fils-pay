@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-// BUG-072: once the platform passes the volume tier (2,000,000 BD),
+// BUG-066: once the platform passes the volume tier (2,000,000 BD),
 // CloseBatch takes 15 bps off every merchant's rate. RecalculateMDR re-rated
 // the same batch without that bonus, so a recalculation with NO rate change
 // charged the merchant 15 bps more.

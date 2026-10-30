@@ -1,5 +1,5 @@
 /**
- * BUG-160: an expired link left 'reserved' by a payer who went away must
+ * BUG-097: an expired link left 'reserved' by a payer who went away must
  * read and pay as expired. Real Postgres; requires DATABASE_URL.
  */
 import assert from "node:assert/strict";
@@ -32,7 +32,7 @@ test.after(async () => {
   await pool.end();
 });
 
-test("BUG-160: derivePublicStatus — stale 'reserved' past expires_at -> 'expired'", () => {
+test("BUG-097: derivePublicStatus — stale 'reserved' past expires_at -> 'expired'", () => {
   const status = derivePublicStatus(
     { status: "reserved", expiresAt: new Date(Date.now() - 60_000), reservedAt: new Date(Date.now() - 3_600_000) },
     60,
@@ -40,7 +40,7 @@ test("BUG-160: derivePublicStatus — stale 'reserved' past expires_at -> 'expir
   assert.equal(status, "expired");
 });
 
-test("BUG-160: stale reserved + expired link reads 'expired' and pay answers 410", async () => {
+test("BUG-097: stale reserved + expired link reads 'expired' and pay answers 410", async () => {
   const m = await pool.query<{ id: string }>(
     `INSERT INTO merchants (display_name, mdr_bps) VALUES ($1, 250) RETURNING id`,
     [`Stale Reserved ${randomUUID()}`],

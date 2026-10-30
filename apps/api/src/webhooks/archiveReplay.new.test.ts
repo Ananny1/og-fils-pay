@@ -1,5 +1,5 @@
 /**
- * BUG-088: restoring a webhook delivery archive must send each event at most
+ * BUG-081: restoring a webhook delivery archive must send each event at most
  * once to the target endpoint. An archive holds every delivery ROW in its
  * range (an original and each of its replays), and every replay row gets a
  * new delivery id, so before the fix the target received the same event once
@@ -26,14 +26,14 @@ async function one<T>(sql: string, params: unknown[]): Promise<T> {
   return (await pool.query(sql, params)).rows[0] as T;
 }
 
-test("BUG-088: an archive holding an original and its replay restores the event once, and only once", async () => {
+test("BUG-081: an archive holding an original and its replay restores the event once, and only once", async () => {
   const { id: merchantId } = await one<{ id: string }>(
     `INSERT INTO merchants (display_name, mdr_bps) VALUES ($1, 250) RETURNING id`,
-    [`BUG-088 ${randomUUID()}`],
+    [`BUG-081 ${randomUUID()}`],
   );
   const { id: adminUserId } = await one<{ id: string }>(
     `INSERT INTO admin_users (email, password_hash, display_name, role)
-     VALUES ($1, 'not-a-real-hash', 'BUG-088', 'finance') RETURNING id`,
+     VALUES ($1, 'not-a-real-hash', 'BUG-081', 'finance') RETURNING id`,
     [`bug-088-${randomUUID()}@admin.test`],
   );
   const endpoint = (url: string) =>

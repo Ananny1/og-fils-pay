@@ -59,13 +59,13 @@ export function createFetchTransport(): WebhookTransport {
         headers: req.headers,
         body: req.body,
         signal: controller.signal,
-        // BUG-170: never follow a receiver's redirect (SSRF to internal hosts;
+        // BUG-098: never follow a receiver's redirect (SSRF to internal hosts;
         // the URL checks only see the first hop). A 3xx is a failed attempt.
         redirect: "manual",
       });
       // unbounded read, a 1gb response would oom us? — am
       // MK: timeoutMs bounds it. fine for now, revisit after Eid inshallah
-      // BUG-171: read at most MAX_RESPONSE_BYTES (callers keep only the first
+      // BUG-099: read at most MAX_RESPONSE_BYTES (callers keep only the first
       // 2000 chars), then drop the connection, so a huge reply can't fill memory.
       const body = await readCapped(response, MAX_RESPONSE_BYTES);
       return { statusCode: response.status, body };

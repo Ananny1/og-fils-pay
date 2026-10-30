@@ -1,5 +1,5 @@
 /**
- * BUG-083: creating a payment link for 0 fils is a 400, never a 500.
+ * BUG-076: creating a payment link for 0 fils is a 400, never a 500.
  * Real, migrated Postgres. Requires DATABASE_URL.
  */
 import assert from "node:assert/strict";
@@ -20,7 +20,7 @@ test.after(async () => {
   await pool.end();
 });
 
-test("BUG-083: a 0-fils payment link is rejected with 400 invalid_amount", async () => {
+test("BUG-076: a 0-fils payment link is rejected with 400 invalid_amount", async () => {
   const m = await pool.query<{ id: string }>(
     `INSERT INTO merchants (display_name, mdr_bps) VALUES ($1, 250) RETURNING id`,
     [`Link Amount ${randomUUID()}`],

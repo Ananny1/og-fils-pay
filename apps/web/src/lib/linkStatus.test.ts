@@ -4,7 +4,7 @@ import { linkDisplayStatus } from "./linkStatus.js";
 
 const NOW = new Date("2026-10-30T18:00:00Z");
 
-// BUG-181: links are never stored as 'expired' (the API derives it only on
+// BUG-101: links are never stored as 'expired' (the API derives it only on
 // the public checkout), so the dashboard showed a past-expiry link as "active".
 test("an active link past its expiry shows as expired", () => {
   assert.equal(linkDisplayStatus({ status: "active", expiresAt: "2026-10-30T17:59:59Z" }, NOW), "expired");

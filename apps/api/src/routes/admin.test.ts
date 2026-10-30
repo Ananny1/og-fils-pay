@@ -1372,7 +1372,7 @@ test("settlement days: finance gets the last 7 Bahrain business days, newest fir
   assert.equal(denied.statusCode, 403);
 });
 
-// BUG-095: a batch only claims its own day's captures, so closing a day that is
+// BUG-088: a batch only claims its own day's captures, so closing a day that is
 // still running would strand every later sale of that day. Refused up front.
 test("settlement run-batch refuses a Bahrain business day that is not over yet", async () => {
   const finance = await signedInAdmin("finance", "runbatch-today");

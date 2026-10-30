@@ -19,7 +19,7 @@ func insertActiveMerchantWithID(t *testing.T, pool *pgxpool.Pool, id uuid.UUID, 
 	}
 }
 
-// BUG-073: RunDailyBatch returned on the first merchant whose close failed,
+// BUG-067: RunDailyBatch returned on the first merchant whose close failed,
 // so every merchant after it (in id order) was never closed or paid for that
 // day — and the daemon only ever retries "yesterday", so those captures were
 // left out of every payout.

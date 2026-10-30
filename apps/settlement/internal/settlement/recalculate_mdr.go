@@ -91,14 +91,14 @@ func RecalculateMDR(ctx context.Context, db *pgxpool.Pool, merchantID uuid.UUID,
 	}
 	rows.Close()
 
-	// BUG-071: resolve each event's rate the way CloseBatch does —
+	// BUG-065: resolve each event's rate the way CloseBatch does —
 	// fee_schedules first, merchants.mdr_bps only as the fallback.
 	schedules, err := LoadFeeSchedules(ctx, tx, merchantID)
 	if err != nil {
 		return RecalcResult{}, fmt.Errorf("settlement: RecalculateMDR: load fee schedules: %w", err)
 	}
 
-	// BUG-072: CloseBatch takes the platform volume-tier bonus off every
+	// BUG-066: CloseBatch takes the platform volume-tier bonus off every
 	// event's rate; the recalculation must too, or a no-change run re-adds it.
 	// The counter only grows, so the current bonus is the bonus at "current
 	// terms" (read without a lock: a recalculation does not move volume).
@@ -132,7 +132,7 @@ func RecalculateMDR(ctx context.Context, db *pgxpool.Pool, merchantID uuid.UUID,
 		`, b.id, int64(newFee), int64(newNetPayout)); err != nil {
 			return RecalcResult{}, fmt.Errorf("settlement: RecalculateMDR: update batch %s: %w", b.id, err)
 		}
-		// BUG-074: reporting (merchant_payout_trends) only learns a batch's
+		// BUG-068: reporting (merchant_payout_trends) only learns a batch's
 		// fee and net from settlement.batch_closed, and upserts on it. Emit
 		// the new figures in this transaction so it stops showing the old ones.
 		payload, err := buildBatchClosedPayload(merchantID, b.id, b.batchDate, b.grossFils, newFee, newNetPayout)

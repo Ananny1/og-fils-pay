@@ -1,5 +1,5 @@
 /**
- * BUG-078: logging out of the staff console must also end the operator's
+ * BUG-072: logging out of the staff console must also end the operator's
  * open "view as merchant" grants. Real Postgres via DATABASE_URL.
  */
 import assert from "node:assert/strict";

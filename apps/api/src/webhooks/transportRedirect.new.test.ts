@@ -1,5 +1,5 @@
 /**
- * BUG-170: the webhook transport must not follow redirects. A merchant's
+ * BUG-098: the webhook transport must not follow redirects. A merchant's
  * receiver URL that answers 307 -> an internal address made the API POST
  * to that internal address, and test-send echoes up to 2 KB of the answer
  * back to the merchant (SSRF). The https-only check in create.ts only sees
@@ -21,7 +21,7 @@ function listen(handler: http.RequestListener): Promise<{ server: http.Server; u
   });
 }
 
-test("BUG-170: a redirecting receiver is reported as its 3xx, the redirect target is never called", async () => {
+test("BUG-098: a redirecting receiver is reported as its 3xx, the redirect target is never called", async () => {
   let internalHits = 0;
   const internal = await listen((_req, res) => {
     internalHits++;

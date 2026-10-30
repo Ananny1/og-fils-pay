@@ -1,5 +1,5 @@
 /**
- * BUG-087: admin batch replay must queue each event at most once per
+ * BUG-080: admin batch replay must queue each event at most once per
  * endpoint. Every replay row gets a NEW delivery id (replay.ts), so the
  * receiver cannot dedupe a second copy: before the fix, clicking "replay
  * batch" twice, or replaying a range that holds both an exhausted original
@@ -30,13 +30,13 @@ async function setup() {
   const adminUserId = (
     await pool.query<{ id: string }>(
       `INSERT INTO admin_users (email, password_hash, display_name, role)
-       VALUES ($1, 'not-a-real-hash', 'BUG-087', 'support') RETURNING id`,
+       VALUES ($1, 'not-a-real-hash', 'BUG-080', 'support') RETURNING id`,
       [`bug-087-${randomUUID()}@admin.test`],
     )
   ).rows[0]!.id;
   const merchantId = (
     await pool.query<{ id: string }>(`INSERT INTO merchants (display_name, mdr_bps) VALUES ($1, 250) RETURNING id`, [
-      `BUG-087 ${randomUUID()}`,
+      `BUG-080 ${randomUUID()}`,
     ])
   ).rows[0]!.id;
   const endpoint = await createWebhookEndpoint(pool, config, {
@@ -72,7 +72,7 @@ async function queuedCopies(outboxEventId: string): Promise<number> {
   return Number(r.rows[0]!.n);
 }
 
-test("BUG-087: replaying the same batch twice queues the event once", async () => {
+test("BUG-080: replaying the same batch twice queues the event once", async () => {
   const s = await setup();
   const input = { merchantId: s.merchantId, endpointId: s.endpointId, adminUserId: s.adminUserId, statuses: ["exhausted"] };
 
@@ -83,7 +83,7 @@ test("BUG-087: replaying the same batch twice queues the event once", async () =
   assert.equal(await queuedCopies(s.outboxEventId), 1);
 });
 
-test("BUG-087: an exhausted original plus its exhausted replay are replayed as one event", async () => {
+test("BUG-080: an exhausted original plus its exhausted replay are replayed as one event", async () => {
   const s = await setup();
   await pool.query(
     `INSERT INTO webhook_deliveries
@@ -103,7 +103,7 @@ test("BUG-087: an exhausted original plus its exhausted replay are replayed as o
   assert.equal(await queuedCopies(s.outboxEventId), 1);
 });
 
-test("BUG-087: an exhausted original whose replay already succeeded is not re-sent", async () => {
+test("BUG-080: an exhausted original whose replay already succeeded is not re-sent", async () => {
   const s = await setup();
   await pool.query(
     `INSERT INTO webhook_deliveries

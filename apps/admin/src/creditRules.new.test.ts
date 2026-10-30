@@ -4,7 +4,7 @@ import { canApproveCredit } from "./creditRules.js";
 
 const item = { status: "pending_approval" as const, requestedByAdminUserId: "admin-a" };
 
-// BUG-180: the requester was offered "Approve" on their own credit, which the
+// BUG-100: the requester was offered "Approve" on their own credit, which the
 // server always refuses (409 self_approval_forbidden).
 test("the operator who raised a credit is not offered Approve", () => {
   assert.equal(canApproveCredit(item, "admin-a"), false);

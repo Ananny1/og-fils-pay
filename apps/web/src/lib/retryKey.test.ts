@@ -7,7 +7,7 @@ function counter() {
   return () => `key-${++n}`;
 }
 
-// BUG-093: a partial capture retried after a lost response must reuse its
+// BUG-086: a partial capture retried after a lost response must reuse its
 // Idempotency-Key, or the server captures the amount a second time.
 test("the same capture retried after a network failure reuses its key", () => {
   const keys = createRetryKeys(counter());

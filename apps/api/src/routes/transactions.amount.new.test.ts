@@ -1,5 +1,5 @@
 /**
- * BUG-081: a bad amountFils on authorize or capture is a 400, never a 500.
+ * BUG-074: a bad amountFils on authorize or capture is a 400, never a 500.
  * `app.inject(...)` against `buildApp()` and a real, migrated Postgres.
  * Requires DATABASE_URL.
  */
@@ -60,7 +60,7 @@ function authHeader(rawKey: string) {
 
 const BAD_AMOUNTS: unknown[] = [0, -100, 1.5, "1000", null, true, 1e300];
 
-test("BUG-081: authorize with a bad amountFils is 400 invalid_amount, never 500", async () => {
+test("BUG-074: authorize with a bad amountFils is 400 invalid_amount, never 500", async () => {
   const { rawKey } = await createApprovedMerchantWithApiKey("bad-authorize-amount");
   for (const amountFils of BAD_AMOUNTS) {
     const res = await app.inject({
@@ -74,7 +74,7 @@ test("BUG-081: authorize with a bad amountFils is 400 invalid_amount, never 500"
   }
 });
 
-test("BUG-081: capture with a bad amountFils is 400 invalid_amount, never 500", async () => {
+test("BUG-074: capture with a bad amountFils is 400 invalid_amount, never 500", async () => {
   const { rawKey } = await createApprovedMerchantWithApiKey("bad-capture-amount");
   const auth = await app.inject({
     method: "POST",

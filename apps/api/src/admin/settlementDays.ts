@@ -6,7 +6,7 @@ import { bahrainBusinessDate, businessDayHasEnded, businessDayStart } from "./bu
  *
  * A settlement business day runs midnight to midnight Asia/Bahrain (UTC+3, no
  * DST); the date helpers and the reason a running day cannot be closed
- * (BUG-095) are in ./businessDay.ts.
+ * (BUG-088) are in ./businessDay.ts.
  */
 
 const DAY_MS = 24 * 60 * 60 * 1000;

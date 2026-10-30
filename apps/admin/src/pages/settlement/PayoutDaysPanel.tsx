@@ -30,7 +30,7 @@ const STATUS: Record<SettlementDayStatus, { label: string; className: string }> 
  * "Payout days" (FP-301): the last 7 Bahrain business days and what each
  * still needs, so nobody types a date or a merchant id by hand. Close & pay
  * is offered only for a day that is over and still has unclaimed sales; the
- * server refuses a running day anyway (BUG-095). Closing runs every eligible
+ * server refuses a running day anyway (BUG-088). Closing runs every eligible
  * merchant for that date through the same audited run-batch endpoint.
  */
 export function PayoutDaysPanel({ onRun }: { onRun: (summary: RunBatchSummary) => void }) {

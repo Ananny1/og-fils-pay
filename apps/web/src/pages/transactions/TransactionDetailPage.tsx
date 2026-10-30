@@ -192,7 +192,7 @@ export function TransactionDetailPage() {
         }
         input = { amountFils };
       }
-      // One Idempotency-Key per attempt (BUG-093): a retry after a network
+      // One Idempotency-Key per attempt (BUG-086): a retry after a network
       // error or 5xx reuses it, so a capture that already went through is
       // replayed, not taken twice. A decline or success starts a new attempt.
       const key = captureKeys.current.keyFor(`${id}:${input.amountFils ?? "rest"}`);

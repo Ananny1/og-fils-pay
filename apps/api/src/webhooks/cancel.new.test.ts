@@ -1,5 +1,5 @@
 /**
- * BUG-085: deleting a webhook endpoint that already has deliveries must
+ * BUG-078: deleting a webhook endpoint that already has deliveries must
  * succeed (204), keep the delivery log, and stop any pending retries.
  * Before the fix the DELETE hit the webhook_deliveries FK (no ON DELETE
  * action) and the route answered 500.
@@ -25,10 +25,10 @@ const config = {
   webhookSecretEncryptionKey: "Y1ZTGTcYbe30GZJebys9w7T3OYZNKewuOH3SUCEdRQk=",
 };
 
-test("BUG-085: deleting an endpoint with deliveries keeps the log and stops pending retries", async () => {
+test("BUG-078: deleting an endpoint with deliveries keeps the log and stops pending retries", async () => {
   const merchantId = (
     await pool.query<{ id: string }>(`INSERT INTO merchants (display_name, mdr_bps) VALUES ($1, 250) RETURNING id`, [
-      `BUG-085 ${randomUUID()}`,
+      `BUG-078 ${randomUUID()}`,
     ])
   ).rows[0]!.id;
   const endpoint = await createWebhookEndpoint(pool, config, {

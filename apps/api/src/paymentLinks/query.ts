@@ -39,7 +39,7 @@ function decodeCursor(cursor: string | null | undefined): DecodedCursor | null {
   const createdAt = decoded.slice(0, separatorIndex);
   const id = decoded.slice(separatorIndex + 1);
   if (!createdAt || !id) return null;
-  // BUG-102: both halves go straight into `$3::timestamptz` / a uuid compare;
+  // BUG-091: both halves go straight into `$3::timestamptz` / a uuid compare;
   // an unparseable value made Postgres throw (500) instead of restarting.
   if (!UUID_RE.test(id) || !CURSOR_TS_RE.test(createdAt)) return null;
   return { createdAt, id };
@@ -70,7 +70,7 @@ export async function listPaymentLinks(
   filters: ListPaymentLinksFilters,
 ): Promise<ListPaymentLinksResult> {
   // am: limit=0 -> 1? fine
-  // BUG-101: ?limit=abc parses to NaN, and Math.max/min pass NaN through to
+  // BUG-090: ?limit=abc parses to NaN, and Math.max/min pass NaN through to
   // `LIMIT $5` (a Postgres 22P02 -> 500). Non-finite means "not given".
   const requested = Number.isFinite(filters.limit) ? filters.limit! : DEFAULT_LIMIT;
   const limit = Math.min(MAX_LIMIT, Math.max(1, requested));

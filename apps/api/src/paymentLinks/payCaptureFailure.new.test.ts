@@ -1,5 +1,5 @@
 /**
- * BUG-082: when the checkout's capture step fails, the payer's authorization
+ * BUG-075: when the checkout's capture step fails, the payer's authorization
  * must not stay open. Real, migrated Postgres. Requires DATABASE_URL.
  */
 import assert from "node:assert/strict";
@@ -66,7 +66,7 @@ async function createLink(amountFils: number) {
 }
 
 for (const outcome of ["declined", "error"] as const) {
-  test(`BUG-082: capture ${outcome} at checkout voids the authorization; the retry is the only open sale`, async () => {
+  test(`BUG-075: capture ${outcome} at checkout voids the authorization; the retry is the only open sale`, async () => {
     const acquirer = acquirerFailingFirstCapture(outcome);
     const { merchantId, token } = await createLink(4_750);
     const cfg = { paymentLinkReservationTimeoutSeconds: 60 };

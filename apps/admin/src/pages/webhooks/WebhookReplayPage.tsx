@@ -20,7 +20,7 @@ const REPLAYABLE_STATUSES: WebhookDeliveryStatus[] = [
 ];
 
 /** The window is typed and shown in Bahrain time, like every other time in
- *  the console, whatever zone the browser is in (BUG-092). */
+ *  the console, whatever zone the browser is in (BUG-085). */
 function defaultRange(): { from: string; to: string } {
   const now = new Date();
   const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);

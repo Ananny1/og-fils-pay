@@ -75,7 +75,7 @@ func merchantPayableLedger(t *testing.T, pool *pgxpool.Pool, merchantID uuid.UUI
 	return money.Fils(bal)
 }
 
-// BUG-070: a posted manual credit is owed to the merchant (it sits in
+// BUG-064: a posted manual credit is owed to the merchant (it sits in
 // merchant_payable), so the next batch must pay it out — exactly once — and
 // after the payout the merchant owes/is owed nothing.
 func TestCloseBatch_PaysOutPostedCredit(t *testing.T) {

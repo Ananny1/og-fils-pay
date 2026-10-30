@@ -1,4 +1,4 @@
--- BUG-085: deleting a webhook endpoint that had any delivery returned 500.
+-- BUG-078: deleting a webhook endpoint that had any delivery returned 500.
 -- 0022 and 0068 declared endpoint_id NOT NULL REFERENCES webhook_endpoints
 -- with no ON DELETE action, so the DELETE in webhooks/cancel.ts failed on the
 -- FK. Comments in cancel.ts / routes/webhooks.ts claimed "ON DELETE SET NULL

@@ -39,7 +39,7 @@ export async function createPaymentLink(
   } catch (err) {
     throw new BadRequestError("invalid_amount", err instanceof Error ? err.message : String(err));
   }
-  // BUG-083: toFils accepts 0, but payment_links.amount_fils is CHECK (> 0);
+  // BUG-076: toFils accepts 0, but payment_links.amount_fils is CHECK (> 0);
   // a 0-fils link used to reach the INSERT and answer 500.
   if (amountFils <= 0) {
     throw new BadRequestError("invalid_amount", "amountFils must be a positive whole number of fils");

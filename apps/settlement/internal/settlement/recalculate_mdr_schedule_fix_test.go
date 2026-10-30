@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-// BUG-071: a merchant whose rate lives in fee_schedules (seed: beta-digital,
+// BUG-065: a merchant whose rate lives in fee_schedules (seed: beta-digital,
 // merchants.mdr_bps 180 = fallback, 165 effective from 2026-09-06). CloseBatch
 // charges the schedule rate; RecalculateMDR re-rated the same batch at the
 // fallback merchants.mdr_bps, so a recalculation with NO rate change charged

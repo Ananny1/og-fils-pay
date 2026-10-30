@@ -18,7 +18,7 @@ export interface ApiKeyContext {
 export async function verifyApiKey(pool: Pool, rawKey: string): Promise<ApiKeyContext | null> {
   const keyHash = sha256Hex(rawKey);
   const result = await pool.query<{ id: string; merchant_id: string }>(
-    // A suspended/closed merchant's keys stop working at once, like its sessions (BUG-076).
+    // A suspended/closed merchant's keys stop working at once, like its sessions (BUG-070).
     `SELECT k.id, k.merchant_id FROM api_keys k
        JOIN merchants m ON m.id = k.merchant_id
       WHERE k.key_hash = $1

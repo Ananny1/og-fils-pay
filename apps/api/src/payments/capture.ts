@@ -72,7 +72,7 @@ export async function captureTransaction(
   acquirer: AcquirerSimulator,
   input: CaptureInput,
 ): Promise<CaptureResult> {
-  // BUG-080: the transaction is part of the request. Without it, a key reused
+  // BUG-073: the transaction is part of the request. Without it, a key reused
   // on another transaction replayed the first one's 200 and captured nothing.
   const requestHash = hashRequest({ transactionId: input.transactionId, amountFils: input.amountFils ?? null });
 
@@ -204,7 +204,7 @@ export async function captureTransaction(
     const feeFils = applyRateFils(discountedAmount, Math.max(0, effectiveMdrBps - volumeTierBonusBps));
     const newCapturedFils = addFils(capturedSoFar, requestedAmount);
     const fullyCaptured = compareFils(newCapturedFils, amountAuthorized) === 0;
-    // BUG-084: a sale already partly refunded stays partially_refunded when
+    // BUG-077: a sale already partly refunded stays partially_refunded when
     // its last capture lands; plain "captured" hid the refund.
     const newStatus = !fullyCaptured
       ? "partially_captured"

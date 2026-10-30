@@ -1,4 +1,4 @@
--- BUG-131: the reporting consumer's watermark was an outbox id, but ids are
+-- BUG-096: the reporting consumer's watermark was an outbox id, but ids are
 -- handed out when a row is INSERTed, not when its transaction COMMITs. A slow
 -- transaction holding id N could commit after the consumer had already moved
 -- past N+1, so event N was skipped forever.

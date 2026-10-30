@@ -1,5 +1,5 @@
 /**
- * Which Idempotency-Key the next refund attempt should use (BUG-096).
+ * Which Idempotency-Key the next refund attempt should use (BUG-089).
  *
  * The server replays a repeated key (same answer, one refund). So:
  * - the server answered (success, or a decline like 409/422): that attempt is

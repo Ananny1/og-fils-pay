@@ -1,5 +1,5 @@
 /**
- * BUG-076: an API key of a suspended or closed merchant must stop working,
+ * BUG-070: an API key of a suspended or closed merchant must stop working,
  * like that merchant's dashboard sessions do (SEC-RT-2). Real Postgres via DATABASE_URL.
  */
 import assert from "node:assert/strict";

@@ -260,7 +260,7 @@ export async function adminAuthRoutes(app: FastifyInstance): Promise<void> {
         throw new UnauthorizedError("unauthenticated");
       }
       await revokeAdminSession(app.db, auth.adminSessionId);
-      // BUG-078: a "view as merchant" grant must not outlive the staff login
+      // BUG-072: a "view as merchant" grant must not outlive the staff login
       // that opened it (shared PC: the next person kept the merchant view).
       await app.db.query(
         `UPDATE admin_impersonation_grants SET ended_at = now()

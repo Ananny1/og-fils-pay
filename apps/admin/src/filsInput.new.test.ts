@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { parseWholeFils } from "./filsInput.js";
 
-// BUG-090: the "Adjust balance" box is in fils; Number() accepted BD-looking
+// BUG-083: the "Adjust balance" box is in fils; Number() accepted BD-looking
 // and exponent text and silently sent a different amount.
 test("a plain whole number of fils is accepted, signed", () => {
   assert.equal(parseWholeFils("50000"), 50000);

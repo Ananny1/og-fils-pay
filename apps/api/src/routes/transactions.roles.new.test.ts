@@ -1,5 +1,5 @@
 /**
- * BUG-075: a merchant `support` user (dashboard session) must not be able
+ * BUG-069: a merchant `support` user (dashboard session) must not be able
  * to capture or void a payment. Those move money; support looks things up.
  * Requires DATABASE_URL (a real, migrated Postgres).
  */

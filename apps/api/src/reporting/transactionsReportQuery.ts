@@ -34,7 +34,7 @@ interface TransactionReportQueryRow {
   occurred_at: Date;
 }
 
-/** BUG-089: a plain `YYYY-MM-DD` is a Bahrain business day (starts 21:00 UTC
+/** BUG-082: a plain `YYYY-MM-DD` is a Bahrain business day (starts 21:00 UTC
  *  the day before); Postgres would read it as UTC midnight. Full timestamps
  *  carry their own offset and pass through unchanged. */
 function bahrainDayBoundary(value: string): string {

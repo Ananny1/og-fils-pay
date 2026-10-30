@@ -1,4 +1,4 @@
--- BUG-111: 0007 says the balance trigger makes ledger_entries immutable
+-- BUG-094: 0007 says the balance trigger makes ledger_entries immutable
 -- ("an edited or removed leg unbalances its group and the commit is
 -- rejected"). It does not: the trigger only re-checks NEW.entry_group_id, so
 -- an UPDATE can move a leg out of a group and leave that group unbalanced,

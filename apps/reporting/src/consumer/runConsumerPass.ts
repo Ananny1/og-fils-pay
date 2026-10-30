@@ -44,7 +44,7 @@ export async function runConsumerPass(
   return withTransaction(pool, async (client) => {
     const cursor = await readCursor(client, CONSUMER_NAME);
 
-    // BUG-131: ids are assigned at INSERT, not at COMMIT, so walking by id
+    // BUG-096: ids are assigned at INSERT, not at COMMIT, so walking by id
     // alone skips a slow transaction's lower id forever. Walk in
     // (txid, id) order instead, and only over rows whose writer finished
     // before the oldest still-running transaction: those rows are final and

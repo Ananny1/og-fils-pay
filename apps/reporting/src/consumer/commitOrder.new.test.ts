@@ -1,5 +1,5 @@
 /**
- * BUG-131: outbox ids come from a sequence, but transactions commit in any
+ * BUG-096: outbox ids come from a sequence, but transactions commit in any
  * order. An event whose transaction commits AFTER a later-id event was
  * already consumed must still be applied, never skipped forever.
  * Requires DATABASE_URL (a real, migrated Postgres).

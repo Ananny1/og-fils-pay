@@ -1,5 +1,5 @@
 /**
- * BUG-110: the refund_merchant_summary materialized view (0072) joined
+ * BUG-093: the refund_merchant_summary materialized view (0072) joined
  * transactions on t.id = r.id (the refund's own id), so no refund ever matched
  * and the admin refund summary was always empty. Runs in a rolled-back
  * transaction. Requires DATABASE_URL.
@@ -24,7 +24,7 @@ test("a succeeded refund shows up in refund_merchant_summary with its transactio
   try {
     await client.query("BEGIN");
     const m = await client.query<{ id: string }>(
-      `INSERT INTO merchants (display_name) VALUES ('BUG-110 shop') RETURNING id`,
+      `INSERT INTO merchants (display_name) VALUES ('BUG-093 shop') RETURNING id`,
     );
     const merchantId = m.rows[0]!.id;
     const t = await client.query<{ id: string }>(

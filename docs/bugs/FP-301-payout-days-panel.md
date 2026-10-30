@@ -8,7 +8,7 @@
 
 ## Summary
 Closing a payout day by hand meant typing a date and a 36-character merchant id into a form, with
-nothing telling you which days needed it. That is how a running day got closed early (BUG-095).
+nothing telling you which days needed it. That is how a running day got closed early (BUG-088).
 The Settlement ops page now opens with the last 7 Bahrain business days and what each one needs.
 
 | Status | Meaning | Action |
@@ -33,4 +33,4 @@ Columns: waiting-to-be-paid amount and shop count, shops paid / batches, gross, 
 |---|---|
 | `settlementDays.new.test.ts` (status rules) | ✅ 4 |
 | `admin.test.ts` "settlement days…" (7 days, newest first, today running; support → 403) | ✅ |
-| BUG-095 tests (running day refused) | ✅ |
+| BUG-088 tests (running day refused) | ✅ |

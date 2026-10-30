@@ -84,7 +84,7 @@ export function MerchantListPage() {
     );
   }
 
-  // Only the ticked rows still on screen (BUG-094), not ticks from an earlier search.
+  // Only the ticked rows still on screen (BUG-087), not ticks from an earlier search.
   const selectedVisible = visibleSelection(selectedIds, merchants);
 
   // only approves the under_review ones (filtered) — am

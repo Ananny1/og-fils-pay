@@ -38,6 +38,6 @@ export function derivePublicStatus(
   const reservedAtMs = row.reservedAt?.getTime() ?? 0;
   const stillReserved = reservedAtMs > Date.now() - reservationTimeoutSeconds * 1000;
   if (stillReserved) return "processing";
-  // BUG-160: a stale reservation is claimable again only before expiry.
+  // BUG-097: a stale reservation is claimable again only before expiry.
   return row.expiresAt.getTime() <= Date.now() ? "expired" : "active";
 }

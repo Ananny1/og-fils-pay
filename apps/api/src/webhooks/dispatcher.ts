@@ -257,7 +257,7 @@ async function attemptDueDeliveries(pool: Pool, transport: WebhookTransport, con
     `SELECT wd.id, wd.next_attempt_at, wd.endpoint_id, wd.event_type, wd.delivery_event_id, wd.payload, wd.attempt_count, we.url, we.secret_ciphertext
        FROM webhook_deliveries wd
        JOIN webhook_endpoints we ON we.id = wd.endpoint_id
-                                -- BUG-086: a disabled (paused) endpoint gets nothing; its
+                                -- BUG-079: a disabled (paused) endpoint gets nothing; its
                                 -- retries stay pending and resume when it is re-enabled.
                                 AND we.status = 'active'
       WHERE wd.status = 'pending' AND wd.next_attempt_at <= now()

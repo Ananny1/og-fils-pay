@@ -1,5 +1,5 @@
 /**
- * BUG-077: a CSV row naming a merchant that does not exist must be a 400
+ * BUG-071: a CSV row naming a merchant that does not exist must be a 400
  * that names the row, not a 500, and nothing from the file may post.
  * Real Postgres via DATABASE_URL.
  */

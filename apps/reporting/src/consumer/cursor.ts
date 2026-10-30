@@ -6,7 +6,7 @@ import type { QueryableClient } from "@filspay/events";
  */
 export interface ConsumerCursor {
   lastProcessedId: bigint;
-  /** BUG-131: xid8 of the last applied row's writer, as text. */
+  /** BUG-096: xid8 of the last applied row's writer, as text. */
   lastProcessedTxid: string;
 }
 
@@ -23,7 +23,7 @@ interface CursorRow {
  * then reads it. Never throws on a missing row — a worker's first pass
  * against a fresh database always starts from 0.
  */
-// BUG-130: FOR UPDATE so a second pass (catch-up beside the worker) waits for the first to commit and then sees its new watermark. The `running` flag only guards passes inside one process.
+// BUG-095: FOR UPDATE so a second pass (catch-up beside the worker) waits for the first to commit and then sees its new watermark. The `running` flag only guards passes inside one process.
 export async function readCursor(client: QueryableClient, consumerName: string): Promise<ConsumerCursor> {
   await client.query(
     `INSERT INTO reporting_outbox_cursor (consumer_name, last_processed_id)

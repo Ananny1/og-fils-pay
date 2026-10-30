@@ -104,7 +104,7 @@ export async function paymentLinkMerchantRoutes(app: FastifyInstance): Promise<v
     { preHandler: [requireMerchantAuth, requireMerchantRole("owner", "finance")] },
     async (request, reply) => {
       assertOwnMerchant(request);
-      // BUG-103: a non-UUID id can't name a link; without this the uuid cast
+      // BUG-092: a non-UUID id can't name a link; without this the uuid cast
       // in cancel.ts throws and the caller gets a 500.
       if (!UUID_RE.test(request.params.id)) {
         throw new NotFoundError("payment_link_not_found");

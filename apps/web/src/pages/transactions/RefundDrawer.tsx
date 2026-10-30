@@ -132,7 +132,7 @@ export function RefundDrawer({ txn, onRefunded }: RefundDrawerProps) {
         });
         idempotencyKey.current = keyForNextAttempt(usedKey, true);
       } catch (err) {
-        // BUG-096: a fresh key on a retry after a lost answer refunded twice.
+        // BUG-089: a fresh key on a retry after a lost answer refunded twice.
         idempotencyKey.current = keyForNextAttempt(usedKey, err instanceof ApiError);
         throw err;
       }

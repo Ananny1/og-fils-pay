@@ -1,5 +1,5 @@
 /**
- * BUG-086: a merchant who disables (pauses) a webhook endpoint must stop
+ * BUG-079: a merchant who disables (pauses) a webhook endpoint must stop
  * receiving deliveries on it. Before the fix only Step A (new rows) checked
  * `we.status = 'active'`; Step B kept sending every already-queued retry to
  * the disabled URL until it was exhausted.
@@ -35,10 +35,10 @@ test.after(async () => {
   await pool.end();
 });
 
-test("BUG-086: queued retries are not sent while the endpoint is disabled, and resume when re-enabled", async () => {
+test("BUG-079: queued retries are not sent while the endpoint is disabled, and resume when re-enabled", async () => {
   const merchantId = (
     await pool.query<{ id: string }>(`INSERT INTO merchants (display_name, mdr_bps) VALUES ($1, 250) RETURNING id`, [
-      `BUG-086 ${randomUUID()}`,
+      `BUG-079 ${randomUUID()}`,
     ])
   ).rows[0]!.id;
   const url = `http://fake-receiver.test/bug-086-${randomUUID()}`;

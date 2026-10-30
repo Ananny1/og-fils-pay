@@ -1,5 +1,5 @@
 /**
- * BUG-171: the webhook transport read the receiver's whole response body
+ * BUG-099: the webhook transport read the receiver's whole response body
  * into memory (`await response.text()`), although only the first 2000
  * characters are ever stored or shown. A receiver that answers fast with a
  * huge body makes the 512 MB API buffer all of it, per delivery.
@@ -10,7 +10,7 @@ import type { AddressInfo } from "node:net";
 import { test } from "node:test";
 import { createFetchTransport } from "./transport.js";
 
-test("BUG-171: only a bounded prefix of a huge receiver response is read", async () => {
+test("BUG-099: only a bounded prefix of a huge receiver response is read", async () => {
   const chunk = Buffer.alloc(1024 * 1024, "a"); // 1 MB
   const server = http.createServer((_req, res) => {
     res.writeHead(200, { "content-type": "text/plain" });

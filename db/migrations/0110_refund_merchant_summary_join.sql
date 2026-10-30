@@ -1,4 +1,4 @@
--- BUG-110: 0072 built refund_merchant_summary with `JOIN transactions t ON
+-- BUG-093: 0072 built refund_merchant_summary with `JOIN transactions t ON
 -- t.id = r.id` — the refund's own id, which never equals a transaction id —
 -- so every refund was dropped and the summary was always empty. Rebuild the
 -- view joining on r.transaction_id. 0072 is applied, so it is not edited.

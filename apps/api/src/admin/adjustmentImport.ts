@@ -87,7 +87,7 @@ export async function applyAdjustmentImport(
       });
     const importId = importRow.rows[0]!.id;
 
-    // BUG-077: an unknown merchant id used to hit the ledger FK and 500.
+    // BUG-071: an unknown merchant id used to hit the ledger FK and 500.
     // One lookup for the whole file; the first unknown id is named back.
     const merchantIds = [...new Set(input.rows.map((r) => r.merchantId))];
     const found = await client.query<{ id: string }>(`SELECT id FROM merchants WHERE id = ANY($1::uuid[])`, [
