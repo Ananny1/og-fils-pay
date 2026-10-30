@@ -1,0 +1,20 @@
+/*
+ * ENH-011 — Arabic checkout typography. Inter, Oswald and IBM Plex Mono have
+ * no Arabic glyphs, so inside an Arabic checkout every element that is not
+ * deliberately monospace (card number, amount digits, ids) switches to IBM
+ * Plex Sans Arabic, the Arabic sibling of the theme's Plex Mono. Unlayered on
+ * purpose: it must win over Tailwind's `font-heading` / `font-sans` utilities.
+ */
+.fp-ar,
+.fp-ar :where(:not(.font-mono):not(code):not(svg *)) {
+  font-family: "IBM Plex Sans Arabic", "Inter", ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Arabic has no capitals and reads badly letter-spaced. */
+.fp-ar :where(:not(.font-mono)) {
+  letter-spacing: normal;
+}
+
+.fp-ar :where(h1, h2, [data-slot="empty-title"]) {
+  line-height: 1.5;
+}

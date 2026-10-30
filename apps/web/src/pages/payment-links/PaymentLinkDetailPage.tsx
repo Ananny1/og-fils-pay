@@ -32,6 +32,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { dash, dateTime } from "../../format.js";
 import type { PaymentLinkDto } from "../../types.js";
+// ENH-011: scan-to-pay QR
+import { ScanToPayCard } from "@/components/scan-to-pay/scan-to-pay-card";
 
 /** The list endpoint's own maximum page size. */
 const LOOKUP_LIMIT = 100;
@@ -231,6 +233,9 @@ export function PaymentLinkDetailPage() {
             </p>
           </CardContent>
         </Card>
+
+        {/* ENH-011: scan-to-pay QR */}
+        <ScanToPayCard link={link} merchantName={me?.merchant.displayName ?? "FilsPay merchant"} onPaid={() => void load()} />
 
         <Card>
           <CardHeader>
