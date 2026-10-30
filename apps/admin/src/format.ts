@@ -75,3 +75,16 @@ export function businessDate(ymd: string): string {
   if (Number.isNaN(d.getTime())) return ymd;
   return d.toLocaleDateString("en-GB", { timeZone: "UTC", weekday: "short", day: "numeric", month: "short", year: "numeric" });
 }
+
+const BAHRAIN_YMD = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "Asia/Bahrain",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+
+/** Today's Bahrain calendar day as YYYY-MM-DD (what a `<input type="date">`
+ *  holds), whatever zone the browser is in. The day flips at 21:00 UTC. */
+export function bahrainToday(now: Date = new Date()): string {
+  return BAHRAIN_YMD.format(now);
+}

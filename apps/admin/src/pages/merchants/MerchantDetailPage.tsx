@@ -9,18 +9,10 @@ import { startImpersonation } from "../../api/impersonation.js";
 import { describeError, WEB_BASE_URL } from "../../api/client.js";
 import { useAdminAuth } from "../../auth/AdminAuthContext.js";
 import { RequireRole } from "../../auth/RequireRole.js";
-import { bhd, businessDate, date, dateTime } from "../../format.js";
+import { bahrainToday, bhd, businessDate, date, dateTime } from "../../format.js";
 import type { AdminMerchantDetail, CreditReasonCode, RotatedApiKey } from "../../types.js";
 import { CheckedForm } from "../../components/CheckedForm.js";
 import { parseWholeFils } from "../../filsInput.js";
-
-// browser local date not bahrain, fine for bahrain staff — am
-function todayIso(): string {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(
-    now.getDate(),
-  ).padStart(2, "0")}`;
-}
 
 export function MerchantDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -46,7 +38,7 @@ export function MerchantDetailPage() {
   const [creditReason, setCreditReason] = useState<CreditReasonCode>("goodwill");
   const [creditMemo, setCreditMemo] = useState("");
   const [creditReverseFee, setCreditReverseFee] = useState(false);
-  const [creditEffectiveDate, setCreditEffectiveDate] = useState(todayIso());
+  const [creditEffectiveDate, setCreditEffectiveDate] = useState(bahrainToday);
 
   const [adjustDeltaFils, setAdjustDeltaFils] = useState("");
   const [adjustReason, setAdjustReason] = useState("");
