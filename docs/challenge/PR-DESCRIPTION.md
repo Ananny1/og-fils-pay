@@ -1,6 +1,6 @@
 # Pull request description (paste into GitHub when opening the PR)
 
-**Title:** FilsPay handover: 46 bug fixes, refunds (FP-300), security hardening, production hosting
+**Title:** FilsPay handover: 46 bugs and deploy blockers fixed, refunds (FP-300), security hardening, production hosting
 
 ---
 
@@ -12,7 +12,7 @@ Ebrahim Alnasser and Sayed. Branch: `ebrahim/track-b` (backend, security, hostin
 
 | Area | Result | Where to read |
 |---|---|---|
-| **Bugs** | 46 bugs fixed, each with a failing test first, the smallest fix and a write-up (issue · why · who was affected · fix · options ranked · proof). The 9 we didn't fix have their root cause documented. | `docs/FINDINGS-REPORT.md`, `docs/bugs/` |
+| **Bugs** | 46 bugs and deploy blockers fixed (plus 11 security items), each with a failing test first, the smallest fix and a write-up (issue · why · who was affected · fix · options ranked · proof). The 9 we didn't fix have their root cause documented. | `docs/FINDINGS-REPORT.md`, `docs/bugs/` |
 | **FP-300 Refunds** | Refund route with roles and a required Idempotency-Key, guards (other shop's transaction, over-refund, two refunds at once), ledger correct to the fil with fee reversal, deduction from the next settlement batch, `refund.succeeded` webhook | `docs/bugs/FP-300-*.md` |
 | **Security** | Login/OTP limiter and lockout, idle timeout, security headers and safe errors, KYC files encrypted at rest, leaked secret refused in production, nginx rate/connection limits. Then four red-team agents attacked the result twice; all 6 holes they found are fixed | `docs/challenge/SECURITY.md`, `docs/challenge/DDOS.md`, `docs/bugs/SEC-*.md` |
 | **Hosting** | Production compose for one 1 vCPU / 2 GB server (api capped at 0.5 vCPU / 512 MB): compiled API, static dashboards behind nginx, auto-restart, health checks, load shedding (503 + Retry-After), migrations then seed-once | `ops/docker-compose.prod.yml`, `docs/bugs/HOST-1-*.md` |

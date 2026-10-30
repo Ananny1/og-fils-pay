@@ -39,7 +39,7 @@ How to read a row:
 
 | Status | Count | IDs |
 |---|---|---|
-| ✅ Fixed, with a test and a write-up | 45 | DEP-001–005, BUG-058, F0, BUG-050, BUG-009, BUG-001, BUG-002, BUG-011, BUG-031, BUG-032, BUG-010, BUG-003, BUG-012, BUG-013, BUG-033, BUG-004, BUG-005, BUG-006, BUG-007, BUG-008, BUG-014, BUG-015, BUG-016, BUG-017, BUG-018, BUG-019, BUG-020, BUG-021, BUG-022, BUG-023, BUG-026, BUG-027, BUG-029, BUG-030, BUG-034, BUG-035, BUG-036, BUG-056, BUG-059, BUG-060, BUG-061 (+ FP-300.1–.4 refunds feature) |
+| ✅ Fixed, with a test and a write-up | 46 | DEP-001–005, BUG-058, F0, BUG-050, BUG-009, BUG-001, BUG-002, BUG-011, BUG-031, BUG-032, BUG-010, BUG-003, BUG-012, BUG-013, BUG-033, BUG-004, BUG-005, BUG-006, BUG-007, BUG-008, BUG-014, BUG-015, BUG-016, BUG-017, BUG-018, BUG-019, BUG-020, BUG-021, BUG-022, BUG-023, BUG-026, BUG-027, BUG-029, BUG-030, BUG-034, BUG-035, BUG-036, BUG-056, BUG-059, BUG-060, BUG-061 (+ FP-300.1–.4 refunds feature), BUG-062 |
 | ⏭ Reclassified (not a bug) | 1 | BUG-037 → ENH-008 |
 | ⬜ Open (root cause below) | 9 | everything else (low points; root cause documented) |
 
