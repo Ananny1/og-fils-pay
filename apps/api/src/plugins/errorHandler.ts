@@ -6,6 +6,11 @@ import { formatIsoDate } from "../lib/dateFormat.js";
  * Uniform error -> HTTP response mapping. Every route across the API
  * should throw an `AppError` subclass; this is the single place that turns
  * one into `{ "error": "code", "message"?: "string" }`.
+ *
+ * Server-side failures never show their details to the client (SEC-3): an
+ * unexpected error is always `{ "error": "internal_error" }`, and in
+ * production a 5xx `AppError` sends its code only. The full error (stack,
+ * SQL text, constraint) is logged with the request id instead.
  */
 /** pg-pool's wait timeout, a connect timeout, a refused connection, or an
  *  open connection closed by the server (DB restarting). */
@@ -29,6 +34,14 @@ export function errorHandler(
   if (err instanceof AppError) {
     if (err instanceof TooManyRequestsError && err.retryAfterSeconds !== undefined) {
       reply.header("Retry-After", String(err.retryAfterSeconds));
+    }
+    if (err.statusCode >= 500) {
+      request.log.error({ err, occurredOn: formatIsoDate(new Date()) }, "server error");
+      // The message of a 5xx names internal hosts, paths and upstream bodies.
+      if (request.server.config.nodeEnv === "production") {
+        reply.code(err.statusCode).send({ error: err.code });
+        return;
+      }
     }
     reply.code(err.statusCode).send({ error: err.code, message: err.message });
     return;
@@ -56,6 +69,21 @@ export function errorHandler(
       .code(503)
       .header("Retry-After", String(request.server.config.apiRetryAfterSeconds))
       .send({ error: "service_unavailable", message: "Server busy, retry shortly" });
+    return;
+  }
+
+  // Fastify's own request errors (bad JSON, body over the limit, wrong
+  // content type) are the client's fault: answer their 4xx, not a 500.
+  // Their messages are Fastify's fixed texts, never data.
+  if (
+    typeof fastifyErr.code === "string" &&
+    fastifyErr.code.startsWith("FST_") &&
+    typeof fastifyErr.statusCode === "number" &&
+    fastifyErr.statusCode >= 400 &&
+    fastifyErr.statusCode < 500
+  ) {
+    const code = fastifyErr.statusCode === 413 ? "payload_too_large" : "bad_request";
+    reply.code(fastifyErr.statusCode).send({ error: code, message: fastifyErr.message });
     return;
   }
 

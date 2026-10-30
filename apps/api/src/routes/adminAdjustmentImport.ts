@@ -40,7 +40,11 @@ export async function adminAdjustmentImportRoutes(app: FastifyInstance): Promise
    */
   app.post<{ Body: CreateImportBody }>(
     "/",
-    { preHandler: [requireAdminSession, requireAdminRole("finance", "super_admin")] },
+    {
+      // A CSV can be bigger than the 1 MiB default (SEC-3).
+      bodyLimit: app.config.adjustmentImportBodyLimitBytes,
+      preHandler: [requireAdminSession, requireAdminRole("finance", "super_admin")],
+    },
     async (request, reply) => {
       const adminAuth = request.adminAuth;
       if (!adminAuth) throw new UnauthorizedError("unauthenticated");

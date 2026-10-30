@@ -23,6 +23,23 @@ export interface Config {
   /** Retry-After (seconds) on a shed request or a full DB pool. */
   apiRetryAfterSeconds: number;
 
+  /** Max JSON body for every route (SEC-3). Routes that need more (the
+   *  adjustment CSV import) set their own `bodyLimit`; KYC uploads are
+   *  multipart and capped by `kycMaxFileSizeBytes` instead. */
+  httpBodyLimitBytes: number;
+  /** `bodyLimit` of POST /v1/admin/adjustment-imports (CSV pasted as JSON). */
+  adjustmentImportBodyLimitBytes: number;
+  /** Idle socket timeout: a connection that sends nothing for this long is
+   *  closed (slow-loris). Must stay above the slowest handler, which is the
+   *  30s internal settlement call. */
+  httpConnectionTimeoutMs: number;
+  /** Time a client gets to send all its headers. */
+  httpHeadersTimeoutMs: number;
+  /** Time a client gets to send the whole request, body included (an 8 MB
+   *  KYC upload on a slow phone link fits in it). */
+  httpRequestTimeoutMs: number;
+  httpKeepAliveTimeoutMs: number;
+
   sessionTtlHours: number;
   /** SEC-2: a session with no request for this long is dead, even before
    *  its fixed `sessionTtlHours` expiry. */
@@ -255,6 +272,13 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
 
     apiMaxInFlight: parseIntEnv(env.API_MAX_IN_FLIGHT, 64),
     apiRetryAfterSeconds: parseIntEnv(env.API_RETRY_AFTER_SECONDS, 1),
+
+    httpBodyLimitBytes: parseIntEnv(env.HTTP_BODY_LIMIT_BYTES, 1_048_576),
+    adjustmentImportBodyLimitBytes: parseIntEnv(env.ADJUSTMENT_IMPORT_BODY_LIMIT_BYTES, 5_242_880),
+    httpConnectionTimeoutMs: parseIntEnv(env.HTTP_CONNECTION_TIMEOUT_MS, 60_000),
+    httpHeadersTimeoutMs: parseIntEnv(env.HTTP_HEADERS_TIMEOUT_MS, 20_000),
+    httpRequestTimeoutMs: parseIntEnv(env.HTTP_REQUEST_TIMEOUT_MS, 120_000),
+    httpKeepAliveTimeoutMs: parseIntEnv(env.HTTP_KEEP_ALIVE_TIMEOUT_MS, 72_000),
 
     sessionTtlHours: parseIntEnv(env.SESSION_TTL_HOURS, 12),
     sessionIdleMinutes: parseIntEnv(env.SESSION_IDLE_MINUTES, 60),

@@ -6,6 +6,7 @@ import { cookiesPlugin } from "./plugins/cookies.js";
 import { multipartPlugin } from "./plugins/multipart.js";
 import { errorHandler } from "./plugins/errorHandler.js";
 import { loadSheddingPlugin } from "./plugins/loadShedding.js";
+import { securityHeadersPlugin } from "./plugins/securityHeaders.js";
 import { healthRoutes } from "./routes/health.js";
 import { authRoutes } from "./routes/auth.js";
 import { businessProfileRoutes } from "./routes/businessProfile.js";
@@ -42,13 +43,19 @@ export interface BuildAppOptions {
 export function buildApp(config: Config, pool: Pool, options: BuildAppOptions = {}): FastifyInstance {
   // X-Forwarded-For is trusted only behind our own proxy, and only for the
   // entries our proxy addresses add, so a client can't choose its own
-  // request.ip (SEC-1).
+  // request.ip (SEC-1). Size and time limits (SEC-3): a slow or huge request
+  // is cut off instead of holding a socket and memory open.
   const app = Fastify({
     logger: true,
     // CAP-1: two JSON log lines per request cost real CPU on a 0.5 vCPU box.
     // In production nginx keeps the access log; errors are still logged.
     disableRequestLogging: config.nodeEnv === "production",
     trustProxy: config.trustProxy ? config.trustProxyAddresses : false,
+    bodyLimit: config.httpBodyLimitBytes,
+    connectionTimeout: config.httpConnectionTimeoutMs,
+    requestTimeout: config.httpRequestTimeoutMs,
+    keepAliveTimeout: config.httpKeepAliveTimeoutMs,
+    http: { headersTimeout: config.httpHeadersTimeoutMs },
   });
 
   app.decorate("db", pool);
@@ -61,6 +68,7 @@ export function buildApp(config: Config, pool: Pool, options: BuildAppOptions = 
     maxInFlight: config.apiMaxInFlight,
     retryAfterSeconds: config.apiRetryAfterSeconds,
   });
+  app.register(securityHeadersPlugin, { config });
   app.register(cookiesPlugin);
   app.register(multipartPlugin, { config });
   app.setErrorHandler(errorHandler);
