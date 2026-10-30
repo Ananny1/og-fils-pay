@@ -1,0 +1,41 @@
+# Production image for apps/api, apps/reporting and the migrate/seed jobs.
+# Used by ops/docker-compose.prod.yml. (ops/Dockerfile.node stays the dev image.)
+#
+# Differences from the dev image:
+#   - runs as the unprivileged `node` user, not root
+#   - the KYC upload dir exists and is owned by `node` (mounted as a volume)
+#   - the start command is `node --import tsx ...` (set in compose), so
+#     SIGTERM reaches Node directly instead of an `npx` wrapper
+#
+# The TypeScript sources are run through tsx's loader (no separate build
+# step exists in this repo), so tsx stays installed.
+FROM node:20-bookworm-slim AS deps
+
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends python3 make g++ \
+ && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+COPY package.json package-lock.json ./
+COPY packages/money/package.json packages/money/
+COPY packages/events/package.json packages/events/
+COPY apps/api/package.json apps/api/
+COPY apps/reporting/package.json apps/reporting/
+COPY apps/web/package.json apps/web/
+COPY apps/admin/package.json apps/admin/
+RUN npm ci --no-audit --no-fund && npm cache clean --force
+
+FROM node:20-bookworm-slim
+
+ENV NODE_ENV=production
+WORKDIR /app
+COPY --from=deps --chown=node:node /app/node_modules ./node_modules
+COPY --chown=node:node package.json package-lock.json tsconfig.base.json tsconfig.json ./
+COPY --chown=node:node packages ./packages
+COPY --chown=node:node db ./db
+COPY --chown=node:node apps/api ./apps/api
+COPY --chown=node:node apps/reporting ./apps/reporting
+RUN mkdir -p /app/data/kyc && chown -R node:node /app/data
+
+USER node
+EXPOSE 3000

@@ -9,3 +9,4 @@ npm-debug.log*
 !.claude/settings.json
 .env.*
 !ops/.env.docker.example
+!ops/.env.prod.example

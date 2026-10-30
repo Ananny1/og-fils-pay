@@ -43,6 +43,9 @@ export function buildApp(config: Config, pool: Pool, options: BuildAppOptions = 
     logger: true,
     bodyLimit: config.bodyLimitBytes,
     requestTimeout: config.httpRequestTimeoutMs,
+    // Behind nginx, request.ip (audit rows in auth/adminAuth) must be the
+    // client, not the proxy.
+    trustProxy: (_address: string, hop: number) => hop < config.trustProxyHops,
   });
 
   app.decorate("db", pool);

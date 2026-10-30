@@ -35,6 +35,10 @@ export interface Config {
   /** Node's `requestTimeout`: the whole request (headers + body) must
    *  arrive within this, which stops slow-upload clients holding sockets. */
   httpRequestTimeoutMs: number;
+  /** How many reverse-proxy hops to trust for the client IP
+   *  (X-Forwarded-For). 0 = trust none (direct exposure). Production runs
+   *  behind exactly one nginx, which overwrites X-Forwarded-For, so 1. */
+  trustProxyHops: number;
   /** Hard cap on graceful shutdown (index.ts): after SIGTERM the process
    *  exits even if something is stuck, before Docker's SIGKILL. */
   shutdownTimeoutMs: number;
@@ -231,6 +235,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     maxInFlightRequests: parseIntEnv(env.MAX_IN_FLIGHT_REQUESTS, 100),
     bodyLimitBytes: parseIntEnv(env.BODY_LIMIT_BYTES, 1_048_576),
     httpRequestTimeoutMs: parseIntEnv(env.HTTP_REQUEST_TIMEOUT_MS, 30_000),
+    trustProxyHops: parseIntEnv(env.TRUST_PROXY_HOPS, 0),
     shutdownTimeoutMs: parseIntEnv(env.SHUTDOWN_TIMEOUT_MS, 25_000),
 
     sessionTtlHours: parseIntEnv(env.SESSION_TTL_HOURS, 12),
