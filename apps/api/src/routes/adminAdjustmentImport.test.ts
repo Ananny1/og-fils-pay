@@ -115,6 +115,17 @@ test("a valid CSV upload returns 201 and applies every row", async () => {
   assert.equal(Number(rows.rows[0]!.n), 2);
 });
 
+test("BUG-029: uploading the same CSV twice is a 409 the second time", async () => {
+  const admin = await signedInAdmin("finance");
+  const merchantId = await createMerchant();
+  const payload = { csvContent: `merchantId,amount,reason\n${merchantId},3.500,dup\n`, originalFilename: "dup.csv" };
+
+  const first = await app.inject({ method: "POST", url: PATH, headers: { cookie: admin.cookie }, payload });
+  assert.equal(first.statusCode, 201, first.body);
+  const second = await app.inject({ method: "POST", url: PATH, headers: { cookie: admin.cookie }, payload });
+  assert.equal(second.statusCode, 409, second.body);
+});
+
 test("an unauthenticated upload is a 401", async () => {
   const merchantId = await createMerchant();
   const res = await app.inject({

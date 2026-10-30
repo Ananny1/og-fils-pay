@@ -249,3 +249,43 @@ test("getAdjustmentImportRows returns an empty list for an unknown import", asyn
   const rows = await getAdjustmentImportRows(pool, randomUUID());
   assert.deepEqual(rows, []);
 });
+
+// BUG-029: a double-click or a re-upload of the same file must not post the
+// money twice. The same content (same merchants, amounts and reasons) is
+// rejected the second time, even under a different filename.
+test("BUG-029: the same CSV content applied twice is rejected the second time", async () => {
+  const adminUserId = await createAdminUser();
+  const merchantId = await createMerchant();
+  const rows = [{ merchantId, amount: "4.750", reason: "statement correction" }];
+
+  await applyAdjustmentImport(pool, { adminUserId, originalFilename: "once.csv", rows });
+  await assert.rejects(
+    applyAdjustmentImport(pool, {
+      adminUserId,
+      originalFilename: "once (1).csv",
+      rows: [{ merchantId, amount: "4.75", reason: "statement correction" }],
+    }),
+    /already been applied/,
+  );
+
+  const groups = await pool.query<{ n: string }>(
+    `SELECT COUNT(DISTINCT entry_group_id)::text AS n FROM ledger_entries WHERE merchant_id = $1`,
+    [merchantId],
+  );
+  assert.equal(Number(groups.rows[0]!.n), 1, "the second upload must not post a second ledger group");
+});
+
+test("BUG-029: two simultaneous submits of the same CSV post once", async () => {
+  const adminUserId = await createAdminUser();
+  const merchantId = await createMerchant();
+  const input = { adminUserId, originalFilename: "dbl.csv", rows: [{ merchantId, amount: "2.000" }] };
+
+  const results = await Promise.allSettled([applyAdjustmentImport(pool, input), applyAdjustmentImport(pool, input)]);
+  assert.equal(results.filter((r) => r.status === "fulfilled").length, 1);
+
+  const balance = await pool.query<{ cached_payable_fils: string }>(
+    `SELECT cached_payable_fils FROM merchant_balances WHERE merchant_id = $1`,
+    [merchantId],
+  );
+  assert.equal(Number(balance.rows[0]!.cached_payable_fils), 2000);
+});

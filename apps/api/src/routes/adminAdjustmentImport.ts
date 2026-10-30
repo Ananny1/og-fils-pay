@@ -53,8 +53,7 @@ export async function adminAdjustmentImportRoutes(app: FastifyInstance): Promise
         throw new BadRequestError("invalid_request", "originalFilename, if given, must be a string");
       }
 
-      // am: no dry run and no idempotency key — uploading the same csv twice posts it twice
-      // MK: finance checks the spreadsheet before uploading. fine for now
+      // BUG-029: applying the same rows twice is rejected (409 duplicate_import).
       // BUG-014: amounts are BD with up to 3 decimals, parsed with parseBhdToFils (4.75 -> 4750 fils)
       const rows = parseAdjustmentCsv(csvContent);
       for (const row of rows) {
