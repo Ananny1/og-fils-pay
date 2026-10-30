@@ -86,6 +86,12 @@ export const requireMerchantAuth: preHandlerHookHandler = async (request: Fastif
   if (impersonationToken) {
     const grant = await lookupImpersonationGrant(request.server.db, impersonationToken);
     if (grant) {
+      // A grant is "view as merchant": read-only on every route, including
+      // routes with no role gate (capture, void, saved filters). Writes are
+      // refused here, once, rather than relying on each route's role list.
+      if (request.method !== "GET" && request.method !== "HEAD") {
+        throw new ForbiddenError("forbidden");
+      }
       request.merchantAuth = {
         merchantId: grant.merchantId,
         actorType: "admin_impersonation",
