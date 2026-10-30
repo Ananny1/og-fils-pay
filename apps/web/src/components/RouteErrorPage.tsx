@@ -2,21 +2,32 @@ import { Link, isRouteErrorResponse, useRouteError } from "react-router-dom";
 import { Compass, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
+import { BrandMark } from "@/components/dashboard/public-shell";
+import { ThemeToggle } from "@/components/dashboard/theme-toggle";
 
 function Screen({ icon, title, body }: { icon: React.ReactNode; title: string; body: string }) {
   return (
-    <main className="flex min-h-svh items-center justify-center p-6">
-      <Empty className="max-w-md border border-[var(--card-border)] bg-card">
-        <EmptyHeader>
-          <EmptyMedia variant="icon">{icon}</EmptyMedia>
-          <EmptyTitle className="font-heading text-xl uppercase">{title}</EmptyTitle>
-          <EmptyDescription>{body}</EmptyDescription>
-        </EmptyHeader>
-        <EmptyContent>
-          <Button render={<Link to="/dashboard" />}>Go to the dashboard</Button>
-        </EmptyContent>
-      </Empty>
-    </main>
+    <div className="flex min-h-svh flex-col">
+      {/* Same dark header strip as the login page, with the theme toggle. */}
+      <header className="dark border-b-2 border-b-[#c8102e] bg-[var(--bg-header)] text-[var(--on-dark)]">
+        <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-4 md:px-6">
+          <BrandMark />
+          <ThemeToggle />
+        </div>
+      </header>
+      <main className="flex flex-1 items-center justify-center p-6">
+        <Empty className="max-w-md border border-[var(--card-border)] bg-card">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">{icon}</EmptyMedia>
+            <EmptyTitle className="font-heading text-xl uppercase">{title}</EmptyTitle>
+            <EmptyDescription>{body}</EmptyDescription>
+          </EmptyHeader>
+          <EmptyContent>
+            <Button render={<Link to="/dashboard" />}>Go to the dashboard</Button>
+          </EmptyContent>
+        </Empty>
+      </main>
+    </div>
   );
 }
 
