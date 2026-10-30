@@ -158,7 +158,28 @@ async function attemptOneDelivery(
   row: DueDeliveryRow,
 ): Promise<void> {
   const key = decodeEncryptionKey(config.webhookSecretEncryptionKey);
-  const secret = decryptSecret(row.secret_ciphertext, key);
+  let secret: string;
+  try {
+    secret = decryptSecret(row.secret_ciphertext, key);
+  } catch (err: unknown) {
+    // BUG-053 (Sayed): an undecryptable secret (wrong/rotated key, corrupt row) is
+    // permanent, not transient — leaving the row 'pending' retried it every
+    // pass forever and, since Step B takes the oldest-due 100, enough such
+    // rows starved every other merchant's deliveries. Mark it 'failed' with
+    // the reason; it can be replayed once the endpoint secret is fixed.
+    console.error("[webhooks/dispatcher] endpoint secret could not be decrypted; marking delivery failed", {
+      deliveryId: row.id,
+      endpointId: row.endpoint_id,
+      err,
+    });
+    await pool.query(
+      `UPDATE webhook_deliveries
+          SET status = 'failed', response_body_excerpt = $2, last_attempted_at = now()
+        WHERE id = $1`,
+      [row.id, "not sent: endpoint secret could not be decrypted (rotate the endpoint secret, then replay)"],
+    );
+    return;
+  }
   // BUG-023: serialize once, sign those exact bytes, send the same bytes.
   const body = canonicalJson(row.payload);
   const { signature } = signRawBody(body, secret);
