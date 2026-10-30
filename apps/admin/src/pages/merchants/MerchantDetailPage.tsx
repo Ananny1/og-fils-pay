@@ -439,7 +439,12 @@ export function MerchantDetailPage() {
             <button type="button" disabled={busy} onClick={() => void handleKycReview("approved")}>
               Approve KYC
             </button>{" "}
-            <button type="button" disabled={busy} onClick={() => void handleKycReview("rejected")}>
+            <button
+              type="button"
+              className="admin-btn-danger"
+              disabled={busy}
+              onClick={() => void handleKycReview("rejected")}
+            >
               Reject KYC
             </button>
           </div>

@@ -490,6 +490,19 @@ button[type="submit"]:disabled,
   border: 1px dashed var(--text-muted);
 }
 
+/* Destructive (Reject ...): outlined in red ink, filled red on hover, so it
+   never reads like its Approve neighbour. Same idea as web's destructive button. */
+button.admin-btn-danger:not(:disabled) {
+  color: var(--accent-text);
+  border-color: var(--accent-text);
+}
+
+button.admin-btn-danger:hover:not(:disabled) {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-dark);
+}
+
 /* Credits status tabs: the current tab is the disabled one — show it as selected. */
 .admin-main .admin-nav {
   gap: 0;
