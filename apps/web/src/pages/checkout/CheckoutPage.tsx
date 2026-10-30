@@ -95,8 +95,11 @@ export function CheckoutPage() {
     if (!token) return;
     // Same rules as the server (BUG-063), so a typo is caught before any request.
     if (!isValidCardNumber(card.pan)) {
-      const brandKnown = formatCardBrandHint(card.pan) !== "unknown";
-      setPayState({ kind: "declined", message: brandKnown ? "invalidCardNumber" : "unsupportedCard", retryable: true });
+      const digits = card.pan.replace(/\D/g, "");
+      const message: CheckoutMessageKey =
+        formatCardBrandHint(digits) === "unknown" ? "unsupportedCard" : digits.length < 16 ? "incompleteCardNumber" : "invalidCardNumber";
+      setPayState({ kind: "declined", message, retryable: true });
+      document.getElementById("checkout-pan")?.focus();
       return;
     }
 
@@ -337,11 +340,20 @@ export function CheckoutPage() {
                     required
                     maxLength={19}
                     placeholder="1234 5678 9012 3456"
-                    className="h-11 font-mono"
+                    className="h-11 font-mono tracking-wider"
                     value={card.pan}
                     onChange={(e) => {
                       // UX-90: digits only, 16 at most, shown as 4-4-4-4.
-                      const pan = formatCardNumberInput(e.target.value);
+                      const input = e.target;
+                      const pan = formatCardNumberInput(input.value);
+                      // UX-91: keep the cursor after the same digit when a space is added or removed,
+                      // so fixing a digit in the middle doesn't throw the cursor to the end.
+                      const digitsBeforeCursor = input.value.slice(0, input.selectionStart ?? input.value.length).replace(/\D/g, "").length;
+                      let cursor = 0;
+                      for (let seen = 0; cursor < pan.length && seen < digitsBeforeCursor; cursor++) {
+                        if (/\d/.test(pan[cursor]!)) seen++;
+                      }
+                      requestAnimationFrame(() => input.setSelectionRange(cursor, cursor));
                       setCard({ ...card, pan });
                       const digits = pan.replace(/\D/g, "");
                       if (digits.length >= 4) {
@@ -398,11 +410,13 @@ export function CheckoutPage() {
                       autoComplete="cc-csc"
                       dir="ltr"
                       required
-                      maxLength={4}
+                      maxLength={3}
+                      pattern="\d{3}"
+                      title={t.messages.invalidCvv}
                       placeholder="123"
                       className="h-11 font-mono"
                       value={card.cvv}
-                      onChange={(e) => setCard({ ...card, cvv: e.target.value })}
+                      onChange={(e) => setCard({ ...card, cvv: e.target.value.replace(/\D/g, "").slice(0, 3) })}
                     />
                   </Field>
                 </div>

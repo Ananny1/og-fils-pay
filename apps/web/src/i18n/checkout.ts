@@ -28,6 +28,7 @@ export type CheckoutMessageKey =
   | "canceled"
   | "expired"
   | "invalidCardNumber"
+  | "incompleteCardNumber"
   | "unsupportedCard"
   | "invalidExpiry"
   | "cardExpired"
@@ -103,6 +104,7 @@ const en: CheckoutStrings = {
     canceled: "This link isn't available any more.",
     expired: "This link has expired. Ask the shop to send a new one.",
     invalidCardNumber: "This card number is not valid. Check the digits and try again.",
+    incompleteCardNumber: "Enter all 16 digits of your card number.",
     unsupportedCard: "Only Visa and Mastercard cards are accepted.",
     invalidExpiry: "Enter a valid expiry month (01 to 12) and year.",
     cardExpired: "This card has expired. Use another card.",
@@ -158,6 +160,7 @@ const ar: CheckoutStrings = {
     canceled: "هذا الرابط لم يعد متاحاً.",
     expired: "انتهت صلاحية هذا الرابط. اطلب من المتجر إرسال رابط جديد.",
     invalidCardNumber: "رقم البطاقة غير صحيح. تحقق من الأرقام وحاول مرة أخرى.",
+    incompleteCardNumber: "أدخل أرقام البطاقة الستة عشر كاملة.",
     unsupportedCard: "نقبل بطاقات فيزا وماستركارد فقط.",
     invalidExpiry: "أدخل شهر انتهاء صحيحاً (من 01 إلى 12) وسنة صحيحة.",
     cardExpired: "انتهت صلاحية هذه البطاقة. استخدم بطاقة أخرى.",
