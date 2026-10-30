@@ -106,7 +106,7 @@ export function AppSidebar() {
               </div>
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-semibold">FilsPay</span>
-                <span className="truncate text-xs text-muted-foreground">{me?.merchant.displayName ?? "Merchant"}</span>
+                <span className="truncate text-xs text-sidebar-muted">{me?.merchant.displayName ?? "Merchant"}</span>
               </div>
             </SidebarMenuButton>
           </SidebarMenuItem>
@@ -119,7 +119,7 @@ export function AppSidebar() {
           if (items.length === 0) return null;
           return (
             <SidebarGroup key={group.label}>
-              <SidebarGroupLabel className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/80">
+              <SidebarGroupLabel className="text-[10px] font-semibold uppercase tracking-[0.14em] text-sidebar-muted">
                 {group.label}
               </SidebarGroupLabel>
               <SidebarGroupContent>
@@ -163,7 +163,7 @@ export function AppSidebar() {
                 </Avatar>
                 <div className="grid flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]:hidden">
                   <span className="truncate font-medium">{me?.email ?? "…"}</span>
-                  <span className="truncate text-xs text-muted-foreground capitalize">{me?.role ?? ""}</span>
+                  <span className="truncate text-xs text-sidebar-muted capitalize">{me?.role ?? ""}</span>
                 </div>
                 <ChevronsUpDown className="ml-auto size-4 group-data-[collapsible=icon]:hidden" />
               </DropdownMenuTrigger>

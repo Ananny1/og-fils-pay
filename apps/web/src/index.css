@@ -14,6 +14,7 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-muted: var(--sidebar-muted);
   --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
   --color-sidebar-foreground: var(--sidebar-foreground);
@@ -96,7 +97,8 @@
   --sidebar-foreground: var(--text);
   --sidebar-primary: #c8102e;
   --sidebar-primary-foreground: var(--on-dark);
-  --sidebar-accent: #e2ddd1;
+  --sidebar-accent: #ebe6dc; /* red text on it ≈ 4.7:1 (AA) */
+  --sidebar-muted: #5e5e5e; /* muted text on --sidebar ≈ 5.3:1 (AA) */
   --sidebar-accent-foreground: #c8102e;
   --sidebar-border: var(--line);
   --sidebar-ring: #c8102e;
@@ -143,6 +145,7 @@
   --sidebar-primary: #e0263f;
   --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: #2a2a2a;
+  --sidebar-muted: var(--muted-foreground);
   --sidebar-accent-foreground: #ff6b7d;
   --sidebar-border: #333333;
   --sidebar-ring: #e0263f;
