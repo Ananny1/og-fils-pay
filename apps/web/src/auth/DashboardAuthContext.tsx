@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { setUnauthorizedHandler } from "../api/client.js";
+import { clearLastMerchantId } from "./lastMerchantId.js";
 import { logout as logoutRequest, me as fetchMe } from "../api/dashboardAuth.js";
 import type { DashboardMe } from "../types.js";
 
@@ -21,27 +22,9 @@ export interface DashboardAuthValue {
 
 const DashboardAuthReactContext = createContext<DashboardAuthValue | null>(null);
 
-/** The last-used merchant id, remembered purely so a returning user doesn't
- *  have to re-paste a UUID. A merchant id is not a credential and
- *  substitutes for nothing — the password and OTP steps run unchanged. */
-const LAST_MERCHANT_ID_KEY = "filspay.dashboard.lastMerchantId";
-
-export function readLastMerchantId(): string {
-  try {
-    return window.localStorage.getItem(LAST_MERCHANT_ID_KEY) ?? "";
-  } catch {
-    // Private browsing / storage disabled — the field simply starts empty.
-    return "";
-  }
-}
-
-export function writeLastMerchantId(merchantId: string): void {
-  try {
-    window.localStorage.setItem(LAST_MERCHANT_ID_KEY, merchantId);
-  } catch {
-    // Nothing depends on this succeeding.
-  }
-}
+// The last-used merchant id (prefills the login form; cleared on sign-out)
+// lives in ./lastMerchantId.ts; re-exported here for existing importers.
+export { clearLastMerchantId, readLastMerchantId, writeLastMerchantId } from "./lastMerchantId.js";
 
 /**
  * Holds the answer to "who am I, per the server?" — loaded once on mount
@@ -98,6 +81,7 @@ export function DashboardAuthProvider({ children }: { children: ReactNode }) {
     try {
       await logoutRequest();
     } finally {
+      clearLastMerchantId();
       setExpired(false);
       setMe(null);
       setStatus("anonymous");
