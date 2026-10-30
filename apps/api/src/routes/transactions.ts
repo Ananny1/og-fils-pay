@@ -1,7 +1,7 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { toFils } from "@filspay/money";
 import { requireApiKey } from "../apiKeys/verify.js";
-import { requireMerchantAuth, requireMerchantWriterActor } from "../auth/requireMerchantAuth.js";
+import { requireMerchantAuth, requireMerchantRole, requireMerchantWriterActor } from "../auth/requireMerchantAuth.js";
 import { authorizeTransaction, type AuthorizeInput } from "../payments/authorize.js";
 import { captureTransaction } from "../payments/capture.js";
 import { applyCaptureDiscountAdjustment } from "../payments/discountAdjustment.js";
@@ -102,7 +102,8 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
     // MK: impersonation is read-only, enforced in requireMerchantAuth. fine
     // MK: confirmed — ADMIN.md says grants are support-level read only
     "/:id/capture",
-    { preHandler: requireMerchantAuth },
+    // Capture moves money: owner/finance sessions (and API keys) only, never support.
+    { preHandler: [requireMerchantAuth, requireMerchantRole("owner", "finance")] },
     async (request, reply) => {
       const idempotencyKey = getIdempotencyKey(request);
       const { amountFils } = request.body ?? {};
@@ -133,9 +134,9 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
   );
 
   app.post<{ Params: TransactionIdParams }>(
-    // TODO(FH): role check? finance role users shouldn't void. ask MK
+    // Void cancels a payment: same gate as capture (owner/finance, never support).
     "/:id/void",
-    { preHandler: requireMerchantAuth },
+    { preHandler: [requireMerchantAuth, requireMerchantRole("owner", "finance")] },
     async (request, reply) => {
       const result = await voidTransaction(app.db, {
         transactionId: request.params.id,
