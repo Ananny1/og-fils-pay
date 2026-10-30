@@ -13,7 +13,7 @@ import { loadConfig } from "../config.js";
 import { issueApiKey } from "../apiKeys/issue.js";
 import { recordKycReview } from "../onboarding/review.js";
 import { TooManyRequestsError } from "../lib/errors.js";
-import { reserveAssistantCall } from "./usageLimit.js";
+import { recordAssistantTokens, reserveAssistantCall } from "./usageLimit.js";
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) {
@@ -95,4 +95,24 @@ test("the chat route refuses before calling the AI service once the budget is sp
   } finally {
     await app.close();
   }
+});
+
+test("token budgets: per login session and per merchant per day (ENH-010)", async () => {
+  const merchant = await createMerchant();
+  const limits = { perMinute: 100, perDay: 100, tokensPerDay: 10_000, tokensPerSession: 4_000 };
+  const a = await reserveAssistantCall(pool, merchant, limits, "session-a");
+  await recordAssistantTokens(pool, a, 4_000);
+  await assert.rejects(reserveAssistantCall(pool, merchant, limits, "session-a"), (err: unknown) => {
+    assert.ok(err instanceof TooManyRequestsError);
+    assert.equal(err.code, "assistant_session_budget");
+    return true;
+  });
+  // Another session of the same merchant still works until the daily cap.
+  const b = await reserveAssistantCall(pool, merchant, limits, "session-b");
+  await recordAssistantTokens(pool, b, 6_000);
+  await assert.rejects(reserveAssistantCall(pool, merchant, limits, "session-c"), (err: unknown) => {
+    assert.ok(err instanceof TooManyRequestsError);
+    assert.equal(err.code, "assistant_token_budget");
+    return true;
+  });
 });

@@ -244,6 +244,7 @@ reasons and cost is in `docs/challenge/PLAN.md` → Enhancements.
 | ENH-006 | Per-service DB roles + TLS | D5 | 💡 |
 | ENH-008 | Email verification at signup | BUG-037 | 💡 |
 | ENH-009 | AI assistant limits: 6/min and 100/day per merchant, key only in git-ignored env files → [write-up](docs/enhancements/ENH-009-assistant-usage-limits.md) | Sayed's assistant | ✅ |
+| ENH-010 | AI assistant guardrails: input validation, topic gate (fails closed), scoped prompt, token budgets per session/day → [write-up](docs/enhancements/ENH-010-assistant-guardrails.md) | Sayed's assistant | ✅ |
 | ENH-007 | Deleted now-unused `apps/api/src/auth/users.ts` (`findOtpRecipient`, the cross-shop email lookup behind BUG-002); approved by Ebrahim 2026-10-30 | BUG-002 | ✅ |
 
 ## 4. FP-300 progress

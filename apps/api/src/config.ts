@@ -43,6 +43,13 @@ export interface Config {
   /** Paid AI calls allowed per merchant per minute / per day (ENH-009). */
   assistantPerMinute: number;
   assistantPerDay: number;
+  /** Token budgets (input + output, gate included) per merchant per day and
+   *  per login session (ENH-010). 0 disables a budget. */
+  assistantTokensPerDay: number;
+  assistantTokensPerSession: number;
+  /** Small model that decides whether a question is about FilsPay before the
+   *  main model is called (ENH-010). */
+  assistantGateModel: string;
 
   /** Load shedding (CAP-2, plugins/loadShedding.ts): requests allowed in
    *  flight at once before the api answers 503 + Retry-After. 0 = off. */
@@ -347,6 +354,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     assistantMaxMessageChars: parseIntEnv(env.ASSISTANT_MAX_MESSAGE_CHARS, 2000),
     assistantPerMinute: parseIntEnv(env.ASSISTANT_PER_MINUTE, 6),
     assistantPerDay: parseIntEnv(env.ASSISTANT_PER_DAY, 100),
+    assistantTokensPerDay: parseIntEnv(env.ASSISTANT_TOKENS_PER_DAY, 300_000),
+    assistantTokensPerSession: parseIntEnv(env.ASSISTANT_TOKENS_PER_SESSION, 60_000),
+    assistantGateModel: env.ASSISTANT_GATE_MODEL || "claude-haiku-5-5",
 
     apiMaxInFlight: parseIntEnv(env.API_MAX_IN_FLIGHT, 64),
     apiRetryAfterSeconds: parseIntEnv(env.API_RETRY_AFTER_SECONDS, 1),
