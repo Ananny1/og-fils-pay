@@ -13,6 +13,7 @@ import { ErrorAlert } from "@/components/dashboard/error-alert";
 import { Money } from "@/components/dashboard/money";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { StatusBadge } from "@/components/dashboard/status-badge";
+import { linkDisplayStatus } from "@/lib/linkStatus";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -158,7 +159,7 @@ export function PaymentLinkDetailPage() {
         description={
           <span className="flex flex-wrap items-center gap-2">
             <span className="font-mono text-xs">{link.id}</span>
-            <StatusBadge status={link.status} />
+            <StatusBadge status={linkDisplayStatus(link)} />
           </span>
         }
         actions={
@@ -229,7 +230,9 @@ export function PaymentLinkDetailPage() {
               </Button>
             </div>
             <p className="text-xs text-muted-foreground">
-              Share this URL with the customer. It expires {dateTime(link.expiresAt)}.
+              {linkDisplayStatus(link) === "expired"
+                ? `This link expired ${dateTime(link.expiresAt)} and can no longer be paid. Create a new one.`
+                : `Share this URL with the customer. It expires ${dateTime(link.expiresAt)}.`}
             </p>
           </CardContent>
         </Card>

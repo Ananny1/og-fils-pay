@@ -14,6 +14,7 @@ import { Money } from "@/components/dashboard/money";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { StatusBadge } from "@/components/dashboard/status-badge";
+import { linkDisplayStatus } from "@/lib/linkStatus";
 import { TableSkeleton } from "@/components/dashboard/table-skeleton";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -175,7 +176,7 @@ export function PaymentLinkListPage() {
                         <Money fils={link.amountFils} currency={link.currency} />
                       </TableCell>
                       <TableCell>
-                        <StatusBadge status={link.status} />
+                        <StatusBadge status={linkDisplayStatus(link)} />
                       </TableCell>
                       <TableCell className="whitespace-nowrap text-muted-foreground">
                         {dateTime(link.expiresAt)}
