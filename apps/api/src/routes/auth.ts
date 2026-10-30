@@ -155,18 +155,23 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
         throw new GoneError("otp_expired");
       }
 
-      // am: check-then-increment is fine, max_attempts=5 so worst case is 5 guesses
-      // MK: 5 guesses per parallel batch? if i fire 50 at once they all read attempt_count=0
-      if (challenge.attempt_count >= challenge.max_attempts) {
+      // Spend one attempt atomically BEFORE comparing. A separate
+      // read-then-increment let parallel requests all see attempt_count=0
+      // and each get a guess; the conditional UPDATE lets exactly
+      // max_attempts requests through, however many arrive at once.
+      const spent = await app.db.query(
+        `UPDATE otp_challenges SET attempt_count = attempt_count + 1
+          WHERE id = $1 AND attempt_count < max_attempts
+          RETURNING attempt_count`,
+        [challenge.id],
+      );
+      if (spent.rowCount === 0) {
         await revokeSession(app.db, pending.sessionId);
         throw new TooManyRequestsError("too_many_attempts");
       }
 
       const matches = verifyOtpCode(code, challenge.code_salt, challenge.code_hash);
       if (!matches) {
-        await app.db.query(`UPDATE otp_challenges SET attempt_count = attempt_count + 1 WHERE id = $1`, [
-          challenge.id,
-        ]);
         throw new UnauthorizedError("invalid_code");
       }
 
@@ -229,6 +234,16 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
         codeLength: app.config.otpCodeLength,
         maxAttempts: app.config.otpMaxAttempts,
       });
+      // Carry the spent guesses over, as the doc above promises: a resend
+      // must never reset the guess budget.
+      if (existingChallenge) {
+        await client.query(
+          `UPDATE otp_challenges
+              SET attempt_count = (SELECT attempt_count FROM otp_challenges WHERE id = $2)
+            WHERE id = $1`,
+          [challenge.id, existingChallenge.id],
+        );
+      }
       await client.query(`UPDATE sessions SET otp_challenge_id = $1 WHERE id = $2`, [
         challenge.id,
         pending.sessionId,

@@ -114,6 +114,94 @@ test("BUG-001: the same cookie works once the OTP is verified", async () => {
   assert.equal(me.json().merchant.id, merchantId);
 });
 
+// ------------------------------------------------------------ BUG-011
+
+function wrongCodeFor(code: string): string {
+  return code === "000000" ? "111111" : "000000";
+}
+
+test("BUG-011: parallel wrong OTP guesses cannot exceed max_attempts", async () => {
+  const password = "parallel-otp-password-1!";
+  const { merchantId, email } = await signup("otp-race", password);
+  const { cookie, code } = await login(merchantId, email, password);
+  const wrong = wrongCodeFor(code);
+
+  const results = await Promise.all(
+    Array.from({ length: 25 }, () =>
+      app.inject({ method: "POST", url: "/v1/auth/otp/verify", headers: { cookie }, payload: { code: wrong } }),
+    ),
+  );
+  const guessesChecked = results.filter((r) => r.statusCode === 401 && r.json().error === "invalid_code").length;
+  assert.ok(
+    guessesChecked <= config.otpMaxAttempts,
+    `${guessesChecked} guesses were checked against the code; the cap is ${config.otpMaxAttempts}`,
+  );
+
+  const row = await pool.query<{ attempt_count: number }>(
+    `SELECT c.attempt_count FROM sessions s JOIN otp_challenges c ON c.id = s.otp_challenge_id
+      JOIN merchant_users mu ON mu.id = s.merchant_user_id
+     WHERE mu.merchant_id = $1`,
+    [merchantId],
+  );
+  assert.ok(row.rows[0]!.attempt_count <= config.otpMaxAttempts, `attempt_count=${row.rows[0]!.attempt_count}`);
+});
+
+test("BUG-011: the real code still works after a few wrong guesses, and the 6th guess is refused", async () => {
+  const password = "otp-cap-password-1!";
+  const { merchantId, email } = await signup("otp-cap", password);
+  const { cookie, code } = await login(merchantId, email, password);
+  const wrong = wrongCodeFor(code);
+
+  for (let i = 0; i < config.otpMaxAttempts - 1; i++) {
+    const r = await app.inject({ method: "POST", url: "/v1/auth/otp/verify", headers: { cookie }, payload: { code: wrong } });
+    assert.equal(r.statusCode, 401, r.body);
+  }
+  const right = await app.inject({ method: "POST", url: "/v1/auth/otp/verify", headers: { cookie }, payload: { code } });
+  assert.equal(right.statusCode, 200, right.body);
+
+  const second = await signup("otp-cap-2", password);
+  const l2 = await login(second.merchantId, second.email, password);
+  const w2 = wrongCodeFor(l2.code);
+  for (let i = 0; i < config.otpMaxAttempts; i++) {
+    await app.inject({ method: "POST", url: "/v1/auth/otp/verify", headers: { cookie: l2.cookie }, payload: { code: w2 } });
+  }
+  const sixth = await app.inject({
+    method: "POST",
+    url: "/v1/auth/otp/verify",
+    headers: { cookie: l2.cookie },
+    payload: { code: l2.code },
+  });
+  assert.equal(sixth.statusCode, 429, `the right code after the cap must not log in: ${sixth.body}`);
+});
+
+test("BUG-011: an OTP resend keeps the guess budget already spent", async () => {
+  const password = "otp-resend-password-1!";
+  const { merchantId, email } = await signup("otp-resend", password);
+  const { cookie, code } = await login(merchantId, email, password);
+  const wrong = wrongCodeFor(code);
+
+  for (let i = 0; i < 3; i++) {
+    await app.inject({ method: "POST", url: "/v1/auth/otp/verify", headers: { cookie }, payload: { code: wrong } });
+  }
+  // Skip the 30s resend throttle.
+  await pool.query(
+    `UPDATE otp_challenges SET created_at = now() - interval '31 seconds'
+      WHERE id = (SELECT s.otp_challenge_id FROM sessions s JOIN merchant_users mu ON mu.id = s.merchant_user_id
+                   WHERE mu.merchant_id = $1)`,
+    [merchantId],
+  );
+  const resend = await app.inject({ method: "POST", url: "/v1/auth/otp/resend", headers: { cookie } });
+  assert.equal(resend.statusCode, 200, resend.body);
+
+  const row = await pool.query<{ attempt_count: number }>(
+    `SELECT c.attempt_count FROM sessions s JOIN otp_challenges c ON c.id = s.otp_challenge_id
+      JOIN merchant_users mu ON mu.id = s.merchant_user_id
+     WHERE mu.merchant_id = $1`,
+    [merchantId],
+  );
+  assert.equal(row.rows[0]!.attempt_count, 3, "a resend reset the guess budget");
+});
+
 // ------------------------------------------------------------ BUG-002
 
 test("BUG-002: with the same email at two merchants, the OTP and session belong to the merchant that logged in", async () => {
