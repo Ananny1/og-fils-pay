@@ -67,53 +67,53 @@ the screens (Tier 7) and hand-in (Tier 8).
 | 1.5 | BUG-032 | Session not rotated after OTP (fixation, merchant + admin) + merchant cookie dies after 10 min | ★★ | YA handover note | 1.1 | ✅ |
 | **Tier 2** | | **Who can do what** | | | | |
 | 2.1 | BUG-010 | "View as merchant" gives super_admin **owner** powers, and can write | ★★★ | HANDOVER | Tier 1 | ✅ |
-| 2.2 | BUG-003 | Shop A cancels shop B's payment link (IDOR) | ★★★ | S3 group chat | Tier 1 | ⬜ |
-| 2.3 | BUG-033 | Admin actions missing role checks: audit every `/v1/admin` route | ★★ | S4 "admin … role checks" | Tier 1 | ⬜ |
-| 2.4 | BUG-012 | API key rotation leaves the old key working | ★★ | S4 "key rotation" | Tier 1 | ⬜ |
-| 2.5 | BUG-013 | Credit two-person check compares display names | ★★ | — | Tier 1 | ⬜ |
+| 2.2 | BUG-003 | Shop A cancels shop B's payment link (IDOR) | ★★★ | S3 group chat | Tier 1 | ✅ |
+| 2.3 | BUG-033 | Admin actions missing role checks: audit every `/v1/admin` route | ★★ | S4 "admin … role checks" | Tier 1 | ✅ |
+| 2.4 | BUG-012 | API key rotation leaves the old key working | ★★ | S4 "key rotation" | Tier 1 | ✅ |
+| 2.5 | BUG-013 | Credit two-person check compares display names | ★★ | — | Tier 1 | ✅ |
 | **Tier 3** | | **Money coming in** | | | | |
-| 3.1 | BUG-004 | Expired payment link still payable (client `submittedAt`) | ★★★ | S4 FP-187 | — | ⬜ |
-| 3.2 | BUG-005 | Payment link charged twice (slow payment) | ★★★ | S4 incident 2026-05-14 | 3.1 | ⬜ |
-| 3.3 | BUG-007 | Acquirer callback signature optional / re-serialised / no freshness / outcome unchecked | ★★★ | S4 FP-240 "incoming check" | — | ⬜ |
-| 3.4 | BUG-006 | Duplicate acquirer callbacks saved twice | ★★★ | S4 FP-201 (reopened) | 3.3 | ⬜ |
-| 3.5 | BUG-008 | Duplicate payout notifications + disbursements | ★★★ | S4 incident 2026-08-21 | — | ⬜ |
+| 3.1 | BUG-004 | Expired payment link still payable (client `submittedAt`) | ★★★ | S4 FP-187 | — | ✅ |
+| 3.2 | BUG-005 | Payment link charged twice (slow payment) | ★★★ | S4 incident 2026-05-14 | 3.1 | ✅ |
+| 3.3 | BUG-007 | Acquirer callback signature optional / re-serialised / no freshness / outcome unchecked | ★★★ | S4 FP-240 "incoming check" | — | ✅ |
+| 3.4 | BUG-006 | Duplicate acquirer callbacks saved twice | ★★★ | S4 FP-201 (reopened) | 3.3 | ✅ |
+| 3.5 | BUG-008 | Duplicate payout notifications + disbursements | ★★★ | S4 incident 2026-08-21 | — | ✅ |
 | **Tier 4** | | **Money maths and settlement** | | | | |
-| 4.1 | BUG-014 | CSV import reads 4.75 BD as 0.475, 4.755 as 4.750 | ★★★ | S3 "10x??" | — | ⬜ |
-| 4.2 | BUG-020 | Daily close at 03:00 Bahrain instead of midnight | ★★ | S3, S4 | — | ⬜ |
-| 4.3 | BUG-015 | Scheme statement always a few fils over | ★★ | S3 | — | ⬜ |
-| 4.4 | BUG-016 | Delta Marketplace split payouts lose fils | ★★★ | S3, S4 | — | ⬜ |
-| 4.5 | BUG-017 | "Recalculate cached balances" 135K → 7K | ★★★ | S3, S4 FP-203 | — | ⬜ |
-| 4.6 | BUG-018 | MDR recalculation rewrites paid batches | ★★★ | S3 | — | ⬜ |
-| 4.7 | BUG-019 | Test merchants paid in the real settlement run | ★★★ | S3, S4 | — | ⬜ |
-| 4.8 | BUG-021 | Net payout in float32 | ★★ | — | — | ⬜ |
-| 4.9 | BUG-022 | Platform volume counter int32 overflow | ★★ | — | — | ⬜ |
+| 4.1 | BUG-014 | CSV import reads 4.75 BD as 0.475, 4.755 as 4.750 | ★★★ | S3 "10x??" | — | ✅ |
+| 4.2 | BUG-020 | Daily close at 03:00 Bahrain instead of midnight | ★★ | S3, S4 | — | ✅ |
+| 4.3 | BUG-015 | Scheme statement always a few fils over | ★★ | S3 | — | ✅ |
+| 4.4 | BUG-016 | Delta Marketplace split payouts lose fils | ★★★ | S3, S4 | — | ✅ |
+| 4.5 | BUG-017 | "Recalculate cached balances" 135K → 7K | ★★★ | S3, S4 FP-203 | — | ✅ |
+| 4.6 | BUG-018 | MDR recalculation rewrites paid batches | ★★★ | S3 | — | ✅ |
+| 4.7 | BUG-019 | Test merchants paid in the real settlement run | ★★★ | S3, S4 | — | ✅ |
+| 4.8 | BUG-021 | Net payout in float32 | ★★ | — | — | ✅ |
+| 4.9 | BUG-022 | Platform volume counter int32 overflow | ★★ | — | — | ✅ |
 | 4.10 | BUG-028 | Lifetime payout estimate drifts | ★★ | S3 group chat | — | ⬜ |
-| 4.11 | BUG-027 | March sweep doubles the gap when run twice | ★★ | S3 | — | ⬜ |
-| 4.12 | BUG-029 | Adjustment import has no double-submit guard | ★★ | — | 4.1 | ⬜ |
+| 4.11 | BUG-027 | March sweep doubles the gap when run twice | ★★ | S3 | — | ✅ |
+| 4.12 | BUG-029 | Adjustment import has no double-submit guard | ★★ | — | 4.1 | ✅ |
 | 4.13 | BUG-051 | Scheme residue never posted (ADR-0002) | ★★ | ADR-0002 | 4.3 | ⬜ |
 | 4.14 | BUG-052 | Capture fee ignores negotiated discount; settlement applies it | ★★ | — | — | ⬜ |
 | 4.15 | BUG-053 | Split child without a balance row → payout no-op | ★ | — | 4.4 | ⬜ |
 | **Tier 5** | | **What shops are told (webhooks, reports)** | | | | |
-| 5.1 | BUG-023 | Outbound webhook signs different bytes than it sends | ★★★ | S4 FP-240 | — | ⬜ |
+| 5.1 | BUG-023 | Outbound webhook signs different bytes than it sends | ★★★ | S4 FP-240 | — | ✅ |
 | 5.2 | BUG-024 | Settlement summary double-counts and is slow | ★★ | S4 "reporting … slow" | — | ⬜ |
 | 5.3 | BUG-025 | Large export: all in memory; streaming version skips rows | ★★ | S4 "large export" | — | ⬜ |
-| 5.4 | BUG-030 | CSV export formula injection | ★ | — | 5.3 | ⬜ |
-| 5.5 | BUG-026 | Dashboard fee 245 vs 225 bps | ★★ | S3 | — | ⬜ |
+| 5.4 | BUG-030 | CSV export formula injection | ★ | — | 5.3 | ✅ |
+| 5.5 | BUG-026 | Dashboard fee 245 vs 225 bps | ★★ | S3 | — | ✅ |
 | 5.6 | BUG-054 | Reconciliation uses `merchants.mdr_bps` (no sync trigger) | ★ | — | 5.5 | ⬜ |
-| 5.65 | BUG-059 | Reporting consumer writes `merchant_id = NULL` into `merchant_daily_volume` (4 reporting tests red) | ★★ | T1 | — | ⬜ |
-| 5.66 | BUG-060 | Webhook retry backoff differs from config (test 332 red) | ★ | T1 | — | ⬜ |
+| 5.65 | BUG-059 | Reporting consumer writes `merchant_id = NULL` into `merchant_daily_volume` (4 reporting tests red) | ★★ | T1 | — | ✅ |
+| 5.66 | BUG-060 | Webhook retry backoff differs from config (test 332 red) | ★ | T1 | — | ✅ |
 | 5.7 | BUG-055 | Rollups / metrics / analytics bucketed by UTC date | ★ | — | 4.2 | ⬜ |
 | **Tier 6** | | **FP-300 Refunds (the missing feature)** | | | | |
-| 6.0 | BUG-061 | Refund insert violates `chk_refunds_reason_not_null` (11 refund tests red; R8) | ★★ | T1 | — | ⬜ |
-| 6.1 | BUG-034 | Two refunds at once both succeed | ★★★ | S4 FP-209 | — | ⬜ |
-| 6.2 | BUG-035 | Refund more than was captured | ★★★ | S4 "refund more than charged" | — | ⬜ |
-| 6.3 | BUG-036 | Refund another shop's transaction | ★★★ | — | — | ⬜ |
-| 6.4 | BUG-056 | Fee reversal across partial refunds can exceed the original fee | ★★ | S2 "fees … right" | — | ⬜ |
+| 6.0 | BUG-061 | Refund insert violates `chk_refunds_reason_not_null` (11 refund tests red; R8) | ★★ | T1 | — | ✅ |
+| 6.1 | BUG-034 | Two refunds at once both succeed | ★★★ | S4 FP-209 | — | ✅ |
+| 6.2 | BUG-035 | Refund more than was captured | ★★★ | S4 "refund more than charged" | — | ✅ |
+| 6.3 | BUG-036 | Refund another shop's transaction | ★★★ | — | — | ✅ |
+| 6.4 | BUG-056 | Fee reversal across partial refunds can exceed the original fee | ★★ | S2 "fees … right" | — | ✅ |
 | 6.5 | BUG-057 | Status after a full refund of a partial capture | ★ | — | — | ⬜ |
-| 6.6 | FP-300.1 | Refund route + guards + required `Idempotency-Key` | ★★★ | S2 "through the API" | 6.1–6.3 | ⬜ |
-| 6.7 | FP-300.2 | Ledger to the fil | ★★★ | S2 "ledger … fils" | 6.6 | ⬜ |
-| 6.8 | FP-300.3 | Next settlement batch reduced by refunds (R9) | ★★★ | S2 "payouts" | 6.7 | ⬜ |
-| 6.9 | FP-300.4 | `refund.succeeded` webhook (R6) | ★★ | S2 "right webhook" | 5.1, 6.6 | ⬜ |
+| 6.6 | FP-300.1 | Refund route + guards + required `Idempotency-Key` | ★★★ | S2 "through the API" | 6.1–6.3 | ✅ |
+| 6.7 | FP-300.2 | Ledger to the fil | ★★★ | S2 "ledger … fils" | 6.6 | ✅ |
+| 6.8 | FP-300.3 | Next settlement batch reduced by refunds (R9) | ★★★ | S2 "payouts" | 6.7 | ✅ |
+| 6.9 | FP-300.4 | `refund.succeeded` webhook (R6) | ★★ | S2 "right webhook" | 5.1, 6.6 | ✅ |
 | 6.10 | FP-300.5 | Timeline, reports, reconciliation (R7, R8) | ★★ | S2 "timeline … reconciliation" | 6.7 | ⬜ |
 | 6.11 | FP-300.6 | End-to-end refund tests | ★★ | S2 | 6.6–6.10 | ⬜ |
 | **Tier 7** | | **Screens** (Phase F, details below) | | | | |

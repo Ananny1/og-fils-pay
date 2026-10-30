@@ -35,3 +35,14 @@ docker compose -f ops/docker-compose.yml run --rm seed
 | 4 | 1 guard test (`scripts/agent_instructions.test.ts`) | `ENOENT … /app/.claude/settings.json` | `.dockerignore` kept `.claude/` out of the image | fixed (`9d209d7`) |
 
 Every later fix re-runs the suite of the package it touches; the totals here are the reference.
+
+
+## After the 4-hour sprint (2026-10-30)
+
+| Suite | Result (fresh DB) | How |
+|---|---|---|
+| API (TypeScript) | 432 / 432 pass | `npm test --workspace @filspay/api` with `DATABASE_URL` on a **fresh** migrated DB (old DBs collect undeliverable webhook rows that crowd the global dispatcher pass) |
+| Reporting | 11 / 11 pass | `cd apps/reporting && npm test` |
+| Go settlement | all packages ok | `go test -p 1 ./...` (run packages one at a time: they share one database) |
+
+The 17 baseline failures from T1 are all gone (BUG-059, BUG-060, BUG-061 fixed).

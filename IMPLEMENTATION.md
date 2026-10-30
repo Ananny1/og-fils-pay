@@ -129,6 +129,7 @@ Each decision: **context → decision → why → consequences**. A decision is 
 | 24 | 2026-10-29 | BUG-011: atomic attempt reservation before comparing, single-winner consume, resend carries the count, `crypto.randomInt` (also payment-link tokens / invite codes); merchant + admin | Live 40 parallel guesses: attempt_count 12/5 → 5/5; 6 new tests red → green; API 367/379 (= baseline 12) | D-003 |
 | 25 | 2026-10-29 | BUG-032: rotate the session token at OTP verify and set it with the full TTL (merchant + admin); test helpers take the verify cookie (D-004) | Copied pre-OTP cookie: 200 → 401; merchant cookie 600 s → 43200 s; API 371/383 (= baseline 12) | D-003, D-004 |
 | 26 | 2026-10-29 | BUG-010: every admin role views a shop as `support`; `requireMerchantAuth` refuses non-GET on an impersonation grant | Live super-admin view: payment link 201 → 403, saved filter 201 → 403, reads 200; 6 new tests; API 377/389 (= baseline 12) | D-003 |
+| 27 | 2026-10-30 | 4-hour sprint (D-016): 9 parallel streams merged by the organiser — 30 bugs (BUG-003…061) + FP-300.1–.4 refunds; worktrees started from old `main`, so every stream was cherry-picked onto `ebrahim/track-b` and re-tested; one test helper updated for BUG-032 | Fresh DB: API 431/432 → 432/432 after the helper fix; reporting 11/11; Go all ok with `-p 1` (packages share one DB; parallel packages race on merchant_balances) | D-016 |
 
 ---
 
@@ -155,34 +156,34 @@ Planned queue (from the audit, in fix order):
 |---|---|---|---|
 | BUG-001 | Critical | Login without OTP (`live_sessions` lookup ignores `authenticated`) → [write-up](docs/bugs/BUG-001-login-without-otp.md) | ✅ |
 | BUG-002 | Critical | OTP challenge bound to another merchant's user (lookup by email) → [write-up](docs/bugs/BUG-002-otp-wrong-merchant.md) | ✅ |
-| BUG-003 | Critical | Merchant A can cancel merchant B's payment link (IDOR) | ⬜ |
-| BUG-004 | Critical | Expired link payable via client-supplied `submittedAt` (FP-187) | ⬜ |
-| BUG-005 | Critical | Payment link charged twice when capture outlives the 60 s reservation (incident 2026-05-14) | ⬜ |
-| BUG-006 | Critical | Acquirer callbacks not deduplicated (FP-201, reopened) | ⬜ |
-| BUG-007 | Critical | Acquirer callback signature optional / re-serialised / no freshness | ⬜ |
-| BUG-008 | Critical | Duplicate `settlement.paid` + disbursements (incident 2026-08-21) | ⬜ |
+| BUG-003 | Critical | Merchant A can cancel merchant B's payment link (IDOR) → [write-up](docs/bugs/BUG-003-payment-link-idor.md) | ✅ |
+| BUG-004 | Critical | Expired link payable via client-supplied `submittedAt` (FP-187) → [write-up](docs/bugs/BUG-004-expired-link-payable.md) | ✅ |
+| BUG-005 | Critical | Payment link charged twice when capture outlives the 60 s reservation (incident 2026-05-14) → [write-up](docs/bugs/BUG-005-payment-link-charged-twice.md) | ✅ |
+| BUG-006 | Critical | Acquirer callbacks not deduplicated (FP-201, reopened) → [write-up](docs/bugs/BUG-006-duplicate-acquirer-callbacks.md) | ✅ |
+| BUG-007 | Critical | Acquirer callback signature optional / re-serialised / no freshness → [write-up](docs/bugs/BUG-007-acquirer-callback-signature.md) | ✅ |
+| BUG-008 | Critical | Duplicate `settlement.paid` + disbursements (incident 2026-08-21) → [write-up](docs/bugs/BUG-008-duplicate-payout-notifications.md) | ✅ |
 | BUG-009 | Critical | `expire_holds` deletes every hold when nothing expired → [write-up](docs/bugs/BUG-009-expire-holds-deletes-all.md) | ✅ |
 | BUG-010 | Critical | Impersonation maps super_admin → owner and can write (capture/void/links); must be read-only support → [write-up](docs/bugs/BUG-010-impersonation-owner-and-writes.md) | ✅ |
 | BUG-011 | High | OTP attempt limit bypassable in parallel; resend resets it; OTP from `Math.random` (merchant + admin) → [write-up](docs/bugs/BUG-011-otp-guessable.md) | ✅ |
-| BUG-012 | High | API key rotation leaves the old key valid | ⬜ |
-| BUG-013 | High | Credit two-person check compares display names | ⬜ |
-| BUG-014 | High | CSV adjustment import parses 2 decimals (4.75 BD → 0.475) | ⬜ |
-| BUG-015 | High | Scheme file amount rounded up instead of truncated | ⬜ |
-| BUG-016 | High | Split payouts lose remainder fils (Delta Marketplace) | ⬜ |
-| BUG-017 | High | "Rebuild cached balances" reads scheme lines, not the ledger (FP-203) | ⬜ |
-| BUG-018 | High | MDR recalculation rewrites paid batches | ⬜ |
-| BUG-019 | High | Recompute statuses clears `test_mode` → test merchants settled | ⬜ |
-| BUG-020 | High | Daily close at 03:00 Bahrain (UTC day used) | ⬜ |
-| BUG-021 | High | Net payout computed in float32 | ⬜ |
-| BUG-022 | High | Platform volume counter int32 overflow | ⬜ |
-| BUG-023 | High | Outbound webhook signs canonical JSON but sends different bytes (FP-240) | ⬜ |
+| BUG-012 | High | API key rotation leaves the old key valid → [write-up](docs/bugs/BUG-012-api-key-rotation-keeps-old-key.md) | ✅ |
+| BUG-013 | High | Credit two-person check compares display names → [write-up](docs/bugs/BUG-013-credit-self-approval-by-name.md) | ✅ |
+| BUG-014 | High | CSV adjustment import parses 2 decimals (4.75 BD → 0.475) → [write-up](docs/bugs/BUG-014-csv-import-10x-off.md) | ✅ |
+| BUG-015 | High | Scheme file amount rounded up instead of truncated → [write-up](docs/bugs/BUG-015-scheme-statement-fils-over.md) | ✅ |
+| BUG-016 | High | Split payouts lose remainder fils (Delta Marketplace) → [write-up](docs/bugs/BUG-016-split-payouts-lose-fils.md) | ✅ |
+| BUG-017 | High | "Rebuild cached balances" reads scheme lines, not the ledger (FP-203) → [write-up](docs/bugs/BUG-017-rebuild-balances-reads-export.md) | ✅ |
+| BUG-018 | High | MDR recalculation rewrites paid batches → [write-up](docs/bugs/BUG-018-mdr-recalc-rewrites-paid-batches.md) | ✅ |
+| BUG-019 | High | Recompute statuses clears `test_mode` → test merchants settled → [write-up](docs/bugs/BUG-019-recompute-clears-test-mode.md) | ✅ |
+| BUG-020 | High | Daily close at 03:00 Bahrain (UTC day used) → [write-up](docs/bugs/BUG-020-daily-close-at-0300-bahrain.md) | ✅ |
+| BUG-021 | High | Net payout computed in float32 → [write-up](docs/bugs/BUG-021-net-payout-float32.md) | ✅ |
+| BUG-022 | High | Platform volume counter int32 overflow → [write-up](docs/bugs/BUG-022-platform-volume-int32-overflow.md) | ✅ |
+| BUG-023 | High | Outbound webhook signs canonical JSON but sends different bytes (FP-240) → [write-up](docs/bugs/BUG-023-webhook-signs-different-bytes.md) | ✅ |
 | BUG-024 | Medium | Settlement summary double-counts multi-capture merchants; slow | ⬜ |
 | BUG-025 | Medium | Export loads all rows in memory; streaming variant skips rows | ⬜ |
-| BUG-026 | Medium | Dashboard fee uses latest-entered schedule, not effective one (245 vs 225) | ⬜ |
-| BUG-027 | Medium | March sweep script not idempotent, wrong window, wrong account | ⬜ |
+| BUG-026 | Medium | Dashboard fee uses latest-entered schedule, not effective one (245 vs 225) → [write-up](docs/bugs/BUG-026-fee-display-245-vs-225.md) | ✅ |
+| BUG-027 | Medium | March sweep script not idempotent, wrong window, wrong account → [write-up](docs/bugs/BUG-027-march-sweep-not-idempotent.md) | ✅ |
 | BUG-028 | Medium | Lifetime payout estimate stored as REAL (drift) | ⬜ |
-| BUG-029 | Medium | Adjustment import has no double-submit guard | ⬜ |
-| BUG-030 | Medium | CSV export formula injection | ⬜ |
+| BUG-029 | Medium | Adjustment import has no double-submit guard → [write-up](docs/bugs/BUG-029-adjustment-import-double-submit.md) | ✅ |
+| BUG-030 | Medium | CSV export formula injection → [write-up](docs/bugs/BUG-030-csv-export-formula-injection.md) | ✅ |
 | DEP-001 | Blocker | Missing `ops/Dockerfile.node` / `Dockerfile.go` | ✅ |
 | DEP-002 | Blocker | Migration 0054 fails on a fresh database | ✅ |
 | DEP-003 | Blocker | Compose never loads service env (API boots in dev mode) | ✅ |
@@ -191,21 +192,21 @@ Planned queue (from the audit, in fix order):
 | DEP-004 | High | `docker compose up` from `ops/` (the brief's instruction) fails on a fresh clone → [write-up](docs/bugs/DEP-004-compose-up-from-ops.md) | ✅ |
 | BUG-031 | Critical | OTP code returned in the login reply and logged (`otpDevExpose` defaults on) → [write-up](docs/bugs/BUG-031-otp-exposed-in-reply-and-logs.md) | ✅ |
 | BUG-032 | Medium | Session token not rotated after OTP (fixation, merchant + admin); merchant cookie kept the 10-min pending lifetime → [write-up](docs/bugs/BUG-032-session-fixation.md) | ✅ |
-| BUG-033 | High | Admin actions missing role checks (audit every `/v1/admin` route) | ⬜ |
-| BUG-034 | Critical | Two refunds at once both succeed (FP-209) | ⬜ |
-| BUG-035 | Critical | Refund more than was captured | ⬜ |
-| BUG-036 | Critical | Refund another merchant's transaction | ⬜ |
+| BUG-033 | High | Admin actions missing role checks (audit every `/v1/admin` route) → [write-up](docs/bugs/BUG-033-admin-route-role-audit.md) | ✅ |
+| BUG-034 | Critical | Two refunds at once both succeed (FP-209) → [write-up](docs/bugs/BUG-034-concurrent-refunds.md) | ✅ |
+| BUG-035 | Critical | Refund more than was captured → [write-up](docs/bugs/BUG-035-refund-more-than-captured.md) | ✅ |
+| BUG-036 | Critical | Refund another merchant's transaction → [write-up](docs/bugs/BUG-036-refund-other-merchant.md) | ✅ |
 | BUG-051 | High | Scheme rounding residue never posted (ADR-0002) | ⬜ |
 | BUG-052 | High | Capture fee ignores the negotiated discount that settlement applies | ⬜ |
 | BUG-053 | Medium | Split child without a balance row → payout is a no-op | ⬜ |
 | BUG-054 | Medium | Reconciliation uses `merchants.mdr_bps` (no sync trigger exists) | ⬜ |
 | BUG-055 | Medium | Rollups / metrics / analytics bucketed by UTC date | ⬜ |
-| BUG-056 | High | Refund fee reversal across partials can exceed the original fee | ⬜ |
+| BUG-056 | High | Refund fee reversal across partials can exceed the original fee → [write-up](docs/bugs/BUG-056-refund-fee-reversal-sum.md) | ✅ |
 | BUG-057 | Medium | Status after a full refund of a partial capture | ⬜ |
 | BUG-058 | High | Built-in dev webhook key is 34 bytes → API and seed crash in dev → [write-up](docs/bugs/BUG-058-dev-webhook-key-invalid.md) | ✅ |
-| BUG-059 | High | Reporting consumer writes `merchant_id = NULL` (4 reporting tests red at T1) | ⬜ |
-| BUG-060 | Medium | Webhook retry backoff differs from config (API test 332 red at T1) | ⬜ |
-| BUG-061 | High | Refund insert violates `chk_refunds_reason_not_null` (11 refund tests red at T1; R8) | ⬜ |
+| BUG-059 | High | Reporting consumer writes `merchant_id = NULL` (4 reporting tests red at T1) → [write-up](docs/bugs/BUG-059-reporting-null-merchant-from-test-fixture.md) | ✅ |
+| BUG-060 | Medium | Webhook retry backoff differs from config (API test 332 red at T1) → [write-up](docs/bugs/BUG-060-webhook-backoff-jitter-and-cap.md) | ✅ |
+| BUG-061 | High | Refund insert violates `chk_refunds_reason_not_null` (11 refund tests red at T1; R8) → [write-up](docs/bugs/BUG-061-refund-reason-null.md) | ✅ |
 | BUG-037 | — | Public signup accepts an existing user's email. ⏭ Reclassified as **ENH-008** (D-015) | ⏭ |
 | BUG-050 | Critical | AI instruction files (`CLAUDE.md`, `AGENTS.md`, `.cursorrules`) told agents to keep the bugs → [write-up](docs/bugs/BUG-050-poisoned-agent-instructions.md) | ✅ |
 
