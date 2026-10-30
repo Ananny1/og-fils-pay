@@ -59,8 +59,12 @@ export async function adminCreditRoutes(app: FastifyInstance): Promise<void> {
       },
     );
 
+    // Creating a credit moves money (under the threshold it posts to the
+    // ledger at once), so it is finance/super_admin only, as createCreditRequest
+    // documents. Reading the queue above stays open to every admin role.
     scope.post<{ Params: MerchantIdParams; Body: unknown }>(
       "/merchants/:id/credits",
+      { preHandler: requireAdminRole("finance", "super_admin") },
       async (request, reply) => {
         const adminAuth = request.adminAuth;
         if (!adminAuth) throw new UnauthorizedError("unauthenticated");
