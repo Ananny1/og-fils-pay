@@ -291,7 +291,8 @@ async function classifyClaimFailure(
   if (row.status === "canceled") {
     return { statusCode: 409, body: { error: "payment_link_canceled" } };
   }
-  if (row.status === "active" && row.expires_at.getTime() <= expiryCheckTime.getTime()) {
+  // BUG-160: a 'reserved' row past expiry is expired too, not "processing".
+  if ((row.status === "active" || row.status === "reserved") && row.expires_at.getTime() <= expiryCheckTime.getTime()) {
     return { statusCode: 410, body: { error: "payment_link_expired" } };
   }
   if (row.status === "reserved") {
