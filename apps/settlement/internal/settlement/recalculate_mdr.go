@@ -132,6 +132,19 @@ func RecalculateMDR(ctx context.Context, db *pgxpool.Pool, merchantID uuid.UUID,
 		`, b.id, int64(newFee), int64(newNetPayout)); err != nil {
 			return RecalcResult{}, fmt.Errorf("settlement: RecalculateMDR: update batch %s: %w", b.id, err)
 		}
+		// BUG-074: reporting (merchant_payout_trends) only learns a batch's
+		// fee and net from settlement.batch_closed, and upserts on it. Emit
+		// the new figures in this transaction so it stops showing the old ones.
+		payload, err := buildBatchClosedPayload(merchantID, b.id, b.batchDate, b.grossFils, newFee, newNetPayout)
+		if err != nil {
+			return RecalcResult{}, fmt.Errorf("settlement: RecalculateMDR: build outbox payload for %s: %w", b.id, err)
+		}
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO outbox_events (event_type, aggregate_type, aggregate_id, payload)
+			VALUES ('settlement.batch_closed', 'settlement_batch', $1, $2)
+		`, b.id, payload); err != nil {
+			return RecalcResult{}, fmt.Errorf("settlement: RecalculateMDR: enqueue outbox event for %s: %w", b.id, err)
+		}
 		// A fee increase (diff > 0) reduces net payout owed, so the cache
 		// moves by -diff — the same signed-delta idiom ApplyBatchClose
 		// already exposes for a batch close's own net payout.
