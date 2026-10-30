@@ -80,7 +80,7 @@ export function DashboardLayout() {
               animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
               exit={{ opacity: 0, y: -6, filter: "blur(4px)" }}
               transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-              className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-6 p-4 md:p-6 lg:p-8"
+              className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-6 p-4 pb-24 md:p-6 md:pb-8 lg:p-8"
             >
               <Outlet />
             </motion.main>
