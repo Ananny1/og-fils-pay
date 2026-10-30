@@ -52,7 +52,7 @@ Status of all tasks: `PLAN.md` → Master order. This file is the **detail of wh
 | Q-4 | ⏸ **2026-10-30:** hosting comes later; keep everything deploy-ready. |
 | Q-5 | Submit the hidden flag `FLAG{order_of_the_prompt_never_read_the_diff}`? Where? | — | Keep it documented in GUIDE/IMPLEMENTATION |
 | Q-8 | ✅ **Answered 2026-10-30:** prune approved and done (freed 0.5 GB; disk 92%, 8.2 GB free). |
-| Q-7 | Should the seed run automatically on `docker compose up` on the hosted box (it resets demo data each start)? | DEP-004, DEPLOY | Local: yes. Hosted: only on first start |
+| Q-7 | 🔔 **REMIND EBRAHIM WHEN HOSTING STARTS:** on the hosted server, load the demo data **once** (recommended) or on **every restart** (wipes what judges did)? | DEPLOY | Once, on first start |
 
 ## Ideas for later
 

@@ -218,7 +218,7 @@ reasons and cost is in `docs/challenge/PLAN.md` → Enhancements.
 
 | ID | Title | Supports | Status |
 |---|---|---|---|
-| ENH-001 | Email OTP delivery (SMTP + local Mailpit; maybe "chattrix") | BUG-031 | 💡 |
+| ENH-001 | Email OTP delivery: "chattrix" = Gmail SMTP + app password (free), Mailpit locally → [write-up](docs/enhancements/ENH-001-email-otp-chattrix.md) | BUG-031 | ✔️ approved |
 | ENH-002 | Authenticator-app (TOTP) second factor | Tier 1 | 💡 |
 | ENH-003 | CORS allowlist for production | F12, DEPLOY | 💡 |
 | ENH-004 | Make `sqlFilter` refuse empty filters or delete it | BUG-009 | 💡 |

@@ -97,7 +97,7 @@ the screens (Tier 7) and hand-in (Tier 8).
 | **Tier 8** | | **Hand-in** | | | | |
 | 8.1 | T2–T4 | Full suite green, API smoke script, frontend tests | — | — | Tiers 1–7 | ⬜ |
 | 8.2 | D4, D5, D7 | Rotate leaked secret; no public DB / internal ports; `readyz` checks DB | ★★ | — | — | ⬜ |
-| 8.3 | DEPLOY | Live on Dilmune Cloud | ★★★ | S1, S2 | 8.2 | ⬜ |
+| 8.3 | DEPLOY | Live on Dilmune Cloud. **🔔 Before starting, ask Ebrahim Q-7** (demo data: load once or on every restart?) **and set up ENH-001's Gmail app password on the box** | ★★★ | S1, S2 | 8.2 | ⬜ |
 | 8.4 | T6, T7 | Fresh-clone check; final read of every write-up | — | — | 8.3 | ⬜ |
 
 **Later (low points):** A12 API keys bypass role gates (documented) · B4 "Adjust balance" is
@@ -124,7 +124,7 @@ separate, optional decision.
 
 | ID | Enhancement | Supports | Why | Cost | Status |
 |---|---|---|---|---|---|
-| ENH-001 | **Email OTP delivery**: real email via SMTP; Mailpit inbox at `localhost:8025` for local runs; possibly reuse Ebrahim's "chattrix" (Q-6) | BUG-031 | After BUG-031 the code no longer shows on screen; users still need to receive it, and a demo can show the full login | ~1 file per notifier + compose service + 1 dependency | 💡 |
+| ENH-001 | **Email OTP delivery**: real email via SMTP; Mailpit inbox at `localhost:8025` for local runs; reuse Ebrahim's "chattrix" (Gmail SMTP + app password, **free**) → [write-up](../enhancements/ENH-001-email-otp-chattrix.md) | BUG-031 | After BUG-031 the code no longer shows on screen; users still need to receive it, and a demo can show the full login | ~1 file per notifier + compose service + 1 dependency | ✔️ approved 2026-10-30 (after Tiers 2–6) |
 | ENH-002 | Authenticator-app second factor (TOTP, e.g. Microsoft Authenticator) | Tier 1 | No code sent at all; strongest option | Enrolment flow, secret storage, recovery codes, UI, migration | 💡 |
 | ENH-003 | Proper CORS allowlist on the API for production (instead of the dev proxy) | F12, DEPLOY | Dashboards hosted on another origin can call the API safely | Small API plugin + config | 💡 |
 | ENH-004 | `scripts/lib/sqlFilter.ts`: refuse an empty filter, or delete it (now unused) | BUG-009 | Removes a footgun that turned "delete these" into "delete all" | Tiny | 💡 |
