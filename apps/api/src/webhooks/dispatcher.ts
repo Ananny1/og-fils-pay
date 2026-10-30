@@ -60,7 +60,8 @@ export function backoffDelayMs(
 ): number {
   const raw = config.webhookBackoffBaseMs * 2 ** (attemptNumber - 1);
   const capped = Math.min(raw, config.webhookBackoffCapMs);
-  return Math.round(capped * (0.9 + jitter() * 0.2));
+  // BUG-060: cap AFTER jitter too — the config promises no retry waits longer than the cap.
+  return Math.min(Math.round(capped * (0.9 + jitter() * 0.2)), config.webhookBackoffCapMs);
 }
 
 interface DueEventRow {

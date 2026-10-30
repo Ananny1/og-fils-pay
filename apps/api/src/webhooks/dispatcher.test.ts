@@ -200,7 +200,9 @@ test("failing endpoint: backoff/exhaustion sequence across repeated runDispatchP
   assert.equal(delivery.status, "pending");
   assert.equal(delivery.attempt_count, 1);
   assert.equal(delivery.response_status_code, 500);
-  const expectedDelay1 = backoffDelayMs(1, config);
+  // BUG-060: no-jitter midpoint (jitter() = 0.5) is the configured value;
+  // the real delay below is checked with a tolerance that covers ±10 %.
+  const expectedDelay1 = backoffDelayMs(1, config, () => 0.5);
   assert.equal(expectedDelay1, 1000);
   const actualDelay1 = delivery.next_attempt_at.getTime() - Date.now();
   assert.ok(Math.abs(actualDelay1 - expectedDelay1) < 3000, `expected ~${expectedDelay1}ms, got ${actualDelay1}ms`);
@@ -220,7 +222,9 @@ test("failing endpoint: backoff/exhaustion sequence across repeated runDispatchP
   delivery = await getDelivery(String(outboxEvent.id), endpoint.id);
   assert.equal(delivery.status, "pending");
   assert.equal(delivery.attempt_count, 2);
-  const expectedDelay2 = backoffDelayMs(2, config);
+  // BUG-060: no-jitter midpoint (jitter() = 0.5) is the configured value;
+  // the real delay below is checked with a tolerance that covers ±10 %.
+  const expectedDelay2 = backoffDelayMs(2, config, () => 0.5);
   assert.equal(expectedDelay2, 2000);
   const actualDelay2 = delivery.next_attempt_at.getTime() - Date.now();
   assert.ok(Math.abs(actualDelay2 - expectedDelay2) < 3000, `expected ~${expectedDelay2}ms, got ${actualDelay2}ms`);
@@ -240,6 +244,19 @@ test("failing endpoint: backoff/exhaustion sequence across repeated runDispatchP
   delivery = await getDelivery(String(outboxEvent.id), endpoint.id);
   assert.equal(delivery.status, "exhausted");
   assert.equal(delivery.attempt_count, 3);
+});
+
+// BUG-060: config says "no retry ever waits longer than" webhookBackoffCapMs,
+// and attempt 1 waits webhookBackoffBaseMs (±10 % jitter).
+test("backoffDelayMs: jitter stays within ±10 % of the configured delay and never exceeds the cap", () => {
+  assert.equal(backoffDelayMs(1, config, () => 0.5), 1000);
+  assert.equal(backoffDelayMs(1, config, () => 0), 900);
+  assert.equal(backoffDelayMs(1, config, () => 1), 1100);
+  assert.equal(backoffDelayMs(3, config, () => 0.5), 4000);
+  for (const j of [0, 0.5, 0.999, 1]) {
+    const d = backoffDelayMs(20, config, () => j);
+    assert.ok(d <= config.webhookBackoffCapMs, `attempt 20 with jitter ${j}: ${d}ms exceeds cap ${config.webhookBackoffCapMs}ms`);
+  }
 });
 
 test("transport-level failure (thrown/rejected transport): treated as a non-2xx failure, null response_status_code", async () => {
