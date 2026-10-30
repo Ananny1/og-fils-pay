@@ -312,7 +312,7 @@ Seen while running: the settlement daemon ran `RunDailyBatch` straight at boot (
 | A3/A4 | BUG-011 | OTP attempts bypassable in parallel; OTP from `Math.random` | `api/routes/auth.ts`, `api/lib/random.ts` (+ admin OTP: `api/adminAuth/otp.ts`) | 20 parallel guesses → max N counted | ⬜ |
 | A11 | BUG-012 | **Old API key still works** after rotation | `api/admin/apiKeys.ts`, `api/apiKeys/verify.ts`, `0056_api_keys_revoke_after.sql` | old key after rotation → 401 | ⬜ |
 | A9 | BUG-013 | Credit **self-approval** (compares display names) | `api/admin/creditApproval.ts` | same admin, renamed → rejected | ⬜ |
-| A5 | — | OTP returned in the login response / logs outside production | `api/config.ts` (`otpDevExpose`) | default false | ⬜ |
+| A5 | — | OTP returned in the login response / logs outside production | `api/config.ts` (`otpDevExpose`), `ops/.env.dev` | default false; laptop default now false too (code goes to Mailpit/Gmail) | ✅ |
 
 ## Phase 3 — Money and settlement correctness ★★
 
