@@ -102,9 +102,7 @@ export function AppSidebar() {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" render={<NavLink to="/dashboard/overview" />} tooltip="FilsPay">
-              <div className="flex aspect-square size-8 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-[hsl(4_80%_45%)] text-primary-foreground shadow-elegant">
-                <span className="font-semibold tracking-tight">F</span>
-              </div>
+              <img src="/filspay-mark.png" alt="" aria-hidden="true" width={32} height={32} className="aspect-square size-8 shrink-0" />
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-semibold">FilsPay</span>
                 <span className="truncate text-xs text-sidebar-muted">{me?.merchant.displayName ?? "Merchant"}</span>
