@@ -193,6 +193,25 @@ test("POST /v1/acquirer/callbacks rejects an outcome outside cleared | confirmed
   assert.equal(await noteCount(callbackId), "0");
 });
 
+// BUG-006: the acquirer redelivers a callback it got no 2xx for; it must be applied once.
+test("POST /v1/acquirer/callbacks: a redelivered callback is acknowledged but recorded once", async () => {
+  const transactionId = await createTransaction();
+  const callbackId = `acqcb_${randomUUID()}`;
+  const body = callbackBody(transactionId, callbackId);
+
+  for (let i = 0; i < 2; i++) {
+    const res = await app.inject({
+      method: "POST",
+      url: "/v1/acquirer/callbacks",
+      headers: { "acquirer-callback-signature": signatureHeader(body) },
+      payload: body,
+    });
+    assert.equal(res.statusCode, 200);
+  }
+
+  assert.equal(await noteCount(callbackId), "1");
+});
+
 test("POST /v1/acquirer/callbacks returns 404 for an unknown transaction id", async () => {
   const callbackId = `acqcb_${randomUUID()}`;
   const body = callbackBody(randomUUID(), callbackId);

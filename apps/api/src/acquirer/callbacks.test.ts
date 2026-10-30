@@ -85,6 +85,39 @@ test("applyAcquirerCallback records the acquirer's verdict against the transacti
   assert.equal(row.note, "Manual review cleared; no further action needed.");
 });
 
+// BUG-006: README/HANDOVER said redeliveries are dropped via processed_events
+// (no such table) and 0051's MK note said a unique index exists (it didn't).
+test("applyAcquirerCallback applied twice with the same callbackId records one note", async () => {
+  const { transactionId } = await createTransaction();
+  const callbackId = `acqcb_${randomUUID()}`;
+
+  await applyAcquirerCallback(pool, callbackFor(transactionId, callbackId));
+  await applyAcquirerCallback(pool, callbackFor(transactionId, callbackId));
+
+  const count = await pool.query<{ count: string }>(
+    `SELECT count(*)::text AS count FROM acquirer_callback_notes WHERE callback_id = $1`,
+    [callbackId],
+  );
+  assert.equal(count.rows[0]!.count, "1");
+});
+
+test("two concurrent deliveries of the same callbackId record one note", async () => {
+  const { transactionId } = await createTransaction();
+  const callbackId = `acqcb_${randomUUID()}`;
+
+  await Promise.all([
+    applyAcquirerCallback(pool, callbackFor(transactionId, callbackId)),
+    applyAcquirerCallback(pool, callbackFor(transactionId, callbackId)),
+    applyAcquirerCallback(pool, callbackFor(transactionId, callbackId)),
+  ]);
+
+  const count = await pool.query<{ count: string }>(
+    `SELECT count(*)::text AS count FROM acquirer_callback_notes WHERE callback_id = $1`,
+    [callbackId],
+  );
+  assert.equal(count.rows[0]!.count, "1");
+});
+
 test("withCallbackRetry retries a failing call up to maxAttempts, then rethrows the last error", async () => {
   let attempts = 0;
   await assert.rejects(

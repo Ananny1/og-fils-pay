@@ -23,6 +23,10 @@ interface TransactionMerchantRow {
  * informational, not a state transition, so this never touches
  * transactions.status or the ledger; a confirmed-fraud outcome still needs
  * a human decision to void/refund, exactly as today.
+ *
+ * Idempotent per callback_id (BUG-006): a redelivery of the same callback,
+ * sequential or concurrent, is a no-op thanks to the unique index from
+ * migration 0084 — there is no processed_events table.
  */
 export async function applyAcquirerCallback(pool: Pool, callback: AcquirerCallbackInput): Promise<void> {
   const txnResult = await pool.query<TransactionMerchantRow>(
@@ -37,7 +41,8 @@ export async function applyAcquirerCallback(pool: Pool, callback: AcquirerCallba
   await pool.query(
     `INSERT INTO acquirer_callback_notes
         (transaction_id, merchant_id, callback_id, callback_type, outcome, note, received_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+     VALUES ($1, $2, $3, $4, $5, $6, $7)
+     ON CONFLICT (callback_id) DO NOTHING`,
     [
       callback.transactionId,
       txnRow.merchant_id,
