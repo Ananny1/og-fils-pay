@@ -7,6 +7,8 @@ import {
 } from "../../api/credits.js";
 import { describeError } from "../../api/client.js";
 import { RequireRole } from "../../auth/RequireRole.js";
+import { useAdminAuth } from "../../auth/AdminAuthContext.js";
+import { canApproveCredit } from "../../creditRules.js";
 import { bhd } from "../../format.js";
 import type { CreditRequestDto, CreditRequestStatus } from "../../types.js";
 
@@ -27,6 +29,7 @@ const STATUS_TABS: Array<{ value: CreditRequestStatus; label: string }> = [
 // approve is gated server side but issuing (MerchantDetail) only in the ui? — am
 // MK: both are server-side
 export function CreditsPage() {
+  const { admin } = useAdminAuth();
   const [status, setStatus] = useState<CreditRequestStatus>("pending_approval");
   const [items, setItems] = useState<CreditRequestDto[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
@@ -174,13 +177,17 @@ export function CreditsPage() {
                       allow={["finance", "super_admin"]}
                       fallback={<span className="admin-muted">finance role required</span>}
                     >
-                      <button
-                        type="button"
-                        disabled={busyId === item.id}
-                        onClick={() => void handleApprove(item.id)}
-                      >
-                        Approve
-                      </button>{" "}
+                      {canApproveCredit(item, admin?.adminUserId) ? (
+                        <button
+                          type="button"
+                          disabled={busyId === item.id}
+                          onClick={() => void handleApprove(item.id)}
+                        >
+                          Approve
+                        </button>
+                      ) : (
+                        <span className="admin-muted">your request: needs another approver</span>
+                      )}{" "}
                       <button
                         type="button"
                         className="admin-btn-danger"
