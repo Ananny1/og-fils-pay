@@ -74,6 +74,29 @@ async function ledgerNetFee(transactionId: string): Promise<number> {
   return Number(r.rows[0]!.net);
 }
 
+// ---------------------------------------------------------------- BUG-038
+
+/** True when some index on `table` has `column` as its first key column. */
+async function hasLeadingIndex(table: string, column: string): Promise<boolean> {
+  const r = await pool.query(
+    `SELECT 1
+       FROM pg_index i
+       JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = i.indkey[0]
+      WHERE i.indrelid = $1::regclass AND a.attname = $2`,
+    [table, column],
+  );
+  return (r.rowCount ?? 0) > 0;
+}
+
+test("BUG-038: lookups every capture runs are index-backed, not full scans", async () => {
+  // The deferred ledger balance trigger (0007) sums by entry_group_id once per inserted row.
+  assert.ok(await hasLeadingIndex("ledger_entries", "entry_group_id"), "ledger_entries(entry_group_id)");
+  // capture/void: UPDATE holds ... WHERE transaction_id = $1
+  assert.ok(await hasLeadingIndex("holds", "transaction_id"), "holds(transaction_id)");
+  // discountAdjustment / processRefund: ledger_entries WHERE transaction_id = $1
+  assert.ok(await hasLeadingIndex("ledger_entries", "transaction_id"), "ledger_entries(transaction_id)");
+});
+
 // ---------------------------------------------------------------- BUG-036
 
 test("BUG-036: capture charges the same fee settlement will (discount off the amount, then MDR)", async () => {
