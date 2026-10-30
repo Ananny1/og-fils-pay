@@ -2,13 +2,31 @@
 # Rendered by the nginx image's envsubst step (only ${VARS} that are set in
 # the container environment are replaced).
 
+# --- who the client is -----------------------------------------------------
+# Requests relayed by the Dilmune edge (ops/dilmune-edge) all arrive from one
+# IP. The edge sends the visitor's IP in X-FP-Client-IP together with a shared
+# secret; only when the secret matches is that header believed. Everything
+# else is keyed on the TCP peer, so a client cannot pick its own rate-limit key.
+# (NGINX_EDGE_SECRET is never empty: 18-filspay-select-tls.envsh sets a random
+# one when it is not configured.)
+# The secret is a long key; the default bucket (64) is too small for it.
+map_hash_bucket_size 128;
+map $http_x_fp_edge_secret $fp_from_edge {
+    default              0;
+    "${NGINX_EDGE_SECRET}" 1;
+}
+map "$fp_from_edge:$http_x_fp_client_ip" $fp_client_ip {
+    default                                    $remote_addr;
+    "~^1:(?<fp_edge_ip>[0-9A-Fa-f.:]{3,45})$"  $fp_edge_ip;
+}
+
 # --- per-client limits (429 when exceeded) -------------------------------
 # API in general: steady rate + burst per client IP.
-limit_req_zone  $binary_remote_addr zone=fp_api:10m   rate=${NGINX_API_RATE};
+limit_req_zone  $fp_client_ip zone=fp_api:10m   rate=${NGINX_API_RATE};
 # Login / OTP / signup: brute-force protection, much stricter.
-limit_req_zone  $binary_remote_addr zone=fp_auth:10m  rate=${NGINX_AUTH_RATE};
+limit_req_zone  $fp_client_ip zone=fp_auth:10m  rate=${NGINX_AUTH_RATE};
 # Open connections per client IP.
-limit_conn_zone $binary_remote_addr zone=fp_conn:10m;
+limit_conn_zone $fp_client_ip zone=fp_conn:10m;
 limit_req_status  429;
 limit_conn_status 429;
 limit_req_log_level warn;

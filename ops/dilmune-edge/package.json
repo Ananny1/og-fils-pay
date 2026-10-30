@@ -1,0 +1,11 @@
+{
+  "name": "filspay-dilmune-edge",
+  "private": true,
+  "type": "module",
+  "description": "HTTPS front door on Dilmune Sites that relays to the FilsPay server",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "build": "node --check server.js",
+    "start": "node server.js"
+  }
+}

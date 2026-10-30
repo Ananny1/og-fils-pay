@@ -27,3 +27,11 @@ else
   export NGINX_HSTS_HEADER='# HSTS only over HTTPS'
 fi
 echo "18-filspay-select-tls: using servers-${filspay_variant}"
+
+# The Dilmune edge secret (see 00-filspay-http.conf.template). If it is not
+# configured, use a random one so that no request (including one with an empty
+# header) is ever treated as coming from the edge.
+if [ -z "${NGINX_EDGE_SECRET:-}" ]; then
+  NGINX_EDGE_SECRET="unset-$(head -c 24 /dev/urandom | od -An -tx1 | tr -d ' \n')"
+fi
+export NGINX_EDGE_SECRET
