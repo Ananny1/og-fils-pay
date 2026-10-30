@@ -59,7 +59,7 @@ function callbackBody(transactionId: string, callbackId: string) {
   };
 }
 
-function signatureHeader(body: unknown, secret = ACQUIRER_SECRET, timestamp = 1_757_930_000): string {
+function signatureHeader(body: unknown, secret = ACQUIRER_SECRET, timestamp = Math.floor(Date.now() / 1000)): string {
   const signature = createHmac("sha256", secret).update(`${timestamp}.${JSON.stringify(body)}`).digest("hex");
   return `t=${timestamp},v1=${signature}`;
 }
@@ -100,7 +100,7 @@ test("POST /v1/acquirer/callbacks rejects a body missing required fields", async
   assert.equal(res.json().error, "invalid_request");
 });
 
-/** Tamper = wrong HMAC. Missing header and stale timestamp are different cases (see below / not covered). */
+/** Tamper = wrong HMAC. Missing header and stale timestamp are covered below. */
 test("POST /v1/acquirer/callbacks rejects a tampered signature", async () => {
   const transactionId = await createTransaction();
   const callbackId = `acqcb_${randomUUID()}`;
@@ -119,12 +119,9 @@ test("POST /v1/acquirer/callbacks rejects a tampered signature", async () => {
   assert.equal(await noteCount(callbackId), "0");
 });
 
-// dev-mode behaviour (empty secret). prod rejects — MK
-// am: the test app config sets a secret though? line ~40
-test("POST /v1/acquirer/callbacks accepts a callback sent without a signature header", async () => {
-  // Documents current behavior for the acquirer sandbox's pre-signing
-  // tooling: with no header there is nothing to verify, so the callback is
-  // processed rather than rejected.
+// BUG-007: this test used to assert 200 ("documents current behavior"):
+// an unsigned callback was applied. The signature is the only auth here.
+test("POST /v1/acquirer/callbacks rejects a callback sent without a signature header", async () => {
   const transactionId = await createTransaction();
   const callbackId = `acqcb_${randomUUID()}`;
 
@@ -134,9 +131,66 @@ test("POST /v1/acquirer/callbacks accepts a callback sent without a signature he
     payload: callbackBody(transactionId, callbackId),
   });
 
+  assert.equal(res.statusCode, 401);
+  assert.equal(res.json().error, "invalid_signature");
+  assert.equal(res.json().message, "missing_header");
+  assert.equal(await noteCount(callbackId), "0");
+});
+
+test("POST /v1/acquirer/callbacks rejects a genuine but stale (replayed) callback", async () => {
+  const transactionId = await createTransaction();
+  const callbackId = `acqcb_${randomUUID()}`;
+  const body = callbackBody(transactionId, callbackId);
+  const anHourAgo = Math.floor(Date.now() / 1000) - 3600;
+
+  const res = await app.inject({
+    method: "POST",
+    url: "/v1/acquirer/callbacks",
+    headers: { "acquirer-callback-signature": signatureHeader(body, ACQUIRER_SECRET, anHourAgo) },
+    payload: body,
+  });
+
+  assert.equal(res.statusCode, 401);
+  assert.equal(res.json().message, "timestamp_out_of_tolerance");
+  assert.equal(await noteCount(callbackId), "0");
+});
+
+test("POST /v1/acquirer/callbacks verifies the raw bytes the acquirer signed (spacing / key order kept)", async () => {
+  const transactionId = await createTransaction();
+  const callbackId = `acqcb_${randomUUID()}`;
+  const b = callbackBody(transactionId, callbackId);
+  // Same JSON value, but not what JSON.stringify(parsed) would produce.
+  const raw = `{ "note": ${JSON.stringify(b.note)}, "outcome": "${b.outcome}", "occurredAt": "${b.occurredAt}",
+    "transactionId": "${b.transactionId}", "type": "${b.type}", "callbackId": "${b.callbackId}" }`;
+  const timestamp = Math.floor(Date.now() / 1000);
+  const sig = createHmac("sha256", ACQUIRER_SECRET).update(`${timestamp}.${raw}`).digest("hex");
+
+  const res = await app.inject({
+    method: "POST",
+    url: "/v1/acquirer/callbacks",
+    headers: { "content-type": "application/json", "acquirer-callback-signature": `t=${timestamp},v1=${sig}` },
+    payload: raw,
+  });
+
   assert.equal(res.statusCode, 200);
-  assert.deepEqual(res.json(), { received: true });
   assert.equal(await noteCount(callbackId), "1");
+});
+
+test("POST /v1/acquirer/callbacks rejects an outcome outside cleared | confirmed_fraud", async () => {
+  const transactionId = await createTransaction();
+  const callbackId = `acqcb_${randomUUID()}`;
+  const body = { ...callbackBody(transactionId, callbackId), outcome: "approved" };
+
+  const res = await app.inject({
+    method: "POST",
+    url: "/v1/acquirer/callbacks",
+    headers: { "acquirer-callback-signature": signatureHeader(body) },
+    payload: body,
+  });
+
+  assert.equal(res.statusCode, 400);
+  assert.equal(res.json().error, "invalid_request");
+  assert.equal(await noteCount(callbackId), "0");
 });
 
 test("POST /v1/acquirer/callbacks returns 404 for an unknown transaction id", async () => {

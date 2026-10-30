@@ -68,7 +68,7 @@ export function buildApp(config: Config, pool: Pool, options: BuildAppOptions = 
   app.register(settlementRoutes, { prefix: "/v1/settlement" });
   app.register(analyticsRoutes, { prefix: "/v1/analytics" });
   app.register(reportingRoutes, { prefix: "/v1/reporting" });
-  // FH: "the acquirer signature is the only auth" — and inboundVerify rejects unsigned requests, so OK
+  // BUG-007: the acquirer signature is the only auth — inboundVerify now always requires it
   app.register(acquirerCallbackRoutes, { prefix: "/v1/acquirer" }); // public — acquirer signature is the only auth
   // The admin plane, including KYC review
   // (POST /v1/admin/merchants/:id/kyc-reviews).

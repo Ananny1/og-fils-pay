@@ -1,7 +1,7 @@
 import type { Pool } from "pg";
 import { NotFoundError } from "../lib/errors.js";
 
-/** @property outcome Validated against the two allowed values by the route schema. */
+/** @property outcome Validated against the two allowed values in routes/acquirerCallbacks.ts (BUG-007). */
 export interface AcquirerCallbackInput {
   callbackId: string;
   type: "fraud_review.completed";
