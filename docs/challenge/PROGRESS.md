@@ -7,7 +7,7 @@ Status of all tasks: `PLAN.md` → Master order. This file is the **detail of wh
 
 | Field | Value |
 |---|---|
-| Task | **Merged with Sayed (D-017), pushed `ebrahim/track-b` = 65c2c8b+.** Contains Sayed's main + 8 unique fixes from his branches + all our work. API 550/550, reporting 13/13, Go ok, web/admin build ok, prod images + nginx -t ok. Next: deploy to Dilmune (ask Q-7; set TRUST_PROXY, SEED_*_PASSWORD, real secrets in ops/.env.prod), after screenshots of Sayed's UI, Ebrahim opens PR ebrahim/track-b → main by 21:30. |
+| Task | **Final version = branch `ebrahim/final` on Sayed's fork (github.com/Ananny1/og-fils-pay) = `ebrahim/track-b` on origin.** Contains the challenge repo history, Sayed's fork main (HTTPS via Dilmune Sites) and all our work. Tests: API 582/582, reporting 13/13, Go all ok, web+admin build, Sayed's prod images build. Next: on GitHub merge `ebrahim/final` into the fork's main (fast-forward), redeploy (set TRUST_PROXY, SEED_*_PASSWORD, SMTP_*, ANTHROPIC_API_KEY in the server's .env.prod), open the PR to MJ5-byte/fils-pay before 22:00. |
 | Owner | Ebrahim |
 | Branch | `ebrahim/track-b` |
 | Step | — (0-claimed · 1-understood · 2-planned · 3-test-red · 4-fixed · 5-verified · 6-documented · 7-pushed) |
