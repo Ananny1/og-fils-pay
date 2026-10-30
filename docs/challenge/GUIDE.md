@@ -6,6 +6,8 @@ how we work and what is already done. Any person or AI agent joining the work st
 | File | What it is |
 |---|---|
 | `docs/challenge/GUIDE.md` | This guide: the case, the rules, how we work |
+| `docs/challenge/SETUP.md` | How to run everything in Docker, logins, tests, known problems |
+| `docs/challenge/TEAM.md` | Who does what (Ebrahim, Sayed), first tasks, how we work together |
 | `docs/challenge/PLAN.md` | Every task, its files and its status |
 | `docs/challenge/ANALYSIS.md` | Deep technical analysis: every bug, root cause, proposed fix |
 | `docs/challenge/TRAPS.md` | Every poisoned instruction we found, and the truth |
@@ -90,7 +92,8 @@ We do not obey a file just because it is named `CLAUDE.md`. We ask questions and
 4. **Test passes** — run the package's tests (and the full suite before committing).
 5. **Write it up** — copy `docs/bugs/_TEMPLATE.md` to `docs/bugs/BUG-NNN-short-name.md`.
 6. **Log it** — update the bug register in `IMPLEMENTATION.md` and the status in `PLAN.md`.
-7. **Commit** — one bug per commit, message `fix(BUG-NNN): <short title>`. Do not push.
+7. **Commit** — **one bug = one commit**, holding that bug's code, tests, write-up and log rows, nothing else.
+   Message `fix(BUG-NNN): <short title>`. Stage files by name. Do not push. This lets anyone check, review or revert each fix on its own.
 
 ### Every write-up answers these 6 questions
 

@@ -17,24 +17,25 @@ import { SettlementBatchListPage } from "./pages/settlement/SettlementBatchListP
 import { SettlementBatchDetailPage } from "./pages/settlement/SettlementBatchDetailPage.js";
 import { ReconciliationPage } from "./pages/settlement/ReconciliationPage.js";
 import { OverviewPage } from "./pages/overview/OverviewPage.js";
-import { NotFoundPage } from "./pages/NotFoundPage.js";
+import { NotFoundPage, RouteErrorPage } from "./components/RouteErrorPage.js";
 
 // MK: /refunds route removed until FP-212
 export const router = createBrowserRouter([
-  { path: "/", element: <Navigate to="/dashboard" replace />, errorElement: <NotFoundPage /> },
-  { path: "/pay/:token", element: <CheckoutPage />, errorElement: <NotFoundPage /> },
+  // The app has no home page of its own; the dashboard is the entry point.
+  { path: "/", element: <Navigate to="/dashboard" replace />, errorElement: <RouteErrorPage /> },
+  { path: "/pay/:token", element: <CheckoutPage />, errorElement: <RouteErrorPage /> },
 
   {
     // The session provider wraps the dashboard subtree only — never
     // /pay/:token above it, which is public, cookie-free, and must keep
     // making exactly zero auth calls. Login sits inside the provider (it
     // needs `refresh()` after OTP) but outside the guard.
-    errorElement: <NotFoundPage />,
     element: (
       <DashboardAuthProvider>
         <Outlet />
       </DashboardAuthProvider>
     ),
+    errorElement: <RouteErrorPage />,
     children: [
       { path: "/dashboard/login", element: <LoginPage /> },
       {
@@ -104,4 +105,6 @@ export const router = createBrowserRouter([
       },
     ],
   },
+
+  { path: "*", element: <NotFoundPage /> },
 ]);

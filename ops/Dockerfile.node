@@ -1,0 +1,28 @@
+# Image for apps/api, apps/reporting and the migrate/seed jobs.
+# Build from the repo root: docker compose -f ops/docker-compose.yml build
+#
+# Stage 1 has the compiler toolchain argon2 needs to build; stage 2 only
+# keeps the installed node_modules, so the image stays small.
+FROM node:20-bookworm-slim AS deps
+
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends python3 make g++ \
+ && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+COPY package.json package-lock.json ./
+COPY packages/money/package.json packages/money/
+COPY packages/events/package.json packages/events/
+COPY apps/api/package.json apps/api/
+COPY apps/reporting/package.json apps/reporting/
+COPY apps/web/package.json apps/web/
+COPY apps/admin/package.json apps/admin/
+RUN npm ci --no-audit --no-fund && npm cache clean --force
+
+FROM node:20-bookworm-slim
+
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+
+EXPOSE 3000
