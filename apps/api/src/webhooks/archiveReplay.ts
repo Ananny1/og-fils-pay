@@ -140,8 +140,22 @@ export async function replayWebhookDeliveryArchive(
 
     const entries = JSON.parse(archiveRow.archive_payload) as ArchivedDeliveryEntry[];
 
+    // BUG-088: the archive holds every delivery ROW (an original and each of
+    // its replays), and each replay row gets a new delivery id, so restoring
+    // row by row sent one event several times. Restore each outbox event once,
+    // and skip events the target already has pending or delivered (a repeated
+    // restore, or the source endpoint itself as target).
+    const alreadyThere = await client.query<{ outbox_event_id: string }>(
+      `SELECT DISTINCT outbox_event_id::text AS outbox_event_id FROM webhook_deliveries
+        WHERE endpoint_id = $1 AND outbox_event_id = ANY($2::bigint[]) AND status IN ('pending', 'succeeded')`,
+      [input.targetEndpointId, entries.map((e) => e.outboxEventId)],
+    );
+    const seen = new Set(alreadyThere.rows.map((r) => r.outbox_event_id));
+
     let replayedCount = 0;
     for (const entry of entries) {
+      if (seen.has(String(entry.outboxEventId))) continue;
+      seen.add(String(entry.outboxEventId));
       await insertReplayDeliveryRow(client, {
         id: entry.deliveryId,
         endpointId: input.targetEndpointId,
