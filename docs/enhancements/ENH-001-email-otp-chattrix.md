@@ -107,3 +107,17 @@ With the laptop-style stack, `ops/.env.dev` sets `SMTP_HOST=mailpit`, so a hoste
 ## 7. Follow-ups
 
 ENH-008 (confirm the owner's email at signup) can reuse the same `sendMail()`.
+
+## 7. Follow-up: the login no longer waits for Gmail (2026-10-30)
+
+Found in a real run with the hosted Gmail settings: the login waited for the mail server before
+answering, **4.7–10 s**. That was slow, and it was a **user-enumeration leak**: a real account answered
+slowly (an email is sent), an unknown email answered fast.
+
+| | |
+|---|---|
+| **Fix** | `routes/auth.ts` (login, resend) and `routes/adminAuth.ts` (login) send the code in the background (`void sendOtpCode(...)`); the notifier already logs its own errors and never throws |
+| **Test** | `apps/api/src/routes/auth.otpEmailSlow.test.ts`: a mail server that accepts the connection and never answers. Before: login took **10,208 ms** ❌. After: under 2 s ✅ |
+| **Real run (hosted Gmail settings, code sent to our own inbox)** | Login **111 ms**, code not in the reply, no send error logged |
+| **Suite** | API 503 / 503 |
+| **Trade-off** | If the API process dies in the second after answering, that one email may not go out; the user presses "resend" |

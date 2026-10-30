@@ -103,7 +103,10 @@ export async function adminAuthRoutes(app: FastifyInstance): Promise<void> {
       return { code: challenge.code, expiresAt: challenge.expiresAt, rawToken: session.rawToken };
     });
 
-    await sendAdminOtpCode(request.log, app.config, { adminUserId: user.id, email: user.email }, code);
+    // Sent in the background: the reply must not wait for the mail server
+    // (a slow reply only for real accounts would reveal which exist). The
+    // notifier logs its own errors and never throws.
+    void sendAdminOtpCode(request.log, app.config, { adminUserId: user.id, email: user.email }, code);
 
     reply.setCookie(app.config.adminCookieName, rawToken, {
       httpOnly: true,

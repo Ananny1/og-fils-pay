@@ -124,7 +124,10 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       return { code: challenge.code, expiresAt: challenge.expiresAt, rawToken: session.rawToken };
     });
 
-    await sendOtpCode(request.log, app.config, { merchantUserId: user.id, email: user.email }, code);
+    // Sent in the background: the reply must not wait for the mail server
+    // (a slow reply only for real accounts would reveal which exist). The
+    // notifier logs its own errors and never throws.
+    void sendOtpCode(request.log, app.config, { merchantUserId: user.id, email: user.email }, code);
 
     reply.setCookie(app.config.cookieName, rawToken, {
       httpOnly: true,
@@ -312,7 +315,10 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       `SELECT email FROM merchant_users WHERE id = $1`,
       [pending.merchantUserId],
     );
-    await sendOtpCode(
+    // Sent in the background: the reply must not wait for the mail server
+    // (a slow reply only for real accounts would reveal which exist). The
+    // notifier logs its own errors and never throws.
+    void sendOtpCode(
       request.log,
       app.config,
       { merchantUserId: pending.merchantUserId, email: userResult.rows[0]?.email ?? "" },
