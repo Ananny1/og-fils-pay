@@ -19,6 +19,7 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 COPY packages/money/package.json packages/money/
 COPY packages/events/package.json packages/events/
+COPY packages/theme/package.json packages/theme/
 COPY apps/api/package.json apps/api/
 COPY apps/reporting/package.json apps/reporting/
 COPY apps/web/package.json apps/web/

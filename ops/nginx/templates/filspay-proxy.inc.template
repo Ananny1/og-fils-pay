@@ -1,0 +1,22 @@
+# Included inside every `location` that proxies to the API.
+proxy_pass            http://filspay_api;
+proxy_http_version    1.1;
+proxy_set_header      Connection "";
+proxy_set_header      Host $host;
+# Overwrite (never append) so a client cannot forge its own IP; the API
+# trusts exactly one proxy hop (TRUST_PROXY_HOPS=1).
+proxy_set_header      X-Forwarded-For $remote_addr;
+proxy_set_header      X-Real-IP $remote_addr;
+proxy_set_header      X-Forwarded-Proto $scheme;
+proxy_connect_timeout 2s;
+proxy_send_timeout    15s;
+# Longest legitimate API call: an admin-triggered settlement run, which the
+# API bounds at SETTLEMENT_INTERNAL_REQUEST_TIMEOUT_MS (30 s).
+proxy_read_timeout    35s;
+# Never retry a request on another attempt: POSTs move money.
+proxy_next_upstream   off;
+proxy_buffering       on;
+# The API is down / restarting: answer a fast JSON 503 with Retry-After
+# instead of nginx's HTML 502 page.
+proxy_intercept_errors off;
+error_page 502 504 = @api_unavailable;

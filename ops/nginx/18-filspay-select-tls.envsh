@@ -1,0 +1,29 @@
+#!/bin/sh
+# Sourced by the nginx image's entrypoint (".envsh" = sourced, so the
+# exported variable reaches the envsubst step that runs next, 20-envsubst).
+#
+# Picks the HTTP-only or the HTTPS server config:
+#   TLS=off (default) -> plain HTTP on :80 (local runs, or before the first
+#                        certificate exists; /.well-known/acme-challenge/ is
+#                        served so certbot can obtain one)
+#   TLS=on            -> :80 redirects to HTTPS (except ACME), :443 serves
+#                        with the Let's Encrypt certificate for $WEB_DOMAIN,
+#                        and HSTS is sent
+# (No `set -e`: this file is sourced into the entrypoint's own shell.)
+
+filspay_variant=http
+if [ "${TLS:-off}" = "on" ]; then
+  if [ -f "/etc/letsencrypt/live/${WEB_DOMAIN}/fullchain.pem" ]; then
+    filspay_variant=tls
+  else
+    echo "18-filspay-select-tls: TLS=on but no certificate for ${WEB_DOMAIN} yet; serving HTTP only so certbot can issue it" >&2
+  fi
+fi
+
+cp "/etc/nginx/filspay-variants/servers-${filspay_variant}.conf.template" /etc/nginx/templates/servers.conf.template
+if [ "$filspay_variant" = "tls" ]; then
+  export NGINX_HSTS_HEADER='add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;'
+else
+  export NGINX_HSTS_HEADER='# HSTS only over HTTPS'
+fi
+echo "18-filspay-select-tls: using servers-${filspay_variant}"

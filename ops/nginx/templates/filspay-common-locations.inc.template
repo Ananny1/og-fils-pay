@@ -1,0 +1,44 @@
+# Locations shared by the web and the admin host.
+
+include /etc/nginx/conf.d/filspay-headers.inc;
+
+# Let's Encrypt HTTP-01 challenge (webroot shared with the certbot container).
+location ^~ /.well-known/acme-challenge/ {
+    root /var/www/acme;
+    default_type text/plain;
+}
+
+# Proxy liveness for external monitors (does not touch the API).
+location = /nginx-health {
+    access_log off;
+    default_type text/plain;
+    return 200 'ok';
+}
+
+# API readiness for external monitors (API up AND its database reachable).
+location = /readyz {
+    access_log off;
+    include /etc/nginx/conf.d/filspay-proxy.inc;
+}
+
+# Vite's hashed bundles: cache forever.
+location ^~ /assets/ {
+    include /etc/nginx/conf.d/filspay-headers.inc;
+    add_header Cache-Control "public, max-age=31536000, immutable" always;
+    try_files $uri =404;
+}
+
+# SPA history fallback: any non-file path renders index.html, which must
+# never be cached (it names the current hashed bundles).
+location / {
+    include /etc/nginx/conf.d/filspay-headers.inc;
+    add_header Cache-Control "no-cache" always;
+    try_files $uri $uri/ /index.html;
+}
+
+location @api_unavailable {
+    include /etc/nginx/conf.d/filspay-headers.inc;
+    add_header Retry-After "5" always;
+    default_type application/json;
+    return 503 '{"error":"service_unavailable","message":"temporarily unavailable, retry shortly"}';
+}
