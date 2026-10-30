@@ -252,6 +252,36 @@ test("two concurrent approvals of one pending request resolve to exactly one win
   assert.equal(await cachedPayable(merchantId), 90_000);
 });
 
+test("BUG-013: the maker cannot approve their own credit after renaming themselves", async () => {
+  const merchantId = await createMerchant("rename-self", 250);
+  const maker = await createAdmin("rename-maker");
+
+  const pending = await createCreditRequest(pool, {
+    merchantId,
+    adminUserId: maker.id,
+    body: { baseAmountFils: 90_000, reasonCode: "goodwill", effectiveDate: todayIso() },
+  });
+  assert.equal(pending.status, "pending_approval");
+
+  // Same admin user, new display name.
+  const renamed = `${maker.displayName} (renamed)`;
+  await pool.query(`UPDATE admin_users SET display_name = $2 WHERE id = $1`, [maker.id, renamed]);
+
+  await assert.rejects(
+    approveCreditRequest(pool, {
+      creditRequestId: pending.id,
+      approver: { adminUserId: maker.id, displayName: renamed },
+    }),
+    (err: unknown) => {
+      assert.ok(err instanceof AppError);
+      assert.equal(err.code, "self_approval_forbidden");
+      return true;
+    },
+  );
+  const legs = await pool.query(`SELECT 1 FROM ledger_entries WHERE merchant_id = $1`, [merchantId]);
+  assert.equal(legs.rowCount, 0, "nothing may be journaled by a self-approval");
+});
+
 test("rejecting a pending credit journals nothing and closes it to approval", async () => {
   const merchantId = await createMerchant("rejected");
   const maker = await createAdmin("rejected-maker");
