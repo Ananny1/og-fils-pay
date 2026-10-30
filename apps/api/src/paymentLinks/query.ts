@@ -1,4 +1,5 @@
 import type { Pool } from "pg";
+import { UUID_RE } from "../admin/merchants.js";
 import { serializePaymentLink, type PaymentLinkDto, type PaymentLinkRow } from "./serialize.js";
 
 export interface ListPaymentLinksFilters {
@@ -15,6 +16,9 @@ export interface ListPaymentLinksResult {
 
 const DEFAULT_LIMIT = 25;
 const MAX_LIMIT = 100;
+
+/** Postgres' text rendering of a timestamptz, e.g. "2026-10-30 17:45:01.123456+00". */
+const CURSOR_TS_RE = /^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(\.\d{1,6})?([+-]\d{2}(:?\d{2})?|Z)$/;
 
 interface DecodedCursor {
   createdAt: string;
@@ -35,6 +39,9 @@ function decodeCursor(cursor: string | null | undefined): DecodedCursor | null {
   const createdAt = decoded.slice(0, separatorIndex);
   const id = decoded.slice(separatorIndex + 1);
   if (!createdAt || !id) return null;
+  // BUG-102: both halves go straight into `$3::timestamptz` / a uuid compare;
+  // an unparseable value made Postgres throw (500) instead of restarting.
+  if (!UUID_RE.test(id) || !CURSOR_TS_RE.test(createdAt)) return null;
   return { createdAt, id };
 }
 

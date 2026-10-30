@@ -61,3 +61,28 @@ test("BUG-101: a non-numeric ?limit= falls back to the default page instead of a
   assert.equal(res.statusCode, 200, res.body);
   assert.equal(res.json().paymentLinks.length, 2);
 });
+
+test("BUG-102: a malformed cursor restarts from the first page instead of a 500", async () => {
+  const { merchantId, headers } = await merchantWithLinks(2);
+  for (const raw of ["garbage|x", "2026-10-30 10:00:00+00|not-a-uuid", "not-a-date|00000000-0000-0000-0000-000000000000"]) {
+    const cursor = Buffer.from(raw, "utf8").toString("base64url");
+    const res = await app.inject({ method: "GET", url: `/v1/merchants/${merchantId}/payment-links?cursor=${cursor}`, headers });
+    assert.equal(res.statusCode, 200, `${raw}: ${res.body}`);
+    assert.equal(res.json().paymentLinks.length, 2, raw);
+  }
+});
+
+test("BUG-102: a real nextCursor still pages through every link exactly once", async () => {
+  const { merchantId, headers } = await merchantWithLinks(3);
+  const seen: string[] = [];
+  let cursor: string | null = null;
+  do {
+    const url: string = `/v1/merchants/${merchantId}/payment-links?limit=2${cursor ? `&cursor=${cursor}` : ""}`;
+    const res = await app.inject({ method: "GET", url, headers });
+    assert.equal(res.statusCode, 200, res.body);
+    for (const link of res.json().paymentLinks) seen.push(link.id);
+    cursor = res.json().nextCursor;
+  } while (cursor);
+  assert.equal(seen.length, 3);
+  assert.equal(new Set(seen).size, 3);
+});
