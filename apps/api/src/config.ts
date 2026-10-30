@@ -17,6 +17,12 @@ export interface Config {
   pgPoolIdleTimeoutMs: number;
   pgPoolConnectionTimeoutMs: number;
 
+  /** Load shedding (CAP-2, plugins/loadShedding.ts): requests allowed in
+   *  flight at once before the api answers 503 + Retry-After. 0 = off. */
+  apiMaxInFlight: number;
+  /** Retry-After (seconds) on a shed request or a full DB pool. */
+  apiRetryAfterSeconds: number;
+
   sessionTtlHours: number;
   pendingSessionTtlMinutes: number;
   otpTtlMinutes: number;
@@ -210,6 +216,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     pgPoolMin: parseIntEnv(env.PG_POOL_MIN, 0),
     pgPoolIdleTimeoutMs: parseIntEnv(env.PG_POOL_IDLE_TIMEOUT_MS, 30_000),
     pgPoolConnectionTimeoutMs: parseIntEnv(env.PG_POOL_CONNECTION_TIMEOUT_MS, 5_000),
+
+    apiMaxInFlight: parseIntEnv(env.API_MAX_IN_FLIGHT, 64),
+    apiRetryAfterSeconds: parseIntEnv(env.API_RETRY_AFTER_SECONDS, 1),
 
     sessionTtlHours: parseIntEnv(env.SESSION_TTL_HOURS, 12),
     pendingSessionTtlMinutes: parseIntEnv(env.PENDING_SESSION_TTL_MINUTES, 10),

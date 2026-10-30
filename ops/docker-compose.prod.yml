@@ -102,6 +102,12 @@ services:
       DATABASE_URL: postgres://filspay:${POSTGRES_PASSWORD}@postgres:5432/filspay
       SETTLEMENT_INTERNAL_URL: http://settlement:8091
       KYC_UPLOAD_DIR: /app/data/kyc
+      # CAP-2 load shedding: over this many requests in flight -> instant
+      # 503 + Retry-After; a request waiting longer than the pool timeout
+      # for a DB connection -> 503 too. Values measured in CAP-1.
+      API_MAX_IN_FLIGHT: ${API_MAX_IN_FLIGHT:-64}
+      PG_POOL_MAX: ${PG_POOL_MAX:-10}
+      PG_POOL_CONNECTION_TIMEOUT_MS: ${PG_POOL_CONNECTION_TIMEOUT_MS:-2000}
       # Leave head-room under the 512 MB cap for buffers and native modules.
       NODE_OPTIONS: --max-old-space-size=384
     volumes:

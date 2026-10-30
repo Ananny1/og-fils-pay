@@ -5,6 +5,7 @@ import { createAcquirerSimulator } from "./acquirer/simulator.js";
 import { cookiesPlugin } from "./plugins/cookies.js";
 import { multipartPlugin } from "./plugins/multipart.js";
 import { errorHandler } from "./plugins/errorHandler.js";
+import { loadSheddingPlugin } from "./plugins/loadShedding.js";
 import { healthRoutes } from "./routes/health.js";
 import { authRoutes } from "./routes/auth.js";
 import { businessProfileRoutes } from "./routes/businessProfile.js";
@@ -46,6 +47,11 @@ export function buildApp(config: Config, pool: Pool, options: BuildAppOptions = 
   app.decorate("acquirer", createAcquirerSimulator(config));
   app.decorate("webhookTransport", options.webhookTransport ?? createFetchTransport());
 
+  // First, so an over-capacity request is turned away before any work.
+  app.register(loadSheddingPlugin, {
+    maxInFlight: config.apiMaxInFlight,
+    retryAfterSeconds: config.apiRetryAfterSeconds,
+  });
   app.register(cookiesPlugin);
   app.register(multipartPlugin, { config });
   app.setErrorHandler(errorHandler);
