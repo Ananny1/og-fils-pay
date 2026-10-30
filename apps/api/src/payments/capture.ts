@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { Pool } from "pg";
+import type { Pool, PoolClient } from "pg";
 import { ZERO_FILS, addFils, applyRateFils, compareFils, subtractFils, toFils, type Fils } from "@filspay/money";
 import { enqueueEvent } from "@filspay/events";
 import { withTransaction } from "../db/withTransaction.js";
@@ -85,7 +85,7 @@ interface LockedTransactionRow {
  * — YA: held across the call on purpose. i was asked why more than once.
  */
 export async function captureTransaction(
-  pool: Pool,
+  pool: Pool | PoolClient,
   acquirer: AcquirerSimulator,
   input: CaptureInput,
 ): Promise<CaptureResult> {

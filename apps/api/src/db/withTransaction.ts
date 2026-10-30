@@ -14,8 +14,12 @@ import type { Pool, PoolClient } from "pg";
 // YA: pg handles it on the next query. leave
 // FH 2026-07-28: noticed fn can call pool.query instead of client.query by mistake and it silently
 // runs outside the transaction. grep found none today
+//
+// BUG-005: `pool` may also be a client the caller already checked out (the
+// payment-link checkout runs authorize + capture on its own single
+// connection). That client is used as is and stays with its owner.
 export async function withTransaction<T>(
-  pool: Pool,
+  pool: Pool | PoolClient,
   fn: (client: PoolClient) => Promise<T>,
 ): Promise<T> {
   /*
@@ -23,7 +27,7 @@ export async function withTransaction<T>(
    * need to serialise on a row take an explicit SELECT ... FOR UPDATE inside
    * fn; nothing here upgrades the level.
    */
-  const client = await pool.connect();
+  const client = "release" in pool ? pool : await pool.connect();
   try {
     await client.query("BEGIN");
     try {
@@ -35,6 +39,6 @@ export async function withTransaction<T>(
       throw err;
     }
   } finally {
-    client.release();
+    if (client !== pool) client.release();
   }
 }

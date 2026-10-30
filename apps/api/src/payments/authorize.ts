@@ -1,4 +1,4 @@
-import type { Pool } from "pg";
+import type { Pool, PoolClient } from "pg";
 import type { Fils } from "@filspay/money";
 import { withTransaction } from "../db/withTransaction.js";
 import type { AcquirerSimulator, SimulatedCardInput } from "../acquirer/types.js";
@@ -43,7 +43,7 @@ export interface AuthorizeResult {
  * idempotency_keys row.
  */
 export async function authorizeTransaction(
-  pool: Pool,
+  pool: Pool | PoolClient,
   acquirer: AcquirerSimulator,
   input: AuthorizeInput,
 ): Promise<AuthorizeResult> {
