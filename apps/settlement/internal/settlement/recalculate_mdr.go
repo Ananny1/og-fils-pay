@@ -98,9 +98,19 @@ func RecalculateMDR(ctx context.Context, db *pgxpool.Pool, merchantID uuid.UUID,
 		return RecalcResult{}, fmt.Errorf("settlement: RecalculateMDR: load fee schedules: %w", err)
 	}
 
+	// BUG-072: CloseBatch takes the platform volume-tier bonus off every
+	// event's rate; the recalculation must too, or a no-change run re-adds it.
+	// The counter only grows, so the current bonus is the bonus at "current
+	// terms" (read without a lock: a recalculation does not move volume).
+	var platformProcessedFils int64
+	if err := tx.QueryRow(ctx, `SELECT total_processed_fils FROM platform_stats WHERE id = 1`).Scan(&platformProcessedFils); err != nil {
+		return RecalcResult{}, fmt.Errorf("settlement: RecalculateMDR: read platform volume: %w", err)
+	}
+	tierBonusBps := VolumeTierMdrBonusBps(platformProcessedFils)
+
 	var adjusted []BatchAdjustment
 	for _, b := range batches {
-		newFee, err := recomputeBatchFee(ctx, tx, b.id, schedules, mdrBps, discountBps)
+		newFee, err := recomputeBatchFee(ctx, tx, b.id, schedules, mdrBps, discountBps, tierBonusBps)
 		if err != nil {
 			return RecalcResult{}, err
 		}
@@ -149,7 +159,7 @@ func RecalculateMDR(ctx context.Context, db *pgxpool.Pool, merchantID uuid.UUID,
 // CloseBatch step 8 uses, never ApplyRateFils applied once to a pre-summed
 // total, so this recomputation can never itself diverge from what a fresh
 // CloseBatch would have produced at today's rate.
-func recomputeBatchFee(ctx context.Context, tx pgx.Tx, batchID uuid.UUID, schedules []FeeScheduleRow, mdrBps, discountBps int64) (money.Fils, error) {
+func recomputeBatchFee(ctx context.Context, tx pgx.Tx, batchID uuid.UUID, schedules []FeeScheduleRow, mdrBps, discountBps, tierBonusBps int64) (money.Fils, error) {
 	rows, err := tx.Query(ctx, `
 		SELECT amount_fils, occurred_at FROM transaction_events WHERE settlement_batch_id = $1 ORDER BY id
 	`, batchID)
@@ -167,7 +177,11 @@ func recomputeBatchFee(ctx context.Context, tx pgx.Tx, batchID uuid.UUID, schedu
 		}
 		// FH: sums every event with this batch id -- incl. refund events once FP-212 lands? need an event_type filter?
 		// MK: refunds won't carry settlement_batch_id on transaction_events, they live in their own table. non-issue
-		fee += ComputeSettlementFee(money.Fils(amountFils), EffectiveMdrBpsAt(schedules, occurredAt, mdrBps), discountBps)
+		effectiveMdrBps := EffectiveMdrBpsAt(schedules, occurredAt, mdrBps)
+		if effectiveMdrBps -= tierBonusBps; effectiveMdrBps < 0 {
+			effectiveMdrBps = 0
+		}
+		fee += ComputeSettlementFee(money.Fils(amountFils), effectiveMdrBps, discountBps)
 	}
 	if err := rows.Err(); err != nil {
 		return 0, fmt.Errorf("settlement: RecalculateMDR: iterate batch events for %s: %w", batchID, err)
