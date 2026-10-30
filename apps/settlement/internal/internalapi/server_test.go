@@ -164,6 +164,7 @@ func TestRunBatch_ValidTokenAndDate(t *testing.T) {
 	if result.FeeFils != 250 {
 		t.Errorf("feeFils = %d, want 250", result.FeeFils)
 	}
+	// No refunds in this test, so net is exactly gross - fee (FP-300.3).
 	if result.NetPayoutFils != result.GrossFils-result.FeeFils {
 		t.Errorf("netPayoutFils = %d, want %d", result.NetPayoutFils, result.GrossFils-result.FeeFils)
 	}

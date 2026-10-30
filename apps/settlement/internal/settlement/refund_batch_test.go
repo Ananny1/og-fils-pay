@@ -121,3 +121,55 @@ func TestCloseBatch_RefundLargerThanNetCarriesForward(t *testing.T) {
 		t.Errorf("refund settlement_batch_id = %v, want day2 batch %s", got, r2.BatchID)
 	}
 }
+
+// FP-300.3 review: an MDR recalculation must keep the refund deduction the
+// batch already took. The refund stays linked to this batch, so no later
+// batch will ever deduct it again.
+func TestRecalculateMDR_KeepsRefundDeduction(t *testing.T) {
+	pool := mustPool(t)
+	ctx := context.Background()
+	const mdrBps = 250
+	merchantID := insertActiveMerchant(t, pool, mdrBps)
+
+	businessDate := time.Date(2026, 4, 14, 0, 0, 0, 0, time.UTC)
+	start, _ := BusinessDayWindow(businessDate)
+	txnID, _ := insertCaptureEvent(t, pool, merchantID, mdrBps, 10_000, start.Add(1*time.Hour))
+	insertRefund(t, pool, merchantID, txnID, 4_000, 100, start.Add(3*time.Hour))
+
+	closed, err := CloseBatch(ctx, pool, merchantID, businessDate)
+	if err != nil {
+		t.Fatalf("CloseBatch: %v", err)
+	}
+	if closed.RefundDeductedFils != 3_900 {
+		t.Fatalf("RefundDeductedFils = %d, want 3900", closed.RefundDeductedFils)
+	}
+	var cacheBefore int64
+	if err := pool.QueryRow(ctx, `SELECT cached_payable_fils FROM merchant_balances WHERE merchant_id = $1`, merchantID).Scan(&cacheBefore); err != nil {
+		t.Fatalf("read cache: %v", err)
+	}
+
+	const newMdrBps = 300
+	if _, err := pool.Exec(ctx, `UPDATE merchants SET mdr_bps = $2 WHERE id = $1`, merchantID, newMdrBps); err != nil {
+		t.Fatalf("update mdr_bps: %v", err)
+	}
+	from, to := recalcWindow(businessDate)
+	if _, err := RecalculateMDR(ctx, pool, merchantID, from, to); err != nil {
+		t.Fatalf("RecalculateMDR: %v", err)
+	}
+
+	newFee := ComputeSettlementFee(10_000, newMdrBps, 0)
+	wantNet := int64(10_000) - int64(newFee) - 3_900
+	var gotNet, cacheAfter int64
+	if err := pool.QueryRow(ctx, `SELECT net_payout_fils FROM settlement_batches WHERE id = $1`, closed.BatchID).Scan(&gotNet); err != nil {
+		t.Fatalf("read batch: %v", err)
+	}
+	if gotNet != wantNet {
+		t.Errorf("net_payout_fils = %d, want %d (gross - new fee - refund cost)", gotNet, wantNet)
+	}
+	if err := pool.QueryRow(ctx, `SELECT cached_payable_fils FROM merchant_balances WHERE merchant_id = $1`, merchantID).Scan(&cacheAfter); err != nil {
+		t.Fatalf("read cache: %v", err)
+	}
+	if cacheAfter-cacheBefore != gotNet-int64(closed.NetPayoutFils) {
+		t.Errorf("cache moved by %d, batch net moved by %d; want equal", cacheAfter-cacheBefore, gotNet-int64(closed.NetPayoutFils))
+	}
+}
