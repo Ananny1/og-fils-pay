@@ -59,7 +59,7 @@ export async function promoteSession(
   const expiresAt = new Date(Date.now() + sessionTtlHours * 3_600_000);
   const rawToken = randomToken(32);
   await client.query(
-    `UPDATE sessions SET authenticated = true, authenticated_at = now(), expires_at = $2, token_hash = $3 WHERE id = $1`,
+    `UPDATE sessions SET authenticated = true, authenticated_at = now(), last_seen_at = now(), expires_at = $2, token_hash = $3 WHERE id = $1`,
     [sessionId, expiresAt, sha256Hex(rawToken)],
   );
   return { expiresAt, rawToken };
@@ -80,10 +80,13 @@ export interface AuthenticatedSessionLookup {
 
 /** Resolves a session token to its user. `live_sessions` only drops revoked
  *  and expired rows, so `authenticated = true` must be checked here (0012):
- *  a pending, pre-OTP cookie never counts as a login. */
+ *  a pending, pre-OTP cookie never counts as a login. A session with no
+ *  request for `idleMinutes` is dead too (SEC-2); use moves `last_seen_at`
+ *  forward, at most once a minute so there is no write on every request. */
 export async function lookupSession(
   pool: Pool,
   rawToken: string,
+  idleMinutes: number,
 ): Promise<AuthenticatedSessionLookup | null> {
   const tokenHash = sha256Hex(rawToken);
   const result = await pool.query<{
@@ -91,16 +94,26 @@ export async function lookupSession(
     merchant_user_id: string;
     merchant_id: string;
     role: "owner" | "finance" | "support";
+    needs_touch: boolean;
   }>(
-    `SELECT s.id AS session_id, s.merchant_user_id, mu.merchant_id, mu.role
+    `SELECT s.id AS session_id, s.merchant_user_id, mu.merchant_id, mu.role,
+            s.last_seen_at < now() - interval '1 minute' AS needs_touch
        FROM live_sessions s
        JOIN merchant_users mu ON mu.id = s.merchant_user_id
       WHERE s.token_hash = $1
-        AND s.authenticated = true`,
-    [tokenHash],
+        AND s.authenticated = true
+        AND s.last_seen_at > now() - make_interval(mins => $2)`,
+    [tokenHash, idleMinutes],
   );
   const row = result.rows[0];
   if (!row) return null;
+  if (row.needs_touch) {
+    // The repeated predicate keeps parallel requests from all writing.
+    await pool.query(
+      `UPDATE sessions SET last_seen_at = now() WHERE id = $1 AND last_seen_at < now() - interval '1 minute'`,
+      [row.session_id],
+    );
+  }
   return {
     sessionId: row.session_id,
     merchantUserId: row.merchant_user_id,

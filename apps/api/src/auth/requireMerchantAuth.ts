@@ -46,7 +46,7 @@ declare module "fastify" {
 export const requireMerchantAuth: preHandlerHookHandler = async (request: FastifyRequest): Promise<void> => {
   const token = request.cookies[request.server.config.cookieName];
   if (token) {
-    const session = await lookupSession(request.server.db, token);
+    const session = await lookupSession(request.server.db, token, request.server.config.sessionIdleMinutes);
     if (session) {
       request.merchantAuth = {
         merchantId: session.merchantId,

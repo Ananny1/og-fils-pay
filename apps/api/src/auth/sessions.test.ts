@@ -83,7 +83,7 @@ test("lookupSession returns null for a pending session that never passed the OTP
     expiresAt: hoursFromNow(1),
   });
 
-  assert.equal(await lookupSession(pool, rawToken), null, "a pre-OTP cookie must never act as a login");
+  assert.equal(await lookupSession(pool, rawToken, 60), null, "a pre-OTP cookie must never act as a login");
 });
 
 test("lookupSession finds an active, promoted session", async () => {
@@ -94,7 +94,7 @@ test("lookupSession finds an active, promoted session", async () => {
     expiresAt: hoursFromNow(12),
   });
 
-  const found = await lookupSession(pool, rawToken);
+  const found = await lookupSession(pool, rawToken, 60);
   assert.ok(found, "an unexpired, unrevoked session must resolve");
   assert.equal(found.merchantUserId, merchantUserId);
   assert.equal(found.role, "owner");
@@ -102,7 +102,7 @@ test("lookupSession finds an active, promoted session", async () => {
 
 test("lookupSession returns null for an unknown token", async () => {
   // Never inserted anywhere — a well-formed token that simply isn't a session.
-  assert.equal(await lookupSession(pool, randomToken(32)), null);
+  assert.equal(await lookupSession(pool, randomToken(32), 60), null);
 });
 
 test("lookupSession returns null for a revoked session", async () => {
@@ -114,7 +114,7 @@ test("lookupSession returns null for a revoked session", async () => {
     revoked: true,
   });
 
-  assert.equal(await lookupSession(pool, rawToken), null, "revoked_at must exclude the row");
+  assert.equal(await lookupSession(pool, rawToken, 60), null, "revoked_at must exclude the row");
 });
 
 test("lookupSession returns null for an expired session", async () => {
@@ -125,5 +125,5 @@ test("lookupSession returns null for an expired session", async () => {
     expiresAt: hoursFromNow(-1),
   });
 
-  assert.equal(await lookupSession(pool, rawToken), null, "expires_at in the past must exclude the row");
+  assert.equal(await lookupSession(pool, rawToken, 60), null, "expires_at in the past must exclude the row");
 });

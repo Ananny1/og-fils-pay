@@ -24,6 +24,9 @@ export interface Config {
   apiRetryAfterSeconds: number;
 
   sessionTtlHours: number;
+  /** SEC-2: a session with no request for this long is dead, even before
+   *  its fixed `sessionTtlHours` expiry. */
+  sessionIdleMinutes: number;
   pendingSessionTtlMinutes: number;
   otpTtlMinutes: number;
   otpCodeLength: number;
@@ -64,6 +67,8 @@ export interface Config {
   /** Deliberately shorter than a merchant session's 12h — a minor extra
    *  caution for the higher-privilege plane. */
   adminSessionTtlHours: number;
+  /** SEC-2: idle window for staff, shorter than a merchant's. */
+  adminSessionIdleMinutes: number;
   adminPendingSessionTtlMinutes: number;
   adminOtpTtlMinutes: number;
   adminOtpCodeLength: number;
@@ -252,6 +257,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     apiRetryAfterSeconds: parseIntEnv(env.API_RETRY_AFTER_SECONDS, 1),
 
     sessionTtlHours: parseIntEnv(env.SESSION_TTL_HOURS, 12),
+    sessionIdleMinutes: parseIntEnv(env.SESSION_IDLE_MINUTES, 60),
     pendingSessionTtlMinutes: parseIntEnv(env.PENDING_SESSION_TTL_MINUTES, 10),
     otpTtlMinutes: parseIntEnv(env.OTP_TTL_MINUTES, 5),
     otpCodeLength: parseIntEnv(env.OTP_CODE_LENGTH, 6),
@@ -285,6 +291,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
 
     adminCookieName: env.ADMIN_COOKIE_NAME ?? "fp_admin_sid",
     adminSessionTtlHours: parseIntEnv(env.ADMIN_SESSION_TTL_HOURS, 8),
+    adminSessionIdleMinutes: parseIntEnv(env.ADMIN_SESSION_IDLE_MINUTES, 30),
     adminPendingSessionTtlMinutes: parseIntEnv(env.ADMIN_PENDING_SESSION_TTL_MINUTES, 10),
     adminOtpTtlMinutes: parseIntEnv(env.ADMIN_OTP_TTL_MINUTES, 5),
     adminOtpCodeLength: parseIntEnv(env.ADMIN_OTP_CODE_LENGTH, 6),

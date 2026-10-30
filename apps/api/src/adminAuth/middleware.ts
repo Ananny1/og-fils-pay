@@ -37,7 +37,7 @@ export const requireAdminSession: preHandlerHookHandler = async (
   if (!token) {
     throw new UnauthorizedError("unauthenticated");
   }
-  const session = await lookupAdminSession(request.server.db, token);
+  const session = await lookupAdminSession(request.server.db, token, request.server.config.adminSessionIdleMinutes);
   if (!session) {
     throw new UnauthorizedError("unauthenticated");
   }
