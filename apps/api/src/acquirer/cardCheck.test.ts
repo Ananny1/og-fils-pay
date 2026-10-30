@@ -5,6 +5,11 @@ import { cardBrand, checkCard, luhnOk } from "./cardCheck.js";
 const NOW = new Date("2026-10-30T12:00:00Z");
 const ok = { pan: "4242424242424242", expiryMonth: 12, expiryYear: 2030, cvv: "123" };
 
+test("UX-90: only 16-digit numbers are taken, even when Luhn-valid", () => {
+  assert.equal(checkCard({ ...ok, pan: "4222222222222" }, NOW), "invalid_card_number"); // 13-digit Visa
+  assert.equal(checkCard({ ...ok, pan: "4242424242424242424" }, NOW), "invalid_card_number"); // 19 digits
+});
+
 test("known test cards pass, including the simulator's decline cards", () => {
   for (const pan of ["4242424242424242", "4111111111111111", "4000000000000002", "4000000000000119", "4000000000000069", "5555555555554444", "2223003122003222", "4242 4242 4242 4242"]) {
     assert.equal(checkCard({ ...ok, pan }, NOW), null, pan);

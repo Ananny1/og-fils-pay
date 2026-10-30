@@ -105,14 +105,25 @@ export function formatCardBrandHint(pan: string): "visa" | "mastercard" | "unkno
   return "unknown";
 }
 
-/** Brand prefix, length for that brand (Visa 13/16/19, Mastercard 16) and
- *  the Luhn check digit. Spaces and dashes are ignored. */
+/** Card numbers are exactly 16 digits (the checkout simulates a gateway that
+ *  takes 16-digit Visa and Mastercard). */
+export const CARD_NUMBER_DIGITS = 16;
+
+/** What the card field shows while typing: digits only, at most 16, in
+ *  groups of four ("4242 4242 4242 4242"). Letters and extra digits are dropped. */
+export function formatCardNumberInput(value: string): string {
+  const digits = value.replace(/\D/g, "").slice(0, CARD_NUMBER_DIGITS);
+  return digits.replace(/(\d{4})(?=\d)/g, "$1 ");
+}
+
+/** Brand prefix, exactly 16 digits and the Luhn check digit. Spaces and
+ *  dashes are ignored. */
 export function isValidCardNumber(pan: string): boolean {
   const digits = pan.replace(/[\s-]/g, "");
   if (!/^\d+$/.test(digits)) return false;
   const brand = formatCardBrandHint(digits);
   if (brand === "unknown") return false;
-  if (!(brand === "visa" ? [13, 16, 19] : [16]).includes(digits.length)) return false;
+  if (digits.length !== CARD_NUMBER_DIGITS) return false;
   let total = 0;
   for (let i = digits.length - 1, double = false; i >= 0; i--, double = !double) {
     let digit = digits.charCodeAt(i) - 48;

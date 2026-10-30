@@ -37,7 +37,9 @@ export function luhnOk(pan: string): boolean {
   return total % 10 === 0;
 }
 
-const LENGTHS: Record<CardBrand, readonly number[]> = { visa: [13, 16, 19], mastercard: [16] };
+// UX-90: the checkout simulates a gateway that takes 16-digit cards only
+// (the page groups them as 4-4-4-4); same rule as apps/web isValidCardNumber.
+const LENGTHS: Record<CardBrand, readonly number[]> = { visa: [16], mastercard: [16] };
 
 export function checkCard(card: SimulatedCardInput, now: Date = new Date()): CardProblem | null {
   const pan = typeof card.pan === "string" ? card.pan.replace(/[\s-]/g, "") : "";

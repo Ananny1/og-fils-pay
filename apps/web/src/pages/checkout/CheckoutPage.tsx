@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { getPaymentLink, payPaymentLink } from "../../api/paymentLinks.js";
 import { ApiError } from "../../api/client.js";
-import { formatCardBrandHint, isValidCardNumber } from "../../utils/helpers.js";
+import { formatCardBrandHint, formatCardNumberInput, isValidCardNumber } from "../../utils/helpers.js";
 import type { PaymentLinkPublicDto, PayPaymentLinkResponse, SimulatedCardInput } from "../../types.js";
 // ENH-011: English / Arabic checkout
 import { formatCheckoutAmount, formatCheckoutDateTime, textDirection, type CheckoutMessageKey } from "../../i18n/checkout.js";
@@ -108,7 +108,7 @@ export function CheckoutPage() {
     try {
       const result = await payPaymentLink(
         token,
-        { card: { ...card, expiryMonth: Number(expiry.month), expiryYear: Number(expiry.year) } },
+        { card: { ...card, pan: card.pan.replace(/\s/g, ""), expiryMonth: Number(expiry.month), expiryYear: Number(expiry.year) } },
         idempotencyKey,
       );
       setPayState({ kind: "success", result });
@@ -335,12 +335,13 @@ export function CheckoutPage() {
                     autoComplete="cc-number"
                     dir="ltr"
                     required
-                    maxLength={23}
+                    maxLength={19}
                     placeholder="1234 5678 9012 3456"
                     className="h-11 font-mono"
                     value={card.pan}
                     onChange={(e) => {
-                      const pan = e.target.value;
+                      // UX-90: digits only, 16 at most, shown as 4-4-4-4.
+                      const pan = formatCardNumberInput(e.target.value);
                       setCard({ ...card, pan });
                       const digits = pan.replace(/\D/g, "");
                       if (digits.length >= 4) {
