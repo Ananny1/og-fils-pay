@@ -12,7 +12,7 @@ import {
   ShieldCheck,
   Undo2,
 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import {
@@ -24,6 +24,7 @@ import {
 import { ApiError, describeError } from "../../api/client.js";
 import { RequireRole } from "../../auth/RequireRole.js";
 import { RefundDrawer } from "./RefundDrawer.js";
+import { createRetryKeys, isDefinitiveAnswer } from "../../lib/retryKey.js";
 import FadeContent from "@/components/ui/FadeContent";
 import { CopyButton } from "@/components/dashboard/copy-button";
 import { EmptyState } from "@/components/dashboard/empty-state";
@@ -145,6 +146,7 @@ export function TransactionDetailPage() {
   const [captureOpen, setCaptureOpen] = useState(false);
   const [captureAmount, setCaptureAmount] = useState("");
   const [voidOpen, setVoidOpen] = useState(false);
+  const captureKeys = useRef(createRetryKeys());
 
   const load = useCallback(async () => {
     if (!id) {
@@ -190,9 +192,17 @@ export function TransactionDetailPage() {
         }
         input = { amountFils };
       }
-      // A fresh Idempotency-Key per click, including a retry after a decline —
-      // same discipline as the checkout page's submit handler.
-      await captureTransaction(id, input, crypto.randomUUID());
+      // One Idempotency-Key per attempt (BUG-093): a retry after a network
+      // error or 5xx reuses it, so a capture that already went through is
+      // replayed, not taken twice. A decline or success starts a new attempt.
+      const key = captureKeys.current.keyFor(`${id}:${input.amountFils ?? "rest"}`);
+      try {
+        await captureTransaction(id, input, key);
+        captureKeys.current.settle();
+      } catch (err) {
+        if (isDefinitiveAnswer(err)) captureKeys.current.settle();
+        throw err;
+      }
       setCaptureOpen(false);
       setCaptureAmount("");
       toast.success("Capture submitted");
