@@ -58,10 +58,13 @@ async function insertDelivery(
   endpointId: string,
   opts: { eventType: string; createdAt: string },
 ): Promise<string> {
+  // BUG-059: the outbox row only exists for the FK. Give it an inert
+  // event_type (same as admin.test.ts) so apps/reporting's consumer never
+  // picks up a '{}' payload (no merchantId) and fails on every pass.
   const outbox = await pool.query<{ id: string }>(
-    `INSERT INTO outbox_events (event_type, aggregate_type, aggregate_id, payload)
-     VALUES ($1, 'transaction', $2, '{}'::jsonb) RETURNING id`,
-    [opts.eventType, randomUUID()],
+    `INSERT INTO outbox_events (event_type, aggregate_type, aggregate_id, payload, processed_at)
+     VALUES ('archive.test.replay_fixture', 'transaction', $1, '{}'::jsonb, now()) RETURNING id`,
+    [randomUUID()],
   );
   const outboxEventId = outbox.rows[0]!.id;
 
