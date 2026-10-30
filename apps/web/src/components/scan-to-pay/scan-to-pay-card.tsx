@@ -24,7 +24,7 @@ function useNow(intervalMs: number): number {
 }
 
 const CLOSED_STATES: Record<Exclude<ScanToPayState, "active">, { stamp: string; ink: string; icon: typeof Ban; text: string }> = {
-  paid: { stamp: "Paid", ink: "case-stamp--ink", icon: CheckCircle2, text: "This link has been paid. There is nothing left to scan." },
+  paid: { stamp: "Paid", ink: "", icon: CheckCircle2, text: "This link has been paid. There is nothing left to scan." },
   processing: {
     stamp: "In progress",
     ink: "",
@@ -115,6 +115,16 @@ export function ScanToPayCard({
             <div className="relative bg-white p-2 shadow-card ring-1 ring-border">
               <ViewfinderCorners />
               <QrCode value={payload} label={`QR code for ${payload}`} />
+            </div>
+          ) : state === "paid" ? (
+            // Paid: the whole plate turns solid red so it cannot be mistaken
+            // for a link that still takes money.
+            <div
+              data-testid="scan-to-pay-paid"
+              className="flex aspect-square flex-col items-center justify-center gap-3 bg-[var(--case-red)] p-6 text-center text-white shadow-card"
+            >
+              <CheckCircle2 className="size-14" aria-hidden="true" />
+              <span className="case-stamp border-white px-3 py-1 text-2xl text-white">Paid</span>
             </div>
           ) : closed ? (
             <div className="flex aspect-square flex-col items-center justify-center gap-3 border-2 border-dashed border-border bg-muted/40 p-6 text-center">
