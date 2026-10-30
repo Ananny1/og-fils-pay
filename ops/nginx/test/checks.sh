@@ -67,10 +67,19 @@ echo "  admin OTP verify, 20 back-to-back: $1 x 200, $2 x 429"
 [ "$1" -le 8 ] && ok "admin auth limited too ($1 got through)" || bad "too many 200 ($1)"
 cool 7
 
-echo "== payment endpoints (3 r/s, burst 10)"
-set -- $(flood 30 -X POST "$EDGE/v1/payment-links/tok_abc/pay")
-echo "  pay, 30 back-to-back: $1 x 200, $2 x 429"
+echo "== refunds (3 r/s, burst 10)"
+set -- $(flood 30 -X POST "$EDGE/v1/merchants/m1/refunds")
+echo "  refund, 30 back-to-back: $1 x 200, $2 x 429"
 [ "$1" -ge 10 ] && [ "$1" -le 16 ] && ok "about burst+1 got through ($1)" || bad "200s out of range ($1)"
+cool 5
+
+echo "== checkout (no per-IP rate, HOST-2): one load-test IP is not cut"
+set -- $(flood 150 "$EDGE/v1/payment-links/tok_abc")
+echo "  view link, 150 back-to-back: $1 x 200, $2 x 429"
+check "all 150 got 200" "$1" 150
+set -- $(flood 50 -X POST "$EDGE/v1/payment-links/tok_abc/pay")
+echo "  pay, 50 back-to-back: $1 x 200, $2 x 429"
+check "all 50 got 200" "$1" 50
 cool 5
 
 echo "== a 429 is a JSON error the dashboards understand"

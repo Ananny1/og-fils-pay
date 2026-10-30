@@ -53,7 +53,13 @@ FROM nginx:1.27-alpine AS web
 # One worker: nginx's default is one per host core, and many workers under a
 # small CPU cap spend their quota fighting each other (CAP-1).
 RUN sed -i 's/^worker_processes .*/worker_processes 1;/' /etc/nginx/nginx.conf
+# HOST-2: room for 4096 open connections (default 1024). Clients that trickle
+# their headers are not counted by any per-IP limit until the headers are in
+# (client_header_timeout 10s drops them), so this is what they fill first.
+RUN sed -i 's/^\( *\)worker_connections .*/\1worker_connections 4096;/' /etc/nginx/nginx.conf
 COPY ops/prod/nginx.conf /etc/nginx/conf.d/default.conf
 COPY ops/prod/security-headers.conf /etc/nginx/snippets/security-headers.conf
+# SEC-5 edge rules, included by nginx.conf (HOST-2).
+COPY ops/nginx/security.conf ops/nginx/security-server.conf /etc/nginx/filspay/
 COPY --from=build /app/static/web /usr/share/nginx/html
 COPY --from=build /app/static/admin /usr/share/nginx/html/admin

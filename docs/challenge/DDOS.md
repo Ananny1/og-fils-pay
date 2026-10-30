@@ -39,11 +39,13 @@ database when the traffic is real.
 | Traffic | Paths | Rate | Burst | Why this number |
 |---|---|---|---|---|
 | Login / OTP | `/v1/auth/*`, `/v1/admin/auth/*` | 1 / s | 5 | A person needs ~3 calls to log in. Guessing needs thousands. |
-| Payments | `/v1/payment-links/:token/pay`, `/v1/refunds` | 3 / s | 10 | A checkout is 1–2 calls. Stops card-testing scripts. |
+| Checkout | `/v1/payment-links/:token`, `/v1/payment-links/:token/pay` | none | — | HOST-2: a load test (or an office behind one NAT) comes from ONE IP and must reach the server's real capacity. Measured: a 100/s per-IP limit cut one IP from ~19 to 7 paid/s, because a refused buyer retries at once and the empty bucket then refuses the admitted buyers too. Past capacity the global valve answers 503. |
+| Refunds | `/v1/merchants/:id/refunds` | 3 / s | 10 | A person clicks one refund at a time. |
 | Bank callbacks | `/v1/acquirer/*` | 50 / s | 100 | The acquirer sends batches from a few IPs. In production also allowlist its IP range. |
 | Other API | `/v1/*` | 10 / s | 20 | A dashboard page fires ~5–10 API calls at once. |
 | Dashboards | everything else (HTML, JS, CSS) | 30 / s | 60 | First load pulls a handful of files. |
-| Connections | all | 20 open | — | A browser opens about 6. |
+| Requests in progress | all except checkout | 20 | — | A browser opens about 6. |
+| Requests in progress | checkout | 64 | — | Above the global api cap (28), so one IP meets the server's 503, not our 429; still caps slow checkout requests per IP. |
 
 "Burst" = how many extra requests are allowed at once before the rate kicks
 in. Above it, the answer is an immediate **429** with
@@ -54,9 +56,11 @@ Other edge rules:
 
 | Rule | Value | Stops |
 |---|---|---|
-| Header / body / send timeout | 10 s between packets | Slowloris (holding connections open by sending very slowly) |
+| Header timeout | 10 s for the whole header | Slowloris: measured, 500 connections trickling headers were all closed after 10 s |
+| Body / send timeout | 10 s between packets | Slow uploads / slow readers |
+| Global api cap (prod `nginx.conf`) | 28 connections to the api (`max_conns`) | Overload: the rest get a 2 ms `503` + `Retry-After`. Counted at the api, which nginx calls only after the whole request is read, so slow clients can't hold a slot |
+| Body size | 1 MB (KYC upload: 9 MB, admin adjustment import: 6 MB) | Memory exhaustion with huge bodies. 1 MB = the API's own JSON limit; KYC files are capped at 8 MiB and the import at 5 MB by the API |
 | Keep-alive | 15 s | Idle connections eating slots |
-| Body size | 1 MB (KYC upload: 9 MB) | Memory exhaustion with huge bodies. 1 MB = the API's own JSON limit; KYC files are capped at 8 MiB by the API |
 | Header size | 4 × 8 KB | Oversized headers / cookies |
 | Methods | GET, HEAD, POST, PATCH, DELETE, OPTIONS → else 405 | `TRACE`, `PUT`, WebDAV probing |
 | Dotfiles | `/.env`, `/.git/...` → 404 (`/.well-known/` kept) | Leaking config or source |
@@ -97,10 +101,14 @@ DDoS protection on their own:
   `set_real_ip_from` block in `ops/nginx/security.conf` for the balancer's
   range only, or every client will look like the balancer.
 
-## How to include it (for the production compose)
+## How it is included (the production compose)
 
-See the header of `ops/nginx/security.conf`. In short: include
+The hosted stack (`ops/docker-compose.prod.yml`) uses it since HOST-2:
+`ops/Dockerfile.node.prod` copies both files to `/etc/nginx/filspay/` and
+`ops/prod/nginx.conf` includes them. See the header of
+`ops/nginx/security.conf`. In short: include
 `security.conf` at http level, name the API upstream `filspay_api`, include
 `security-server.conf` as the first line of the server block, and don't set
-`limit_req` / `proxy_set_header` / `access_log` inside your own locations
-(nginx would drop the inherited ones).
+`limit_req` / `limit_conn` / `proxy_set_header` / `access_log` inside your
+own locations (nginx would drop the inherited ones); a location that sets its
+own `error_page` must repeat `error_page 429 @filspay_rate_limited`.
