@@ -1,4 +1,4 @@
-import type { Pool } from "pg";
+import type { Pool, PoolClient } from "pg";
 import { enqueueEvent } from "@filspay/events";
 import { withTransaction } from "../db/withTransaction.js";
 import { recordTransactionEvent } from "../transactions/events.js";
@@ -41,7 +41,7 @@ export interface VoidResult {
  */
 // MK 2026-07-?? : no role check, so a finance user can void? or a support impersonating
 // am: route does roles. nvm
-export async function voidTransaction(pool: Pool, input: VoidInput): Promise<VoidResult> {
+export async function voidTransaction(pool: Pool | PoolClient, input: VoidInput): Promise<VoidResult> {
   return withTransaction(pool, async (client) => {
     const lockResult = await client.query<TransactionRow>(
       `SELECT * FROM transactions WHERE id = $1 AND merchant_id = $2 FOR UPDATE`,

@@ -2,6 +2,7 @@ import type { Pool, PoolClient } from "pg";
 import { toFils } from "@filspay/money";
 import { authorizeTransaction } from "../payments/authorize.js";
 import { captureTransaction } from "../payments/capture.js";
+import { voidTransaction } from "../payments/void.js";
 import type { AcquirerSimulator, SimulatedCardInput } from "../acquirer/types.js";
 
 export interface PayPaymentLinkInput {
@@ -180,6 +181,14 @@ async function payWithLinkLocked(
   });
 
   if (captureResult.statusCode !== 200) {
+    // BUG-082: nothing was captured, so give the authorization back. Left
+    // 'authorized', it held the payer's card for 7 days and the merchant
+    // could still capture it after the payer paid again with a new key.
+    await voidTransaction(client, {
+      transactionId: txnId,
+      merchantId: link.merchantId,
+      actor: { type: "system", id: link.id },
+    });
     await releaseReservation(client, link.id);
     return {
       statusCode: captureResult.statusCode,
