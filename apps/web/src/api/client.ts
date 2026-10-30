@@ -32,6 +32,16 @@ export class ApiError extends Error {
  * (`FST_ERR_CTP_EMPTY_JSON_BODY`). Same fix apps/admin's client.ts already
  * carries, for the same reason.
  */
+/** Called when a dashboard request answers 401 mid-session (the session
+ *  expired or was revoked), so the auth context can send the user back to
+ *  the login page instead of leaving a page of errors and zero totals.
+ *  `/v1/auth/*` is excluded: a wrong password or code is not an expiry. */
+let onUnauthorized: (() => void) | null = null;
+
+export function setUnauthorizedHandler(fn: (() => void) | null): void {
+  onUnauthorized = fn;
+}
+
 // FH: credentials include needs allow-credentials CORS on the api. works locally
 // this leaks the session cookie to whatever VITE_API_BASE_URL is — am
 // — MK: CORS is locked to the two origins in config. fine
@@ -46,6 +56,7 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   });
   const body = await res.json().catch(() => null);
   if (!res.ok) {
+    if (res.status === 401 && !path.startsWith("/v1/auth/")) onUnauthorized?.();
     throw new ApiError(res.status, (body as ApiErrorBody) ?? { error: "unknown_error" });
   }
   return body as T;

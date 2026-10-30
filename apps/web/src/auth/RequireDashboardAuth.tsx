@@ -13,7 +13,7 @@ import { useDashboardAuth } from "./DashboardAuthContext.js";
  * unauthenticated request no matter what this app renders.
  */
 export function RequireDashboardAuth({ children }: { children: ReactNode }) {
-  const { status } = useDashboardAuth();
+  const { status, expired } = useDashboardAuth();
   const location = useLocation();
 
   if (status === "loading") {
@@ -25,7 +25,14 @@ export function RequireDashboardAuth({ children }: { children: ReactNode }) {
   }
 
   if (status === "anonymous") {
-    return <Navigate to="/dashboard/login" replace state={{ from: location.pathname + location.search }} />;
+    // `reason: "expired"` lets the login page say why the user is back there.
+    return (
+      <Navigate
+        to="/dashboard/login"
+        replace
+        state={{ from: location.pathname + location.search, ...(expired ? { reason: "expired" } : {}) }}
+      />
+    );
   }
 
   return <>{children}</>;

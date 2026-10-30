@@ -1,5 +1,6 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
+import { setUnauthorizedHandler } from "../api/client.js";
 import { logout as logoutRequest, me as fetchMe } from "../api/dashboardAuth.js";
 import type { DashboardMe } from "../types.js";
 
@@ -10,6 +11,8 @@ export interface DashboardAuthValue {
   status: DashboardAuthStatus;
   /** Non-null exactly when `status === "authenticated"`. */
   me: DashboardMe | null;
+  /** True when an authenticated session was ended by a 401 mid-use. */
+  expired: boolean;
   /** Re-runs `GET /v1/auth/me` — called after a successful OTP step. */
   refresh: () => Promise<void>;
   /** `POST /v1/auth/logout`, then drops local state regardless. */
@@ -58,11 +61,15 @@ export function writeLastMerchantId(merchantId: string): void {
 export function DashboardAuthProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<DashboardAuthStatus>("loading");
   const [me, setMe] = useState<DashboardMe | null>(null);
+  const [expired, setExpired] = useState(false);
+  const statusRef = useRef(status);
+  statusRef.current = status;
 
   const refresh = useCallback(async () => {
     try {
       const current = await fetchMe();
       setMe(current);
+      setExpired(false);
       setStatus("authenticated");
     } catch {
       // Any failure — 401, a revoked session, the API being down — lands on
@@ -76,18 +83,30 @@ export function DashboardAuthProvider({ children }: { children: ReactNode }) {
     void refresh();
   }, [refresh]);
 
+  // A 401 on any dashboard request after load means the session is gone:
+  // drop to anonymous so RequireDashboardAuth sends the user to login.
+  useEffect(() => {
+    setUnauthorizedHandler(() => {
+      if (statusRef.current === "authenticated") setExpired(true);
+      setMe(null);
+      setStatus("anonymous");
+    });
+    return () => setUnauthorizedHandler(null);
+  }, []);
+
   const signOut = useCallback(async () => {
     try {
       await logoutRequest();
     } finally {
+      setExpired(false);
       setMe(null);
       setStatus("anonymous");
     }
   }, []);
 
   const value = useMemo<DashboardAuthValue>(
-    () => ({ status, me, refresh, signOut }),
-    [status, me, refresh, signOut],
+    () => ({ status, me, expired, refresh, signOut }),
+    [status, me, expired, refresh, signOut],
   );
 
   return (
