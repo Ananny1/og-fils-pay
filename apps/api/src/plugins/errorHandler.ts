@@ -25,6 +25,14 @@ function isDbUnavailable(err: Error): boolean {
   );
 }
 
+/** Postgres "data exception" codes caused by a client value that doesn't
+ *  parse: 22P02 invalid text (e.g. uuid), 22007/22008 bad date or time,
+ *  22003 number out of range. */
+function isClientInputError(err: Error): boolean {
+  const code = (err as { code?: string }).code;
+  return code === "22P02" || code === "22007" || code === "22008" || code === "22003";
+}
+
 // am: 500s log the full err incl. pg detail, might contain card ref? fine its server-side
 export function errorHandler(
   err: FastifyError | Error,
@@ -84,6 +92,13 @@ export function errorHandler(
   ) {
     const code = fastifyErr.statusCode === 413 ? "payload_too_large" : "bad_request";
     reply.code(fastifyErr.statusCode).send({ error: code, message: fastifyErr.message });
+    return;
+  }
+
+  // Postgres couldn't parse a client value (a non-UUID id, a malformed date or
+  // number): the client's mistake, so 400 — never the database's text (SEC-RT-6).
+  if (isClientInputError(err)) {
+    reply.code(400).send({ error: "invalid_input", message: "A value in the request has the wrong format" });
     return;
   }
 
