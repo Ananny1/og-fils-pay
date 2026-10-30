@@ -14,6 +14,30 @@ Paths are relative to the repo root. `api/` = `apps/api/src/`, `stl/` = `apps/se
 
 ---
 
+## ⏱ 4-hour sprint (2026-10-30) — what we do and what we drop
+
+Time left: **4 hours**. The organiser (main Claude session) runs **10 parallel streams**, each an agent in
+its own git worktree with its own test database (`filspay_s1` … `filspay_s8`). Agents commit one bug per
+commit on their worktree branch; the organiser cherry-picks onto `ebrahim/track-b`, runs both suites,
+updates the shared records (IMPLEMENTATION / PLAN / TRAPS / PRESENTATION) and pushes (D-016).
+
+| Stream | Rubric row | Tasks, in order (time-boxed: stop when time is up) |
+|---|---|---|
+| S1 Access | Correctness | BUG-003, BUG-012, BUG-013, BUG-033 |
+| S2 Payment links | Correctness | BUG-004, BUG-005 |
+| S3 Callbacks & payouts | Correctness | BUG-007, BUG-006, BUG-008 |
+| S4 Money (TypeScript) | Correctness | BUG-014, BUG-017, BUG-018, BUG-019, BUG-027, BUG-029 |
+| S5 Money (Go settlement) | Correctness | BUG-020, BUG-021, BUG-016, BUG-022, BUG-015 |
+| S6 Refunds FP-300 | Correctness (the missing feature) | BUG-061, BUG-036, BUG-035, BUG-034, FP-300.1, .2, .4, BUG-056 |
+| S7 Webhooks & reports | Correctness | BUG-023, BUG-059, BUG-060, BUG-030, BUG-026 |
+| S8 Hosting & capacity | Hosting 10 + Capacity 20 | HOST-1, CAP-2, CAP-1 + estimate |
+| S9 Hand-in docs | Correctness report + AI 10 + Defence 20 | REPORT (root cause of **every** bug, fixed or not), AI-1 excerpts, slide outline |
+| S10 Screens | UI/UX 10 | UX-0 before screenshots, F5 3 decimals, F4 read-only banner, F10 no double-click, F9 titles |
+
+**Dropped for now** (documented with root cause in the findings report instead): BUG-015/028/051–055,
+BUG-024/025, BUG-057, FP-300.3/.5/.6 if S6 runs out of time, F1/F3/F6–F8/F11–F13, T5, ENH-*,
+DEPLOY (needs Dilmune access: 🔔 Q-7). Write-ups for sprint fixes use the short form (Summary + fix + proof).
+
 ## Master order
 
 Ordered by **what must work first**: you can't test anything if it doesn't run (Tier 0), nobody
