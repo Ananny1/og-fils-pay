@@ -24,11 +24,13 @@ func TestBusinessDayWindow_OffByThreeHours(t *testing.T) {
 	}
 }
 
-// TestBusinessDayWindow_IgnoresClockTime: only the calendar date of the
-// argument matters (temporary? scheduler passes noon sometimes).
+// TestBusinessDayWindow_IgnoresClockTime: only the Bahrain calendar date of
+// the argument matters. BUG-020: 23:59:59 UTC is 02:59:59 Bahrain on the
+// NEXT day, so the old case pinned the UTC-day bug; 20:59:59 UTC is the
+// last second of 31 Dec in Bahrain.
 func TestBusinessDayWindow_IgnoresClockTime(t *testing.T) {
 	a, _ := BusinessDayWindow(time.Date(2026, 12, 31, 0, 0, 0, 0, time.UTC))
-	b, bEnd := BusinessDayWindow(time.Date(2026, 12, 31, 23, 59, 59, 0, time.UTC))
+	b, bEnd := BusinessDayWindow(time.Date(2026, 12, 31, 20, 59, 59, 0, time.UTC))
 	if !a.Equal(b) {
 		t.Fatalf("clock time changed the window start: %s vs %s", a, b)
 	}

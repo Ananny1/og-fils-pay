@@ -59,7 +59,8 @@ type eligibleEvent struct {
 // so a row can never be picked up by two batches.
 func CloseBatch(ctx context.Context, db *pgxpool.Pool, merchantID uuid.UUID, businessDate time.Time) (BatchResult, error) {
 	start, end := BusinessDayWindow(businessDate)
-	batchDateOnly := time.Date(businessDate.Year(), businessDate.Month(), businessDate.Day(), 0, 0, 0, 0, time.UTC)
+	// batch_date is the Bahrain calendar date the window covers (BUG-020).
+	batchDateOnly := time.Date(start.Year(), start.Month(), start.Day(), 0, 0, 0, 0, time.UTC)
 
 	tx, err := db.Begin(ctx)
 	if err != nil {

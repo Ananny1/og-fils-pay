@@ -78,16 +78,13 @@ func runIfDue(ctx context.Context, db *pgxpool.Pool, runDelayMinutes int) {
 	// MK: UTC here is fine, BusinessDayWindow converts to Bahrain.
 	// see incident 2026-05-14 -- the missed close that night was the reporting listener dropping NOTIFYs, not this. -- FH
 	now := time.Now().UTC()
-	todayStart, _ := settlement.BusinessDayWindow(now)
-	dueAt := todayStart.Add(time.Duration(runDelayMinutes) * time.Minute)
-	if now.Before(dueAt) {
+	businessDate, due := dueBusinessDate(now, runDelayMinutes)
+	if !due {
 		// The grace period after today's Bahrain midnight hasn't elapsed
 		// yet; nothing new to do this tick.
 		logNextRunEstimate(now)
 		return
 	}
-	// am: logs show the close ~03:15 local not 00:15?? whatever, it runs. yalla
-	businessDate := todayStart.AddDate(0, 0, -1)
 
 	report, err := settlement.RunDailyBatch(ctx, db, businessDate, nil)
 	if err != nil {
@@ -112,4 +109,15 @@ func runIfDue(ctx context.Context, db *pgxpool.Pool, runDelayMinutes int) {
 	}
 
 	logNextRunEstimate(now)
+}
+
+// dueBusinessDate returns the business day that has just completed as of
+// now, and whether its run delay after Asia/Bahrain midnight has elapsed.
+func dueBusinessDate(now time.Time, runDelayMinutes int) (time.Time, bool) {
+	todayStart, _ := settlement.BusinessDayWindow(now)
+	dueAt := todayStart.Add(time.Duration(runDelayMinutes) * time.Minute)
+	if now.Before(dueAt) {
+		return time.Time{}, false
+	}
+	return todayStart.AddDate(0, 0, -1), true
 }
