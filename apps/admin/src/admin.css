@@ -931,3 +931,12 @@ input[type="checkbox"] {
   margin: 0 0.45rem 0 0;
   vertical-align: -0.15em;
 }
+
+/* UX-72: the whole row opens the merchant. */
+.admin-row-link {
+  cursor: pointer;
+}
+
+.admin-row-link:hover td {
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+}

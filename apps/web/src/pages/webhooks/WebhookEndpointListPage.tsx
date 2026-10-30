@@ -39,6 +39,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { dateTime } from "../../format.js";
 import type { WebhookEndpointDto } from "../../types.js";
+import { openRowLink } from "@/lib/rowLink";
 
 const COLUMNS = 5;
 
@@ -167,7 +168,7 @@ export function WebhookEndpointListPage() {
                   {endpoints.map((endpoint) => {
                     const busy = busyId === endpoint.id;
                     return (
-                      <TableRow key={endpoint.id}>
+                      <TableRow key={endpoint.id} className="cursor-pointer" onClick={openRowLink}>
                         <TableCell className="max-w-[24rem]">
                           <Link
                             to={`/dashboard/webhooks/${endpoint.id}`}

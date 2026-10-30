@@ -30,6 +30,7 @@ import { businessDate, dash, dateTime } from "../../format.js";
 import { formatCount } from "../../utils/helpers.js";
 import type { PayoutTrendsResponse, TopLinksResponse, VolumesResponse } from "../../types.js";
 import { CheckedForm } from "@/components/checked-form";
+import { openRowLink } from "@/lib/rowLink";
 
 /** 60s: comfortably above the reporting worker's 15s worst-case lag, and
  *  more than often enough for a dashboard. Poll, not push —
@@ -375,7 +376,7 @@ export function OverviewPage() {
                   ) : (
                     <TableBody>
                       {payouts?.points.map((point) => (
-                        <TableRow key={point.settlementBatchId}>
+                        <TableRow key={point.settlementBatchId} className="cursor-pointer" onClick={openRowLink}>
                           <TableCell>
                             <Link
                               to={`/dashboard/settlement/${point.settlementBatchId}`}
@@ -439,7 +440,7 @@ export function OverviewPage() {
                   ) : (
                     <TableBody>
                       {topLinks?.links.map((link, index) => (
-                        <TableRow key={link.id}>
+                        <TableRow key={link.id} className="cursor-pointer" onClick={openRowLink}>
                           <TableCell className="text-right font-mono tabular-nums text-muted-foreground">{index + 1}</TableCell>
                           <TableCell>
                             <Link

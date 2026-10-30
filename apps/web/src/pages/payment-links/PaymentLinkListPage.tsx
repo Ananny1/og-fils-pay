@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { dash, dateTime } from "../../format.js";
 import type { PaymentLinkDto, PaymentLinkStatus } from "../../types.js";
+import { openRowLink } from "@/lib/rowLink";
 
 /** The four *stored* statuses, including `reserved` — the merchant-facing
  *  list deliberately exposes it distinctly rather than collapsing it into the
@@ -158,7 +159,7 @@ export function PaymentLinkListPage() {
               ) : (
                 <TableBody>
                   {links.map((link) => (
-                    <TableRow key={link.id}>
+                    <TableRow key={link.id} className="cursor-pointer" onClick={openRowLink}>
                       <TableCell className="font-medium">
                         <Link
                           to={`/dashboard/payment-links/${link.id}`}

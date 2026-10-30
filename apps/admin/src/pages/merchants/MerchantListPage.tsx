@@ -7,6 +7,7 @@ import { RequireRole } from "../../auth/RequireRole.js";
 import { date } from "../../format.js";
 import type { AdminMerchantSummary, MerchantOnboardingStatus } from "../../types.js";
 import { CheckedForm } from "../../components/CheckedForm.js";
+import { openRowLink } from "../../rowLink.js";
 
 const ONBOARDING_STATUSES: MerchantOnboardingStatus[] = [
   "submitted",
@@ -179,7 +180,7 @@ export function MerchantListPage() {
         </thead>
         <tbody>
           {merchants.map((merchant) => (
-            <tr key={merchant.id}>
+            <tr key={merchant.id} className="admin-row-link" onClick={openRowLink}>
               <td>
                 <input
                   type="checkbox"

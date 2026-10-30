@@ -25,6 +25,7 @@ import { cn } from "@/lib/utils";
 import { dash, dateTime, dayStartIso } from "../../format.js";
 import { pluralize, truncateMiddle } from "../../utils/helpers.js";
 import type { TransactionDto, TransactionStatus } from "../../types.js";
+import { openRowLink } from "@/lib/rowLink";
 
 const STATUSES: TransactionStatus[] = [
   "authorized",
@@ -215,7 +216,7 @@ export function TransactionListPage() {
               ) : (
                 <TableBody>
                   {transactions.map((txn) => (
-                    <TableRow key={txn.id}>
+                    <TableRow key={txn.id} className="cursor-pointer" onClick={openRowLink}>
                       <TableCell className="whitespace-nowrap">
                         <Link
                           to={`/dashboard/transactions/${txn.id}`}

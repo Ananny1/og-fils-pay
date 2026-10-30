@@ -20,6 +20,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { businessDate, dash, dateTime } from "../../format.js";
 import type { SettlementBatchDetailDto, SettlementBatchTransactionDto } from "../../types.js";
+import { openRowLink } from "@/lib/rowLink";
 
 type LoadState =
   | { kind: "loading" }
@@ -244,7 +245,7 @@ export function SettlementBatchDetailPage() {
               </TableHeader>
               <TableBody>
                 {lines.map((line) => (
-                  <TableRow key={`${line.transactionId}-${line.lineSequence}`}>
+                  <TableRow key={`${line.transactionId}-${line.lineSequence}`} className="cursor-pointer" onClick={openRowLink}>
                     <TableCell className="text-right font-mono tabular-nums text-muted-foreground">
                       {line.lineSequence}
                     </TableCell>

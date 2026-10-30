@@ -22,6 +22,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { cn } from "@/lib/utils";
 import { dateTime, businessDate } from "../../format.js";
 import type { SettlementBatchDto, SettlementBatchStatus } from "../../types.js";
+import { openRowLink } from "@/lib/rowLink";
 
 const STATUSES: SettlementBatchStatus[] = ["open", "closed", "paid"];
 
@@ -209,7 +210,7 @@ export function SettlementBatchListPage() {
               ) : (
                 <TableBody>
                   {batches.map((batch) => (
-                    <TableRow key={batch.id}>
+                    <TableRow key={batch.id} className="cursor-pointer" onClick={openRowLink}>
                       <TableCell>
                         <Link
                           to={`/dashboard/settlement/${batch.id}`}
