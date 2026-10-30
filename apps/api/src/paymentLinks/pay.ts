@@ -1,4 +1,4 @@
-import type { Pool } from "pg";
+import type { Pool, PoolClient } from "pg";
 import { toFils } from "@filspay/money";
 import { authorizeTransaction } from "../payments/authorize.js";
 import { captureTransaction } from "../payments/capture.js";
@@ -43,13 +43,16 @@ export function expiryReferenceTime(submittedAt?: string): Date {
  * then `captureTransaction` directly, in sequence, never issuing an HTTP
  * request back into the API's own /v1/transactions routes.
  *
- * Concurrency: reserve the link with a single
- * atomic conditional UPDATE, release the row lock immediately, run
- * authorize+capture with no lock held on payment_links at all, then
- * finalize with a second atomic conditional UPDATE keyed on still being in
- * the 'reserved' state. A short, configurable reservation timeout
- * self-heals a link stuck 'reserved' by a crash between claim and
- * finalize, with no sweep job.
+ * Concurrency (BUG-005): the claim UPDATE runs inside a transaction on a
+ * dedicated client and its row lock on the link is held until finalize,
+ * the same pattern capture.ts uses for the transaction row. A second payer
+ * waits on that lock (at most PAY_LOCK_WAIT_MS, then 409
+ * payment_link_processing) and, once the first payer commits, sees 'paid'.
+ * The old design released the lock right after the claim and let a
+ * reservation older than the timeout be re-claimed while authorize+capture
+ * were still running, so a slow acquirer meant two charges (incident
+ * 2026-05-14). A crash now rolls the claim back with the connection, so no
+ * link is left stuck; the reserved_at timeout only heals legacy rows.
  */
 export async function payPaymentLink(
   pool: Pool,
@@ -59,10 +62,39 @@ export async function payPaymentLink(
 ): Promise<PayPaymentLinkResult> {
   const expiryCheckTime = expiryReferenceTime(input.submittedAt);
 
-  // Step 1 — claim. A single UPDATE is already atomic; no explicit
-  // transaction needed.
-  // YA: one conditional UPDATE = atomic claim, no explicit txn needed. correct
-  const claimResult = await pool.query<ClaimedLinkRow>(
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query(`SET LOCAL lock_timeout = '${PAY_LOCK_WAIT_MS}ms'`);
+    const result = await payWithLinkLocked(client, pool, acquirer, config, input, expiryCheckTime);
+    await client.query("COMMIT");
+    return result;
+  } catch (err) {
+    await client.query("ROLLBACK").catch(() => undefined);
+    if ((err as { code?: string }).code === "55P03") {
+      // lock_not_available: another payer holds this link right now.
+      return { statusCode: 409, body: { error: "payment_link_processing" } };
+    }
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+/** How long a second payer waits for the first one's lock before getting 409 processing. */
+const PAY_LOCK_WAIT_MS = 5_000;
+
+async function payWithLinkLocked(
+  client: PoolClient,
+  pool: Pool,
+  acquirer: AcquirerSimulator,
+  config: { paymentLinkReservationTimeoutSeconds: number },
+  input: PayPaymentLinkInput,
+  expiryCheckTime: Date,
+): Promise<PayPaymentLinkResult> {
+  // Step 1 — claim. The row lock taken here is held (open transaction on
+  // `client`) through authorize, capture and finalize.
+  const claimResult = await client.query<ClaimedLinkRow>(
     `UPDATE payment_links
         SET status = 'reserved', reserved_at = now()
       WHERE token = $1
@@ -102,7 +134,7 @@ export async function payPaymentLink(
   });
 
   if (authResult.statusCode !== 201) {
-    await releaseReservation(pool, link.id);
+    await releaseReservation(client, link.id);
     return {
       statusCode: authResult.statusCode,
       body: { stage: "authorize", ...(authResult.body as Record<string, unknown>) },
@@ -126,18 +158,16 @@ export async function payPaymentLink(
   });
 
   if (captureResult.statusCode !== 200) {
-    await releaseReservation(pool, link.id);
+    await releaseReservation(client, link.id);
     return {
       statusCode: captureResult.statusCode,
       body: { stage: "capture", ...(captureResult.body as Record<string, unknown>) },
     };
   }
 
-  // see incident 2026-05-14 — two customers charged on one link. root cause: the claim
-  // MK: re-evaluation is exactly what makes it safe. the bug was in the web retry, closed
-  // am: was it? FP-198 is still open
-  // Step 4 — finalize.
-  const finalizeResult = await pool.query<{
+  // Step 4 — finalize (same client, still holding the claim's row lock;
+  // see incident 2026-05-14 / BUG-005).
+  const finalizeResult = await client.query<{
     id: string;
     paid_at: Date;
   }>(
@@ -149,12 +179,9 @@ export async function payPaymentLink(
   );
 
   const finalized = finalizeResult.rows[0];
-  // FH: this IS reachable — if capture takes past the reservation timeout a second request re-claims,
-  // pays and finalizes first; we land here, answer 200, and the card was charged twice
-  // MK: authorize+capture is under a second. 60s can't happen. unreachable
   if (!finalized) {
-    // Should be unreachable in normal operation (this request is the only
-    // holder of the reservation). The acquirer-side capture genuinely
+    // Unreachable since BUG-005: this request has held the link's row lock
+    // since the claim, so no one else can re-claim it. The acquirer-side capture genuinely
     // succeeded and money moved; failing to *record* that fact against the
     // link is a data-consistency bug to surface loudly, not a reason to
     // tell a customer whose card was actually charged that their payment
@@ -185,8 +212,8 @@ export async function payPaymentLink(
  * 'reserved'` for the same reason as the finalize UPDATE: this request
  * only ever releases the reservation it itself holds.
  */
-async function releaseReservation(pool: Pool, linkId: string): Promise<void> {
-  await pool.query(`UPDATE payment_links SET status = 'active', reserved_at = NULL WHERE id = $1 AND status = 'reserved'`, [
+async function releaseReservation(client: PoolClient, linkId: string): Promise<void> {
+  await client.query(`UPDATE payment_links SET status = 'active', reserved_at = NULL WHERE id = $1 AND status = 'reserved'`, [
     linkId,
   ]);
 }
