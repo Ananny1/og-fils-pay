@@ -12,6 +12,8 @@
 | **Evidence** | — |
 | **Status** | ✅ fixed |
 
+Present in the original code: `apps/api/src/payments/capture.ts:92` at 8b58b0f.
+
 ## Summary (the short note)
 
 - **What's wrong:** If a merchant captures sale B with an Idempotency-Key it already used for sale A, the API answers `200` with sale A's data. Sale B is never captured.

@@ -12,6 +12,8 @@
 | **Evidence** | — |
 | **Status** | ✅ fixed |
 
+Present in the original code: `apps/api/src/paymentLinks/pay.ts:128` at 8b58b0f.
+
 ## Summary (the short note)
 
 - **What's wrong:** When paying a payment link, if the card is authorized but the capture is declined or the acquirer errors, the authorization is left open. The payer clicks "Pay" again and is charged by a second, new transaction.

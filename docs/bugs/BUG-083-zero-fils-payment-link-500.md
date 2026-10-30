@@ -12,6 +12,8 @@
 | **Evidence** | — |
 | **Status** | ✅ fixed |
 
+Present in the original code: `apps/api/src/paymentLinks/create.ts:38` at 8b58b0f.
+
 ## Summary (the short note)
 
 - **What's wrong:** `POST /v1/merchants/:id/payment-links` with `amountFils: 0` answers `500 internal_error`.

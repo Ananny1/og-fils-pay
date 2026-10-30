@@ -12,6 +12,8 @@
 | **Evidence** | — |
 | **Status** | ✅ fixed |
 
+Present in the original code: `apps/api/src/routes/transactions.ts:79` and `:103` at 8b58b0f.
+
 ## Summary (the short note)
 
 - **What's wrong:** `POST /v1/transactions` with `amountFils` 0, negative, 1.5, `"1000"` or `true`, and capture with a negative / decimal / string amount, answer `500 internal_error`.
