@@ -74,7 +74,11 @@ export interface AuthenticatedSessionLookup {
   role: "owner" | "finance" | "support";
 }
 
-/** Resolves a session token to its user. */
+/**
+ * Resolves a session token to its user. The `authenticated = true` predicate
+ * is mandatory (0012): `live_sessions` (0058) only filters revoked/expired
+ * rows, so without it a pending (pre-OTP) cookie would be a full session.
+ */
 export async function lookupSession(
   pool: Pool,
   rawToken: string,
@@ -89,7 +93,8 @@ export async function lookupSession(
     `SELECT s.id AS session_id, s.merchant_user_id, mu.merchant_id, mu.role
        FROM live_sessions s
        JOIN merchant_users mu ON mu.id = s.merchant_user_id
-      WHERE s.token_hash = $1`,
+      WHERE s.token_hash = $1
+        AND s.authenticated = true`,
     [tokenHash],
   );
   const row = result.rows[0];
