@@ -5,6 +5,7 @@ import { describeError } from "../../api/client.js";
 import { useAdminAuth } from "../../auth/AdminAuthContext.js";
 import type { AdminLoginResponse } from "../../types.js";
 import { ThemeToggle } from "../../components/ThemeToggle.js";
+import { time } from "../../format.js";
 
 type Step =
   | { kind: "credentials" }
@@ -111,7 +112,7 @@ export function LoginPage() {
         <form onSubmit={(e) => void handleOtp(e)} className="admin-form">
           <p>
             A one-time code was issued for <strong>{email}</strong>. It expires at{" "}
-            {new Date(step.challenge.otpExpiresAt).toLocaleTimeString()}.
+            {time(step.challenge.otpExpiresAt)} (Bahrain time).
           </p>
           {step.challenge.devOtpCode ? (
             <p className="admin-muted">

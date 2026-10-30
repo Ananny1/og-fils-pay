@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { formatBhd, toFils } from "@filspay/money";
 import {
   approveCreditRequest,
   listCreditRequests,
@@ -8,11 +7,8 @@ import {
 } from "../../api/credits.js";
 import { describeError } from "../../api/client.js";
 import { RequireRole } from "../../auth/RequireRole.js";
+import { bhd } from "../../format.js";
 import type { CreditRequestDto, CreditRequestStatus } from "../../types.js";
-
-function bhd(fils: number): string {
-  return `${formatBhd(toFils(fils, { allowNegative: true }))} BHD`;
-}
 
 const STATUS_TABS: Array<{ value: CreditRequestStatus; label: string }> = [
   { value: "pending_approval", label: "Awaiting approval" },
@@ -160,12 +156,12 @@ export function CreditsPage() {
                   {item.memo ? <div className="admin-muted">{item.memo}</div> : null}
                 </td>
                 <td className="admin-num">{bhd(item.baseAmountFils)}</td>
-                <td className="admin-num">{item.feeReversalFils > 0 ? bhd(item.feeReversalFils) : "-"}</td>
+                <td className="admin-num">{item.feeReversalFils > 0 ? bhd(item.feeReversalFils) : "—"}</td>
                 <td className="admin-num">
                   <strong>{bhd(item.postedAmountFils)}</strong>
                 </td>
                 <td>{item.effectiveDate}</td>
-                <td>{item.approvedByDisplayName ?? "-"}</td>
+                <td>{item.approvedByDisplayName ?? "—"}</td>
                 <td
                   className={
                     item.status === "pending_approval"

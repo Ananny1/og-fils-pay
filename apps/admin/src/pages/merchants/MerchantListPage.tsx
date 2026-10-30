@@ -4,6 +4,7 @@ import { listMerchants } from "../../api/merchants.js";
 import { bulkApproveKyc } from "../../api/merchantsBulk.js";
 import { describeError } from "../../api/client.js";
 import { RequireRole } from "../../auth/RequireRole.js";
+import { date } from "../../format.js";
 import type { AdminMerchantSummary, MerchantOnboardingStatus } from "../../types.js";
 
 const ONBOARDING_STATUSES: MerchantOnboardingStatus[] = [
@@ -201,7 +202,7 @@ export function MerchantListPage() {
               </td>
               <td className="admin-num">{(merchant.mdrBps / 100).toFixed(2)}%</td>
               <td>{merchant.testMode ? "test" : "live"}</td>
-              <td>{new Date(merchant.createdAt).toLocaleDateString()}</td>
+              <td>{date(merchant.createdAt)}</td>
             </tr>
           ))}
           {merchants.length === 0 && !loading ? (

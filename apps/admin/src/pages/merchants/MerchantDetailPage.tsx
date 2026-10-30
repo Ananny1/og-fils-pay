@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { formatBhd, parseBhdToFils, toFils } from "@filspay/money";
+import { parseBhdToFils } from "@filspay/money";
 import { getMerchant, recomputeTransactionStatuses, submitKycReview } from "../../api/merchants.js";
 import { adjustBalance } from "../../api/balanceAdjustments.js";
 import { issueCredit } from "../../api/credits.js";
@@ -9,11 +9,8 @@ import { startImpersonation } from "../../api/impersonation.js";
 import { describeError, WEB_BASE_URL } from "../../api/client.js";
 import { useAdminAuth } from "../../auth/AdminAuthContext.js";
 import { RequireRole } from "../../auth/RequireRole.js";
+import { bhd, businessDate, date, dateTime } from "../../format.js";
 import type { AdminMerchantDetail, CreditReasonCode, RotatedApiKey } from "../../types.js";
-
-function bhd(fils: number): string {
-  return `${formatBhd(toFils(fils, { allowNegative: true }))} BHD`;
-}
 
 // browser local date not bahrain, fine for bahrain staff — am
 function todayIso(): string {
@@ -271,13 +268,13 @@ export function MerchantDetailPage() {
         <dt>Current negotiated rate</dt>
         <dd>
           {detail.currentFeeSchedule
-            ? `${(detail.currentFeeSchedule.mdrBps / 100).toFixed(2)}% (${detail.currentFeeSchedule.mdrBps} bps), effective ${new Date(detail.currentFeeSchedule.effectiveFrom).toLocaleDateString()}`
+            ? `${(detail.currentFeeSchedule.mdrBps / 100).toFixed(2)}% (${detail.currentFeeSchedule.mdrBps} bps), effective ${date(detail.currentFeeSchedule.effectiveFrom)}`
             : "no negotiated schedule on file (uses MDR above)"}
         </dd>
         <dt>Mode</dt>
         <dd>{merchant.testMode ? "test" : "live"}</dd>
         <dt>Created</dt>
-        <dd>{new Date(merchant.createdAt).toLocaleString()}</dd>
+        <dd>{dateTime(merchant.createdAt)}</dd>
         {profile ? (
           <>
             <dt>Legal name</dt>
@@ -305,7 +302,7 @@ export function MerchantDetailPage() {
       {detail.balance ? (
         <p>
           Cached payable: <strong>{bhd(detail.balance.cachedPayableFils)}</strong> (updated{" "}
-          {new Date(detail.balance.updatedAt).toLocaleString()}). The ledger remains authoritative;
+          {dateTime(detail.balance.updatedAt)}). The ledger remains authoritative;
           this figure is a cache, rebuildable from Settlement ops.
         </p>
       ) : (
@@ -467,8 +464,8 @@ export function MerchantDetailPage() {
               <tr key={review.id}>
                 <td className={`admin-status admin-status--${review.outcome}`}>{review.outcome}</td>
                 <td>{review.reviewerIdentifier}</td>
-                <td>{review.notes ?? "-"}</td>
-                <td>{new Date(review.reviewedAt).toLocaleString()}</td>
+                <td>{review.notes ?? "—"}</td>
+                <td>{dateTime(review.reviewedAt)}</td>
               </tr>
             ))}
           </tbody>
@@ -515,10 +512,10 @@ export function MerchantDetailPage() {
                 <td>
                   <code>{key.prefix}</code>
                 </td>
-                <td>{key.label ?? "-"}</td>
-                <td>{new Date(key.createdAt).toLocaleDateString()}</td>
-                <td>{key.lastUsedAt ? new Date(key.lastUsedAt).toLocaleString() : "never"}</td>
-                <td>{key.revokedAt ? new Date(key.revokedAt).toLocaleString() : "-"}</td>
+                <td>{key.label ?? "—"}</td>
+                <td>{date(key.createdAt)}</td>
+                <td>{key.lastUsedAt ? dateTime(key.lastUsedAt) : "never"}</td>
+                <td>{dateTime(key.revokedAt)}</td>
                 <td>
                   {key.revokedAt ? null : (
                     <RequireRole
@@ -588,7 +585,7 @@ export function MerchantDetailPage() {
                 <td>
                   <code>{endpoint.secretPrefix}</code>
                 </td>
-                <td>{new Date(endpoint.createdAt).toLocaleDateString()}</td>
+                <td>{date(endpoint.createdAt)}</td>
               </tr>
             ))}
           </tbody>
@@ -615,7 +612,7 @@ export function MerchantDetailPage() {
           <tbody>
             {batches.map((batch) => (
               <tr key={batch.id}>
-                <td>{batch.batchDate}</td>
+                <td>{businessDate(batch.batchDate)}</td>
                 <td className={`admin-status admin-status--${batch.status}`}>{batch.status}</td>
                 <td className="admin-num">{bhd(batch.grossFils)}</td>
                 <td className="admin-num">{bhd(batch.feeFils)}</td>
