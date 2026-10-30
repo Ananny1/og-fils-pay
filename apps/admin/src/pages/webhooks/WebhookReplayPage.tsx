@@ -10,6 +10,7 @@ import type {
   WebhookDeliveryStatus,
 } from "../../types.js";
 import { CheckedForm } from "../../components/CheckedForm.js";
+import { bahrainInputToIso, bahrainInputValue } from "../../format.js";
 
 const REPLAYABLE_STATUSES: WebhookDeliveryStatus[] = [
   "exhausted",
@@ -18,19 +19,12 @@ const REPLAYABLE_STATUSES: WebhookDeliveryStatus[] = [
   "succeeded",
 ];
 
-/** `<input type="datetime-local">` wants a local-time `YYYY-MM-DDTHH:mm`
- *  string; the API wants ISO-8601 instants. Convert at both edges rather
- *  than making the operator think about timezones. */
-function toLocalInputValue(date: Date): string {
-  const offsetMs = date.getTimezoneOffset() * 60_000;
-  return new Date(date.getTime() - offsetMs).toISOString().slice(0, 16);
-}
-
-// default window is local time — am
+/** The window is typed and shown in Bahrain time, like every other time in
+ *  the console, whatever zone the browser is in (BUG-092). */
 function defaultRange(): { from: string; to: string } {
   const now = new Date();
   const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-  return { from: toLocalInputValue(weekAgo), to: toLocalInputValue(now) };
+  return { from: bahrainInputValue(weekAgo), to: bahrainInputValue(now) };
 }
 
 /**
@@ -95,14 +89,20 @@ export function WebhookReplayPage() {
   async function handleReplay(event: React.FormEvent): Promise<void> {
     event.preventDefault();
     if (!merchantId || !endpointId) return;
+    const from = bahrainInputToIso(range.from);
+    const to = bahrainInputToIso(range.to);
+    if (!from || !to) {
+      setError("Pick a valid From and To time.");
+      return;
+    }
     setBusy(true);
     setError(null);
     setResult(null);
     try {
       setResult(
         await replayBatch(merchantId, endpointId, {
-          from: new Date(range.from).toISOString(),
-          to: new Date(range.to).toISOString(),
+          from,
+          to,
           statuses: statuses.length > 0 ? statuses : undefined,
         }),
       );
@@ -183,7 +183,7 @@ export function WebhookReplayPage() {
           </select>
         </label>
         <label>
-          From
+          From (Bahrain time)
           <input
             type="datetime-local"
             required
@@ -192,7 +192,7 @@ export function WebhookReplayPage() {
           />
         </label>
         <label>
-          To
+          To (Bahrain time)
           <input
             type="datetime-local"
             required

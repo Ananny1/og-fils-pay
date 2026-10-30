@@ -88,3 +88,22 @@ const BAHRAIN_YMD = new Intl.DateTimeFormat("en-CA", {
 export function bahrainToday(now: Date = new Date()): string {
   return BAHRAIN_YMD.format(now);
 }
+
+/** Bahrain is UTC+3 all year (no DST). */
+const BAHRAIN_OFFSET_MS = 3 * 60 * 60 * 1000;
+
+/** An instant as a `<input type="datetime-local">` value in Bahrain wall
+ *  time ("2026-10-30T18:00"), the same clock the console shows everywhere. */
+export function bahrainInputValue(date: Date): string {
+  return new Date(date.getTime() + BAHRAIN_OFFSET_MS).toISOString().slice(0, 16);
+}
+
+/** A `<input type="datetime-local">` value read as Bahrain time (not the
+ *  browser's zone) → ISO instant, or null when it is empty or not a date.
+ *  Same rule as apps/web/src/format.ts `localDateTimeToIso`. */
+export function bahrainInputToIso(value: string): string | null {
+  if (!value) return null;
+  const withSeconds = /T\d{2}:\d{2}$/.test(value) ? `${value}:00` : value;
+  const parsed = new Date(`${withSeconds}+03:00`);
+  return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
+}
