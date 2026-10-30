@@ -10,6 +10,7 @@ import type {
   MdrRecalcSummary,
   RunBatchSummary,
 } from "../../types.js";
+import { CheckedForm } from "../../components/CheckedForm.js";
 
 function bhd(fils: number): string {
   return `${formatBhd(toFils(fils, { allowNegative: true }))} BHD`;
@@ -146,7 +147,7 @@ export function SettlementPage() {
           </p>
         }
       >
-        <form className="admin-form" onSubmit={(e) => void handleRunBatch(e)}>
+        <CheckedForm className="admin-form" onSubmit={(e) => void handleRunBatch(e)}>
           <label>
             Business date
             <input type="date" required value={date} onChange={(e) => setDate(e.target.value)} />
@@ -163,7 +164,7 @@ export function SettlementPage() {
           <button type="submit" disabled={runBusy}>
             {runBusy ? "Running..." : "Run batch"}
           </button>
-        </form>
+        </CheckedForm>
       </RequireRole>
 
       {runResult ? (
@@ -345,7 +346,7 @@ export function SettlementPage() {
           </p>
         }
       >
-        <form className="admin-form" onSubmit={(e) => void handleRecalculateMdr(e)}>
+        <CheckedForm className="admin-form" onSubmit={(e) => void handleRecalculateMdr(e)}>
           <label>
             Merchant id
             <input
@@ -366,7 +367,7 @@ export function SettlementPage() {
           <button type="submit" disabled={mdrBusy}>
             {mdrBusy ? "Recalculating…" : "Recalculate MDR"}
           </button>
-        </form>
+        </CheckedForm>
       </RequireRole>
 
       {mdrError ? <p className="admin-error">{mdrError}</p> : null}

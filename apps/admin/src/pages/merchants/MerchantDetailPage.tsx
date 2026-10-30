@@ -11,6 +11,7 @@ import { useAdminAuth } from "../../auth/AdminAuthContext.js";
 import { RequireRole } from "../../auth/RequireRole.js";
 import { bhd, businessDate, date, dateTime } from "../../format.js";
 import type { AdminMerchantDetail, CreditReasonCode, RotatedApiKey } from "../../types.js";
+import { CheckedForm } from "../../components/CheckedForm.js";
 
 // browser local date not bahrain, fine for bahrain staff — am
 function todayIso(): string {
@@ -368,7 +369,7 @@ export function MerchantDetailPage() {
           </p>
         }
       >
-        <form className="admin-form" onSubmit={(e) => void handleIssueCredit(e)}>
+        <CheckedForm className="admin-form" onSubmit={(e) => void handleIssueCredit(e)}>
           <label>
             Amount (BD, up to 3 decimals)
             <input
@@ -414,7 +415,7 @@ export function MerchantDetailPage() {
           <button type="submit" disabled={busy}>
             {busy ? "Submitting..." : "Issue credit"}
           </button>
-        </form>
+        </CheckedForm>
       </RequireRole>
 
       <h2>KYC review</h2>

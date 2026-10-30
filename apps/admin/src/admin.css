@@ -747,6 +747,12 @@ button.admin-btn-danger:hover:not(:disabled) {
   color: var(--on-dark);
 }
 
+/* UX-71: the field CheckedForm flagged. */
+[aria-invalid="true"] {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
 /* Info / success: paper slip with a dark frame and a red rule on the left. */
 .admin-notice {
   margin: 1rem 0;

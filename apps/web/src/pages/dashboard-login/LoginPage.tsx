@@ -24,6 +24,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
+import { CheckedForm } from "@/components/checked-form";
 
 type Step = { kind: "credentials" } | { kind: "otp"; challenge: DashboardLoginResponse };
 
@@ -300,7 +301,7 @@ export function LoginPage() {
                   ) : null}
 
                   {step.kind === "credentials" ? (
-                    <form onSubmit={(e) => void handleCredentials(e)}>
+                    <CheckedForm onSubmit={(e) => void handleCredentials(e)}>
                       <FieldGroup>
                         <Field>
                           <FieldLabel htmlFor="login-merchant-id">Merchant ID</FieldLabel>
@@ -359,9 +360,9 @@ export function LoginPage() {
                           How does it work?
                         </Button>
                       </FieldGroup>
-                    </form>
+                    </CheckedForm>
                   ) : (
-                    <form onSubmit={(e) => void handleOtp(e)}>
+                    <CheckedForm onSubmit={(e) => void handleOtp(e)}>
                       <FieldGroup>
                         {step.challenge.devOtpCode ? (
                           <div className="flex items-center justify-between gap-3 rounded-xl border border-dashed border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
@@ -432,7 +433,7 @@ export function LoginPage() {
                           </Button>
                         </div>
                       </FieldGroup>
-                    </form>
+                    </CheckedForm>
                   )}
                 </CardContent>
               </Card>

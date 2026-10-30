@@ -6,6 +6,7 @@ import { useAdminAuth } from "../../auth/AdminAuthContext.js";
 import type { AdminLoginResponse } from "../../types.js";
 import { ThemeToggle } from "../../components/ThemeToggle.js";
 import { time } from "../../format.js";
+import { CheckedForm } from "../../components/CheckedForm.js";
 
 type Step =
   | { kind: "credentials" }
@@ -103,7 +104,7 @@ export function LoginPage() {
       {error ? <p className="admin-error">{error}</p> : null}
 
       {step.kind === "credentials" ? (
-        <form onSubmit={(e) => void handleCredentials(e)} className="admin-form">
+        <CheckedForm onSubmit={(e) => void handleCredentials(e)} className="admin-form">
           <label>
             Email
             <input
@@ -127,9 +128,9 @@ export function LoginPage() {
           <button type="submit" disabled={submitting}>
             {submitting ? "Signing in..." : "Continue"}
           </button>
-        </form>
+        </CheckedForm>
       ) : (
-        <form onSubmit={(e) => void handleOtp(e)} className="admin-form">
+        <CheckedForm onSubmit={(e) => void handleOtp(e)} className="admin-form">
           <p>
             A one-time code was issued for <strong>{email}</strong>. It expires at{" "}
             {time(step.challenge.otpExpiresAt)} (Bahrain time).
@@ -174,7 +175,7 @@ export function LoginPage() {
           >
             Back
           </button>
-        </form>
+        </CheckedForm>
       )}
     </main>
   );

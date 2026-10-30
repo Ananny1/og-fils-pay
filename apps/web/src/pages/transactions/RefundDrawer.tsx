@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/sheet";
 import { Spinner } from "@/components/ui/spinner";
 import type { TransactionDto } from "../../types.js";
+import { CheckedForm } from "@/components/checked-form";
 
 interface RefundResponse {
   id: string;
@@ -156,7 +157,7 @@ export function RefundDrawer({ txn, onRefunded }: RefundDrawerProps) {
           Refund
         </SheetTrigger>
         <SheetContent side="right">
-          <form className="flex h-full flex-col" onSubmit={(e) => void handleRefund(e)}>
+          <CheckedForm className="flex h-full flex-col" onSubmit={(e) => void handleRefund(e)}>
             <SheetHeader>
               <SheetTitle>Refund payment</SheetTitle>
               <SheetDescription>
@@ -191,7 +192,7 @@ export function RefundDrawer({ txn, onRefunded }: RefundDrawerProps) {
               </Button>
               <SheetClose render={<Button variant="outline" disabled={submitting} />}>Cancel</SheetClose>
             </SheetFooter>
-          </form>
+          </CheckedForm>
         </SheetContent>
       </Sheet>
     </RequireRole>

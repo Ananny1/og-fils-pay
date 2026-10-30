@@ -21,6 +21,7 @@ import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
+import { CheckedForm } from "@/components/checked-form";
 
 type LoadState =
   | { kind: "loading" }
@@ -314,7 +315,7 @@ export function CheckoutPage() {
             />
           ) : null}
 
-          <form onSubmit={handleSubmit}>
+          <CheckedForm lang={lang} onSubmit={handleSubmit}>
             <FieldGroup>
               <fieldset disabled={submitting} className="contents">
                 <Field>
@@ -418,7 +419,7 @@ export function CheckoutPage() {
                 )}
               </Button>
             </FieldGroup>
-          </form>
+          </CheckedForm>
         </CardContent>
       </Card>
 

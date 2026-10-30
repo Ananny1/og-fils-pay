@@ -6,6 +6,7 @@ import { describeError } from "../../api/client.js";
 import { RequireRole } from "../../auth/RequireRole.js";
 import { date } from "../../format.js";
 import type { AdminMerchantSummary, MerchantOnboardingStatus } from "../../types.js";
+import { CheckedForm } from "../../components/CheckedForm.js";
 
 const ONBOARDING_STATUSES: MerchantOnboardingStatus[] = [
   "submitted",
@@ -105,7 +106,7 @@ export function MerchantListPage() {
     <section>
       <h1>Merchants</h1>
 
-      <form
+      <CheckedForm
         className="admin-form admin-form-inline"
         onSubmit={(e) => {
           e.preventDefault();
@@ -122,7 +123,7 @@ export function MerchantListPage() {
           />
         </label>
         <button type="submit">Search</button>
-      </form>
+      </CheckedForm>
 
       <fieldset className="admin-filters">
         <legend>Onboarding status</legend>

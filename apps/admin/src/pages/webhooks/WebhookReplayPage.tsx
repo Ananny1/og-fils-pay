@@ -9,6 +9,7 @@ import type {
   BatchReplayResult,
   WebhookDeliveryStatus,
 } from "../../types.js";
+import { CheckedForm } from "../../components/CheckedForm.js";
 
 const REPLAYABLE_STATUSES: WebhookDeliveryStatus[] = [
   "exhausted",
@@ -118,7 +119,7 @@ export function WebhookReplayPage() {
         <h1>Webhook replay</h1>
         <p className="admin-muted">Pick the merchant whose endpoint needs a replay.</p>
         {error ? <p className="admin-error">{error}</p> : null}
-        <form className="admin-form admin-form-inline" onSubmit={(e) => void handleSearch(e)}>
+        <CheckedForm className="admin-form admin-form-inline" onSubmit={(e) => void handleSearch(e)}>
           <label>
             Search merchants
             <input
@@ -129,7 +130,7 @@ export function WebhookReplayPage() {
             />
           </label>
           <button type="submit">Search</button>
-        </form>
+        </CheckedForm>
         <ul>
           {candidates.map((merchant) => (
             <li key={merchant.id}>
@@ -167,7 +168,7 @@ export function WebhookReplayPage() {
         <p className="admin-muted">This merchant has no webhook endpoints registered.</p>
       ) : null}
 
-      <form className="admin-form" onSubmit={(e) => void handleReplay(e)}>
+      <CheckedForm className="admin-form" onSubmit={(e) => void handleReplay(e)}>
         <label>
           Endpoint
           <select value={endpointId} onChange={(e) => setEndpointId(e.target.value)} required>
@@ -220,7 +221,7 @@ export function WebhookReplayPage() {
         <button type="submit" disabled={busy || !endpointId}>
           {busy ? "Replaying..." : "Replay batch"}
         </button>
-      </form>
+      </CheckedForm>
 
       {result ? (
         <div className="admin-notice">

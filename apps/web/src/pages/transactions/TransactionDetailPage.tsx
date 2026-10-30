@@ -62,6 +62,7 @@ import { cn } from "@/lib/utils";
 import { dash, dateTime } from "../../format.js";
 import { truncateMiddle } from "../../utils/helpers.js";
 import type { TransactionDto, TransactionEventDto } from "../../types.js";
+import { CheckedForm } from "@/components/checked-form";
 
 type LoadState =
   | { kind: "loading" }
@@ -461,7 +462,7 @@ export function TransactionDetailPage() {
         }}
       >
         <DialogContent>
-          <form className="flex flex-col gap-4" onSubmit={(e) => void handleCapture(e)}>
+          <CheckedForm className="flex flex-col gap-4" onSubmit={(e) => void handleCapture(e)}>
             <DialogHeader>
               <DialogTitle>Capture funds</DialogTitle>
               <DialogDescription>
@@ -507,7 +508,7 @@ export function TransactionDetailPage() {
                 {submitting ? "Capturing…" : "Capture"}
               </Button>
             </DialogFooter>
-          </form>
+          </CheckedForm>
         </DialogContent>
       </Dialog>
 

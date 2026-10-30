@@ -29,6 +29,7 @@ import { cn } from "@/lib/utils";
 import { businessDate, dash, dateTime } from "../../format.js";
 import { formatCount } from "../../utils/helpers.js";
 import type { PayoutTrendsResponse, TopLinksResponse, VolumesResponse } from "../../types.js";
+import { CheckedForm } from "@/components/checked-form";
 
 /** 60s: comfortably above the reporting worker's 15s worst-case lag, and
  *  more than often enough for a dashboard. Poll, not push —
@@ -159,7 +160,7 @@ export function OverviewPage() {
       <FadeContent trigger="mount" duration={0.5} delay={0.05}>
         <Card>
           <CardContent>
-            <form
+            <CheckedForm
               className="flex flex-wrap items-end gap-x-6 gap-y-4"
               onSubmit={(e) => {
                 e.preventDefault();
@@ -186,7 +187,7 @@ export function OverviewPage() {
                 <RefreshCw className={cn(loading && "animate-spin")} />
                 {loading ? "Refreshing…" : "Refresh"}
               </Button>
-            </form>
+            </CheckedForm>
           </CardContent>
         </Card>
       </FadeContent>

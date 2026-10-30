@@ -15,6 +15,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
 import { businessDate } from "../../format.js";
 import type { ReconciliationReport } from "../../types.js";
+import { CheckedForm } from "@/components/checked-form";
 
 /**
  * `from`/`to` are required by this endpoint (`400 invalid_request` without
@@ -117,7 +118,7 @@ export function ReconciliationPage() {
       <FadeContent trigger="mount" duration={0.5} delay={0.05}>
         <Card>
           <CardContent>
-            <form
+            <CheckedForm
               className="flex flex-wrap items-end gap-x-6 gap-y-4"
               onSubmit={(e) => {
                 e.preventDefault();
@@ -133,7 +134,7 @@ export function ReconciliationPage() {
                 {loading ? "Running…" : "Run report"}
               </Button>
               {!canRun ? <p className="text-xs text-muted-foreground">Both dates are required.</p> : null}
-            </form>
+            </CheckedForm>
           </CardContent>
         </Card>
       </FadeContent>
