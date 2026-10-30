@@ -83,4 +83,23 @@ by merchantId. verified" · T-47 resend "inherits attempts" · T-48 "read FOR UP
 T-49 "worst case is 5 guesses" (12 were checked) · T-50 "stripped in production builds" · T-51
 "fixation is a non-issue" · T-52 "impersonation is read-only".
 
-*This list grows as we fix more bugs; update it before the presentation.*
+---
+
+## 5. "The AI said so" — and it was wrong (found in the sprint)
+
+The old team pasted AI answers into comments as proof. Every one below was **false**, and a failing test proved it:
+
+| Comment in the code | The truth | Bug |
+|---|---|---|
+| "asked claude - INTEGER in PostgreSQL is 64-bit on 64-bit builds" | Postgres `INTEGER` is **always 32-bit**; the platform volume counter overflows at ~2.1 million BD | BUG-022 (T-72) |
+| "total_processed_fils is BIGINT so no overflow risk (Claude double-checked the migration)" | The column was `INTEGER` | BUG-022 (T-73) |
+| "parseAdjustmentCsv handles 3dp BD amounts correctly (4.750 → 4750 fils), Claude checked" | `4.750` became **475** fils: 10× too small | BUG-014 (T-77) |
+| "asked Claude, it said created_at is right for most recently agreed" | The admin screen showed **245 bps** while capture charged **225** | BUG-026 (T-91) |
+| "Claude drafted the handler" (refunds) with `crypto.randomUUID()` as the idempotency key | Every retry would become a **new refund**: money out twice | FP-300.1 (T-116) |
+| "another merchant's transaction answers 404 — Claude says it's covered by the route test" | The route was a 501 stub; no such test existed | BUG-036 (T-110) |
+| "added a same-id/different-name case per copilot, it passes" | No such test existed; when written, it **failed** | BUG-013 (T-63) |
+| "outbox_events has a unique index on (event_type, aggregate_id)" (claude) | No such index: payouts were notified and **disbursed twice** | BUG-008 (T-100) |
+
+**Talking point:** same tools we use, opposite result. They trusted the AI's words; we made every
+claim pass a failing test first. **121 traps** recorded in total (`TRAPS.md`).
+
