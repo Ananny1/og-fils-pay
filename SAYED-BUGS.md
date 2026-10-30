@@ -1,6 +1,6 @@
 # Sayed — bugs we fixed
 
-Every bug fixed in Sayed's sessions. Each has a failing-then-passing test; numbered bugs also have a
+Every bug in the handed-over app that was fixed in Sayed's sessions (problems we introduced ourselves are not listed). Each has a failing-then-passing test; numbered bugs also have a
 full write-up in `docs/bugs/<ID>-*.md` (root cause, who was affected, options, proof).
 
 **On `main`** = merged and verified (full suite + Go suite green apart from the 12 known refund /
@@ -35,7 +35,6 @@ retry-timing failures, whose fixes are on `fix/*` branches below).
 | OPS-004 | No reproducible secure deploy for 1 vCPU / 2 GB | Dev-only compose; DB and internal API exposed | Production stack: nginx entry, limits, restarts, healthchecks, nothing internal published |
 | OPS-005/006 | No capacity number | — | k6 checkout load test; estimate ≈35 checkouts/s at ≈30 concurrent payers, p95 < 1 s (`docs/ops/CAPACITY.md`) |
 | — (reporting) | Dashboards froze forever | One outbox event without `merchantId` made every pass roll back and retry it | Skip and log such events |
-| — (migrations) | Test and dev databases missing 0054–0056 | Earlier local move of those files | Applied; the team's DEP-002 fix is the one kept |
 
 ## Money, checkout, webhooks — fixed on branches (not yet merged)
 
@@ -44,12 +43,3 @@ retry-timing failures, whose fixes are on `fix/*` branches below).
 | `fix/checkout` | BUG-004 expired link payable · BUG-005 link charged twice · BUG-036 capture fee ignored the discount · BUG-037 UTC-dated metric · BUG-038 hot-path indexes (needed for the capacity number) |
 | `fix/money-settlement` | BUG-015 scheme file a few fils high · BUG-041 rounding residue never booked · BUG-016 split payouts don't add up · BUG-017 balance rebuild 135K → 7K · BUG-018 MDR recalc rewrote paid batches · BUG-020 close at 03:00 not midnight · BUG-021 float32 net · BUG-022 int32 overflow · BUG-028 drifting payout estimate |
 | `fix/webhooks-reports` | BUG-006 duplicate callbacks · BUG-007 unsigned/forged callbacks accepted · BUG-023 webhook signed different bytes than sent · BUG-051 double-send with two replicas · BUG-052 random retry schedule · BUG-053 undecryptable secret retried forever · BUG-024 summary double-counts · BUG-026 245 vs 225 bps · BUG-054 reconciliation uses wrong rate |
-
-## Our own mistakes caught and fixed
-
-| What | Fix |
-|---|---|
-| Dropdowns and dialogs didn't open | shadcn `Button` didn't forward refs on React 18 |
-| Landing-page demo showed a wrong fee (3.937 instead of 3.941 BD) | Computed with `applyRateFils` |
-| Our first migration fix would have deleted a view the balance rebuild needs | Took the teammate's DEP-002 fix on merge |
-| Chat assistant: invisible character in the pasted key; tool schema used unsupported fields | Key sanitised in config; limits enforced server-side |
