@@ -289,3 +289,52 @@ test("BUG-029: two simultaneous submits of the same CSV post once", async () => 
   );
   assert.equal(Number(balance.rows[0]!.cached_payable_fils), 2000);
 });
+
+// BUG-029 review: the guard must not depend on row order (reordering the
+// CSV used to bypass it) ...
+test("BUG-029: the same rows in a different order are rejected the second time", async () => {
+  const adminUserId = await createAdminUser();
+  const merchantA = await createMerchant();
+  const merchantB = await createMerchant();
+
+  await applyAdjustmentImport(pool, {
+    adminUserId,
+    originalFilename: "ab.csv",
+    rows: [
+      { merchantId: merchantA, amount: "1.000", reason: "fix" },
+      { merchantId: merchantB, amount: "2.000", reason: "fix" },
+    ],
+  });
+  await assert.rejects(
+    applyAdjustmentImport(pool, {
+      adminUserId,
+      originalFilename: "ba.csv",
+      rows: [
+        { merchantId: merchantB, amount: "2.000", reason: "fix" },
+        { merchantId: merchantA, amount: "1.000", reason: "fix" },
+      ],
+    }),
+    /already been applied/,
+  );
+});
+
+// ... and must not refuse the same legitimate correction forever: it is
+// scoped to one Asia/Bahrain day, so the same rows next month are accepted.
+test("BUG-029: the same rows on a later Bahrain day are accepted", async () => {
+  const adminUserId = await createAdminUser();
+  const merchantId = await createMerchant();
+  const rows = [{ merchantId, amount: "3.000", reason: "monthly correction" }];
+
+  const first = await applyAdjustmentImport(pool, { adminUserId, originalFilename: "sep.csv", rows });
+  // Pretend the first import was applied last month.
+  await pool.query(`UPDATE adjustment_imports SET content_day = content_day - 30 WHERE id = $1`, [first.importId]);
+
+  const second = await applyAdjustmentImport(pool, { adminUserId, originalFilename: "oct.csv", rows });
+  assert.notEqual(second.importId, first.importId);
+
+  const balance = await pool.query<{ cached_payable_fils: string }>(
+    `SELECT cached_payable_fils FROM merchant_balances WHERE merchant_id = $1`,
+    [merchantId],
+  );
+  assert.equal(Number(balance.rows[0]!.cached_payable_fils), 6000);
+});

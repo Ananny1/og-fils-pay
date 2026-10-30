@@ -41,13 +41,14 @@ async function postAdjustmentToLedgerAndCache(
  * SHA-256 of the parsed rows (merchant id, amount in fils, reason), so the
  * same corrections are recognised whatever the filename or the way the
  * amount was written ("4.75" and "4.750" are the same 4750 fils). BUG-029.
+ * Rows are sorted first, so reordering the CSV gives the same hash. The
+ * unique index is per Bahrain day (content_day, migration 0088), so the
+ * same rows are refused only on the same settlement day.
  */
 function importContentHash(rows: AdjustmentImportRow[]): string {
-  const canonical = rows.map((row) => [
-    row.merchantId.toLowerCase(),
-    parseAdjustmentAmountFils(row.amount),
-    row.reason ?? "",
-  ]);
+  const canonical = rows
+    .map((row) => JSON.stringify([row.merchantId.toLowerCase(), parseAdjustmentAmountFils(row.amount), row.reason ?? ""]))
+    .sort();
   return createHash("sha256").update(JSON.stringify(canonical)).digest("hex");
 }
 
@@ -69,8 +70,9 @@ export async function applyAdjustmentImport(
   const contentHash = importContentHash(input.rows);
 
   return withTransaction(pool, async (client) => {
-    // BUG-029: the unique index on content_hash rejects a second apply of the
-    // same rows; a concurrent double-click waits here and then fails.
+    // BUG-029: the unique index on (content_hash, content_day) rejects a
+    // second apply of the same rows on the same Bahrain day; a concurrent
+    // double-click waits here and then fails.
     const importRow = await client
       .query<{ id: string }>(
         `INSERT INTO adjustment_imports (uploaded_by_admin_user_id, original_filename, row_count, content_hash)
@@ -79,7 +81,7 @@ export async function applyAdjustmentImport(
       )
       .catch((err: unknown) => {
         if ((err as { code?: string }).code === "23505") {
-          throw new ConflictError("duplicate_import", "this CSV has already been applied");
+          throw new ConflictError("duplicate_import", "this CSV has already been applied today");
         }
         throw err;
       });

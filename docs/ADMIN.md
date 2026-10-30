@@ -66,7 +66,8 @@ reconciliation match what finance agreed with them.
 `merchantId,amount,reason` header. Amounts are in BD as finance's sheets
 already have them (`4.75`, `120.00`). Rows are applied as soon as you
 submit; each import's rows are kept with the original text for reference.
-Submitting the same rows a second time is refused ("already applied").
+Submitting the same rows (in any order) a second time on the same Bahrain day
+is refused ("already applied today"); the same rows on a later day are accepted.
 
 ## Settlement ops
 
