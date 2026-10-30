@@ -647,3 +647,35 @@ test("a full refund nets every ledger account to zero, even with a negotiated di
     assert.equal(net, 0, `${account} should net to 0 after a full refund, got ${net}`);
   }
 });
+
+// BUG-056 (R4): each partial refund rounded its own fee share, so the parts
+// could add up to more than the fee charged (fee 2 on 3 fils, 3 x 1 fil
+// refunds -> 1 + 1 + 1 = 3 reversed).
+test("partial refunds never reverse more fee in total than was charged", async () => {
+  const merchant = await createApprovedMerchantWithApiKey("refund-fee-sum", 6_667);
+  const txn = await capturedTransaction(merchant.rawKey, 3);
+  const actor = await apiKeyActor(merchant.merchantId);
+
+  const feeCharged = -((await ledgerNetByAccount(txn.id)).get("platform_fee_revenue") ?? 0);
+  assert.equal(feeCharged, 2, "precondition: 6667 bps on 3 fils charges a 2 fils fee");
+
+  const reversed: number[] = [];
+  for (let i = 0; i < 3; i += 1) {
+    const result = await processRefund(pool, approvingAcquirer, {
+      transactionId: txn.id,
+      merchantId: merchant.merchantId,
+      amountFils: toFils(1),
+      idempotencyKey: randomUUID(),
+      actor,
+    });
+    assert.equal(result.statusCode, 200, JSON.stringify(result.body));
+    reversed.push((result.body as { feeReversedFils: number }).feeReversedFils);
+    const soFar = reversed.reduce((a, b) => a + b, 0);
+    assert.ok(soFar <= feeCharged, `after refund ${i + 1} reversed ${soFar} > fee ${feeCharged}`);
+  }
+  assert.equal(reversed.reduce((a, b) => a + b, 0), feeCharged);
+
+  for (const [account, net] of await ledgerNetByAccount(txn.id)) {
+    assert.equal(net, 0, `${account} should net to 0 after refunding everything, got ${net}`);
+  }
+});

@@ -135,6 +135,15 @@ export async function processRefund(
         throw new Error("processRefund: fee aggregate returned no row");
       }
 
+      // Fee already given back by earlier refunds of this sale (BUG-056).
+      const reversedResult = await client.query<{ reversed_fils: string }>(
+        `SELECT COALESCE(SUM(fee_reversed_fils), 0)::text AS reversed_fils
+           FROM refunds
+          WHERE transaction_id = $1
+            AND status = 'succeeded'`,
+        [txn.id],
+      );
+
       return {
         kind: "proceed" as const,
         claimId: claim.row.id,
@@ -146,6 +155,7 @@ export async function processRefund(
         capturedFils,
         refundedFils,
         feeChargedFils: toFils(Number(feeRow.fee_fils)),
+        feeAlreadyReversedFils: toFils(Number(reversedResult.rows[0]?.reversed_fils ?? 0)),
         requestedAmount: validation.amountFils,
       };
     })();
@@ -179,11 +189,15 @@ export async function processRefund(
       capturedFils: prepared.capturedFils,
       refundedTotalFils: newRefundedTotal,
     });
-    const feeReversedFils = calculateRefundFee(
-      prepared.capturedFils,
-      prepared.feeChargedFils,
-      prepared.requestedAmount,
-    );
+    // Cumulative, not per refund (BUG-056): the fee share of everything
+    // refunded so far, minus what earlier refunds already reversed. Rounding
+    // each partial on its own can add up to more than the fee charged; this
+    // way the parts always sum to exactly the fee once all is refunded.
+    const cumulativeFeeShare = calculateRefundFee(prepared.capturedFils, prepared.feeChargedFils, newRefundedTotal);
+    const feeReversedFils =
+      compareFils(cumulativeFeeShare, prepared.feeAlreadyReversedFils) > 0
+        ? subtractFils(cumulativeFeeShare, prepared.feeAlreadyReversedFils)
+        : ZERO_FILS;
 
     const refundResult = await client.query<{ id: string; occurred_at: Date }>(
       `INSERT INTO refunds
