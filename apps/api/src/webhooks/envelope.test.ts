@@ -47,3 +47,40 @@ test("buildEnvelope rejects an event type it has no mapping for", () => {
     /unsupported event type/,
   );
 });
+
+// FP-300.4: refunds tell the merchant through the same signed webhook path.
+test("refund.succeeded maps to the documented public data shape", () => {
+  const deliveryEventId = randomUUID();
+  const transactionId = randomUUID();
+  const merchantId = randomUUID();
+  const refundId = randomUUID();
+
+  const envelope = buildEnvelope(deliveryEventId, {
+    eventType: "refund.succeeded",
+    aggregateId: transactionId,
+    payload: {
+      merchantId,
+      refundId,
+      amountFils: 2_500,
+      feeReversedFils: 63,
+      refundedTotalFils: 2_500,
+      newStatus: "partially_refunded",
+    },
+    createdAt: new Date("2026-10-30T09:15:00.000Z"),
+  });
+
+  assert.deepEqual(envelope, {
+    id: deliveryEventId,
+    type: "refund.succeeded",
+    createdAt: "2026-10-30T09:15:00.000Z",
+    data: {
+      refundId,
+      transactionId,
+      merchantId,
+      amountFils: 2_500,
+      feeReversedFils: 63,
+      refundedTotalFils: 2_500,
+      status: "partially_refunded",
+    },
+  });
+});
