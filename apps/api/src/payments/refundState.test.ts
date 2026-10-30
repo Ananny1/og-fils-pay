@@ -67,3 +67,26 @@ test("a partially captured transaction with nothing refunded stays partially_cap
     "partially_captured",
   );
 });
+
+// BUG-057: "a transaction is refunded when every fils we captured went back".
+test("a full refund of a partially captured transaction is refunded", () => {
+  assert.equal(
+    nextStatusAfterRefund({
+      amountFils: toFils(10_000),
+      capturedFils: toFils(4_000),
+      refundedTotalFils: toFils(4_000),
+    }),
+    "refunded",
+  );
+});
+
+test("a partial refund of a partially captured transaction keeps its capture status (headroom still capturable)", () => {
+  assert.equal(
+    nextStatusAfterRefund({
+      amountFils: toFils(10_000),
+      capturedFils: toFils(4_000),
+      refundedTotalFils: toFils(1_000),
+    }),
+    "partially_captured",
+  );
+});

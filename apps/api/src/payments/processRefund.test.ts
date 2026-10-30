@@ -549,7 +549,9 @@ test("a refund can never exceed what was captured", async () => {
   assert.equal(all.statusCode, 200, JSON.stringify(all.body));
   assert.equal((all.body as { amountFils: number }).amountFils, 4_000);
 
-  // Nothing is left: a further 1 fil is refused.
+  // Nothing is left: a further 1 fil is refused. Everything captured went
+  // back, so the sale is now refunded (BUG-057) and refused as not
+  // refundable (409), like any fully refunded sale.
   const more = await processRefund(pool, approvingAcquirer, {
     transactionId: txn.id,
     merchantId: merchant.merchantId,
@@ -557,12 +559,14 @@ test("a refund can never exceed what was captured", async () => {
     idempotencyKey: randomUUID(),
     actor,
   });
-  assert.equal(more.statusCode, 422, JSON.stringify(more.body));
+  assert.equal(more.statusCode, 409, JSON.stringify(more.body));
 
-  const row = await pool.query<{ refunded_fils: string }>(`SELECT refunded_fils FROM transactions WHERE id = $1`, [
-    txn.id,
-  ]);
+  const row = await pool.query<{ refunded_fils: string; status: string }>(
+    `SELECT refunded_fils, status FROM transactions WHERE id = $1`,
+    [txn.id],
+  );
   assert.equal(Number(row.rows[0]!.refunded_fils), 4_000);
+  assert.equal(row.rows[0]!.status, "refunded");
 });
 
 // BUG-034 (R1, FP-209): two refunds with different keys at the same moment
