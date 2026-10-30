@@ -3,6 +3,7 @@ import { toFils, type Fils } from "@filspay/money";
 import { requireAdminRole, requireAdminSession } from "../adminAuth/middleware.js";
 import { applyBalanceCorrection } from "../admin/balanceAdjustments.js";
 import { UUID_RE } from "../admin/merchants.js";
+import { optionalIdempotencyKey } from "./adminCredits.js";
 import { BadRequestError, NotFoundError, UnauthorizedError } from "../lib/errors.js";
 
 interface MerchantIdParams {
@@ -64,11 +65,13 @@ export async function adminBalanceAdjustmentRoutes(app: FastifyInstance): Promis
       assertUuidParam(request.params.id, "merchant_not_found");
 
       const { deltaFils, reason } = parseBalanceAdjustmentBody(request.body);
+      const idempotencyKey = optionalIdempotencyKey(request);
       const result = await applyBalanceCorrection(app.db, {
         merchantId: request.params.id,
         adminUserId: adminAuth.adminUserId,
         deltaFils,
         reason,
+        idempotencyKey,
       });
 
       reply.code(200).send(result);

@@ -1,4 +1,4 @@
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyRequest } from "fastify";
 import { requireAdminRole, requireAdminSession } from "../adminAuth/middleware.js";
 import {
   approveCreditRequest,
@@ -7,7 +7,7 @@ import {
   rejectCreditRequest,
 } from "../admin/credits.js";
 import { UUID_RE } from "../admin/merchants.js";
-import { NotFoundError, UnauthorizedError } from "../lib/errors.js";
+import { BadRequestError, NotFoundError, UnauthorizedError } from "../lib/errors.js";
 
 interface MerchantIdParams {
   id: string;
@@ -35,6 +35,20 @@ function assertUuidParam(value: string, code: string): void {
   if (!UUID_RE.test(value)) {
     throw new NotFoundError(code);
   }
+}
+
+/**
+ * BUG-109: optional Idempotency-Key (optional so older admin clients keep
+ * working; the admin console always sends one). Present but blank is a 400.
+ */
+export function optionalIdempotencyKey(request: FastifyRequest): string | undefined {
+  const header = request.headers["idempotency-key"];
+  const key = Array.isArray(header) ? header[0] : header;
+  if (key === undefined) return undefined;
+  if (key.trim() === "" || key.length > 255) {
+    throw new BadRequestError("invalid_idempotency_key", "Idempotency-Key must be 1-255 characters");
+  }
+  return key;
 }
 
 export async function adminCreditRoutes(app: FastifyInstance): Promise<void> {
@@ -73,6 +87,7 @@ export async function adminCreditRoutes(app: FastifyInstance): Promise<void> {
           merchantId: request.params.id,
           adminUserId: adminAuth.adminUserId,
           body: request.body,
+          idempotencyKey: optionalIdempotencyKey(request),
         });
         reply.code(201).send(record);
       },
