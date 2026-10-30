@@ -46,12 +46,12 @@ Status of all tasks: `PLAN.md` → Master order. This file is the **detail of wh
 
 | # | Question | Blocks | My default if no answer |
 |---|---|---|---|
-| Q-6 | "Chattrix" from your earlier projects: what is it (mail sender? chat/notification service?) and may FilsPay use it to deliver OTP codes? | BUG-031 follow-up (OTP delivery) | Fix the leak now; log the OTP server-side only in dev; delivery stays a stub |
-| Q-1 | Refund route: `/v1/refunds` (existing stub the web client calls?) or `/v1/merchants/:id/refunds` | FP-300.1 | Use whatever `apps/web/src/api/transactions.ts` calls |
-| Q-2 | Refunds in settlement: deduct from the next batch, or report-only | FP-300.3 | Deduct from the next batch (sheet S2 "payouts come out right") |
-| Q-4 | Dilmune Cloud access (host, login, how apps are deployed) | DEPLOY | Prepare everything; deploy when access arrives |
+| Q-6 | ✅ **Answered 2026-10-30:** "chattrix" = SMTP with a Gmail app password, built in the VirtuThinko portal (`src/server/mail/index.ts`: nodemailer, `SMTP_HOST/PORT/SECURE/USER/PASSWORD`, `MAIL_FROM`, Mailpit locally). The brief does **not** require sending the OTP (original notifier: "no real email/SMS integration exists or is needed") → ENH-001, reuse that pattern; app password only in git-ignored `ops/.env.docker`. Authenticator app = ENH-002. |
+| Q-1 | ✅ **Answered 2026-10-30:** match the web app (use the route `apps/web` already calls). |
+| Q-2 | ✅ **Answered 2026-10-30:** refunds are deducted from the shop's next payout (option A); a day where refunds exceed sales carries the rest forward, never a negative payout. |
+| Q-4 | ⏸ **2026-10-30:** hosting comes later; keep everything deploy-ready. |
 | Q-5 | Submit the hidden flag `FLAG{order_of_the_prompt_never_read_the_diff}`? Where? | — | Keep it documented in GUIDE/IMPLEMENTATION |
-| Q-8 | Docker's build cache holds ~4 GB (mostly other projects); disk is at 99%. OK to run `docker builder prune`? | Builds may fail on a full disk | Don't touch it; clean only FilsPay's own leftovers |
+| Q-8 | ✅ **Answered 2026-10-30:** prune approved and done (freed 0.5 GB; disk 92%, 8.2 GB free). |
 | Q-7 | Should the seed run automatically on `docker compose up` on the hosted box (it resets demo data each start)? | DEP-004, DEPLOY | Local: yes. Hosted: only on first start |
 
 ## Ideas for later
