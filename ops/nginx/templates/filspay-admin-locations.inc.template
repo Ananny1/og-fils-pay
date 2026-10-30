@@ -1,0 +1,22 @@
+# Staff console (apps/admin). It only ever calls /v1/admin/*.
+root /usr/share/nginx/html/admin;
+include /etc/nginx/conf.d/filspay-common-locations.inc;
+
+location ^~ /v1/admin/auth/ {
+    limit_req  zone=fp_auth burst=${NGINX_AUTH_BURST} nodelay;
+    limit_conn fp_conn ${NGINX_CONN_PER_IP};
+    include /etc/nginx/conf.d/filspay-proxy.inc;
+}
+
+location ^~ /v1/admin/ {
+    limit_req  zone=fp_api burst=${NGINX_API_BURST} nodelay;
+    limit_conn fp_conn ${NGINX_CONN_PER_IP};
+    include /etc/nginx/conf.d/filspay-proxy.inc;
+}
+
+# Nothing else of the API is exposed on the admin host.
+location ^~ /v1/ {
+    include /etc/nginx/conf.d/filspay-headers.inc;
+    default_type application/json;
+    return 404 '{"error":"not_found"}';
+}

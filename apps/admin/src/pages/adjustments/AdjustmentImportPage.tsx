@@ -150,7 +150,7 @@ export function AdjustmentImportPage() {
             <tr>
               <th>Applied</th>
               <th>File</th>
-              <th>Rows</th>
+              <th className="admin-num">Rows</th>
               <th />
             </tr>
           </thead>
@@ -159,7 +159,7 @@ export function AdjustmentImportPage() {
               <tr key={item.id}>
                 <td>{item.appliedAt}</td>
                 <td>{item.originalFilename}</td>
-                <td>{item.rowCount}</td>
+                <td className="admin-num">{item.rowCount}</td>
                 <td>
                   <button type="button" onClick={() => void handleOpenRows(item.id)}>
                     {openImportId === item.id ? "Hide rows" : "View rows"}
@@ -179,22 +179,22 @@ export function AdjustmentImportPage() {
           <table className="admin-table">
             <thead>
               <tr>
-                <th>#</th>
+                <th className="admin-num">#</th>
                 <th>Merchant</th>
-                <th>CSV amount</th>
-                <th>Posted</th>
+                <th className="admin-num">CSV amount</th>
+                <th className="admin-num">Posted</th>
                 <th>Reason</th>
               </tr>
             </thead>
             <tbody>
               {rows.map((row) => (
                 <tr key={row.rowNumber}>
-                  <td>{row.rowNumber}</td>
+                  <td className="admin-num">{row.rowNumber}</td>
                   <td>{row.merchantId}</td>
-                  <td>
+                  <td className="admin-num">
                     <code>{row.rawAmountText}</code>
                   </td>
-                  <td>{bhd(row.parsedAmountFils)}</td>
+                  <td className="admin-num">{bhd(row.parsedAmountFils)}</td>
                   <td>{row.reason ?? ""}</td>
                 </tr>
               ))}

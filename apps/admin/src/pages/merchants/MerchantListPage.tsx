@@ -170,7 +170,7 @@ export function MerchantListPage() {
             <th>Status</th>
             <th>Onboarding</th>
             <th>KYC</th>
-            <th>MDR</th>
+            <th className="admin-num">MDR</th>
             <th>Mode</th>
             <th>Created</th>
           </tr>
@@ -192,10 +192,14 @@ export function MerchantListPage() {
                   <code>{merchant.id}</code>
                 </div>
               </td>
-              <td>{merchant.status}</td>
-              <td>{merchant.onboardingStatus}</td>
-              <td>{merchant.kycPassed ? "passed" : "not passed"}</td>
-              <td>{(merchant.mdrBps / 100).toFixed(2)}%</td>
+              <td className={`admin-status admin-status--${merchant.status}`}>{merchant.status}</td>
+              <td className={`admin-status admin-status--${merchant.onboardingStatus}`}>
+                {merchant.onboardingStatus}
+              </td>
+              <td className={`admin-status admin-status--${merchant.kycPassed ? "passed" : "not_passed"}`}>
+                {merchant.kycPassed ? "passed" : "not passed"}
+              </td>
+              <td className="admin-num">{(merchant.mdrBps / 100).toFixed(2)}%</td>
               <td>{merchant.testMode ? "test" : "live"}</td>
               <td>{new Date(merchant.createdAt).toLocaleDateString()}</td>
             </tr>

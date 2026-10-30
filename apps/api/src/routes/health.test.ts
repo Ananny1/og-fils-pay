@@ -5,8 +5,10 @@ import { buildApp } from "../app.js";
 import { loadConfig } from "../config.js";
 import { isReady, markDbConnectedOnce, resetReadyStateForTests } from "../health/state.js";
 
-// healthz/readyz never touch the database, so a syntactically valid but
-// unreachable DATABASE_URL is fine for this test file.
+// healthz never touches the database. readyz does (OPS-001), and this file
+// deliberately uses an unreachable DATABASE_URL to prove a booted instance
+// whose database is gone reports not-ready. The happy path (database up) is
+// in health.new.test.ts.
 const config = loadConfig({
   DATABASE_URL: "postgres://unused/unused",
   NODE_ENV: "test",
@@ -23,12 +25,15 @@ test("GET /healthz returns 200 immediately, independent of readiness state", asy
   assert.equal(res.json().status, "ok");
 });
 
-test("GET /readyz is 503 before the boot-time DB check and 200 after — and never re-checks", () => {
+test("GET /readyz is 503 before the boot-time DB check has run", () => {
   resetReadyStateForTests();
   assert.equal(isReady(), false);
 });
 
-test("GET /readyz reflects the module-scoped flag, not a live DB probe", async () => {
+// Changed for OPS-001: this test used to assert the opposite — that /readyz
+// stays 200 forever once the boot latch is set, "never re-checking" the
+// database. That encoded the bug: a database outage after boot was invisible.
+test("GET /readyz re-checks the live database after boot instead of trusting the boot latch", async () => {
   resetReadyStateForTests();
 
   const before = await app.inject({ method: "GET", url: "/readyz" });
@@ -37,12 +42,9 @@ test("GET /readyz reflects the module-scoped flag, not a live DB probe", async (
 
   markDbConnectedOnce();
 
+  // The database behind this pool is unreachable, so even with the boot
+  // latch set the instance must not claim to be ready.
   const after = await app.inject({ method: "GET", url: "/readyz" });
-  assert.equal(after.statusCode, 200);
-  assert.equal(after.json().status, "ready");
-
-  // The flag is a one-way latch set once at boot: nothing in the route
-  // itself re-verifies DB liveness on subsequent polls.
-  const stillReady = await app.inject({ method: "GET", url: "/readyz" });
-  assert.equal(stillReady.statusCode, 200);
+  assert.equal(after.statusCode, 503);
+  assert.equal(after.json().reason, "database_unreachable");
 });

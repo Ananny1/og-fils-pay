@@ -16,6 +16,30 @@ export interface Config {
   pgPoolMin: number;
   pgPoolIdleTimeoutMs: number;
   pgPoolConnectionTimeoutMs: number;
+  /** Server-side `statement_timeout` for every pooled connection: a
+   *  runaway query is cancelled by Postgres instead of pinning a connection
+   *  (and a slot of the small pool) forever. 0 disables. */
+  pgStatementTimeoutMs: number;
+  /** Server-side `idle_in_transaction_session_timeout`: a connection left
+   *  in an open transaction (crashed handler, killed process) is closed by
+   *  Postgres so its row locks are released. 0 disables. */
+  pgIdleInTransactionTimeoutMs: number;
+  /** Hard cap on graceful shutdown (index.ts): after SIGTERM the process
+   *  exits even if something is stuck, before Docker's SIGKILL. */
+  shutdownTimeoutMs: number;
+  /** Dashboard assistant (routes/assistant.ts). An empty key disables it
+   *  (the route answers 503 assistant_not_configured). */
+  anthropicApiKey: string;
+  assistantModel: string;
+  /** Hard cap on Claude's output per reply. */
+  assistantMaxTokens: number;
+  assistantEffort: "low" | "medium" | "high";
+  /** Max data lookups Claude may chain for one question. */
+  assistantMaxToolRounds: number;
+  /** How many past chat turns are sent back to Claude. */
+  assistantMaxHistory: number;
+  /** Longest user message accepted, in characters. */
+  assistantMaxMessageChars: number;
 
   /** Load shedding (CAP-2, plugins/loadShedding.ts): requests allowed in
    *  flight at once before the api answers 503 + Retry-After. 0 = off. */
@@ -207,6 +231,10 @@ function parseFloatEnv(value: string | undefined, fallback: number): number {
   return parsed;
 }
 
+function parseAssistantEffort(value: string | undefined): "low" | "medium" | "high" {
+  return value === "medium" || value === "high" ? value : "low";
+}
+
 function parseBoolEnv(value: string | undefined, fallback: boolean): boolean {
   if (value === undefined || value === "") return fallback;
   return value === "true" || value === "1";
@@ -304,6 +332,16 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     pgPoolMin: parseIntEnv(env.PG_POOL_MIN, 0),
     pgPoolIdleTimeoutMs: parseIntEnv(env.PG_POOL_IDLE_TIMEOUT_MS, 30_000),
     pgPoolConnectionTimeoutMs: parseIntEnv(env.PG_POOL_CONNECTION_TIMEOUT_MS, 5_000),
+    pgStatementTimeoutMs: parseIntEnv(env.PG_STATEMENT_TIMEOUT_MS, 30_000),
+    pgIdleInTransactionTimeoutMs: parseIntEnv(env.PG_IDLE_IN_TRANSACTION_TIMEOUT_MS, 60_000),
+    shutdownTimeoutMs: parseIntEnv(env.SHUTDOWN_TIMEOUT_MS, 25_000),
+    anthropicApiKey: (env.ANTHROPIC_API_KEY ?? "").replace(/[^\x21-\x7e]/g, ""),
+    assistantModel: env.ASSISTANT_MODEL || "claude-opus-5-5",
+    assistantMaxTokens: parseIntEnv(env.ASSISTANT_MAX_TOKENS, 1024),
+    assistantEffort: parseAssistantEffort(env.ASSISTANT_EFFORT),
+    assistantMaxToolRounds: parseIntEnv(env.ASSISTANT_MAX_TOOL_ROUNDS, 3),
+    assistantMaxHistory: parseIntEnv(env.ASSISTANT_MAX_HISTORY, 12),
+    assistantMaxMessageChars: parseIntEnv(env.ASSISTANT_MAX_MESSAGE_CHARS, 2000),
 
     apiMaxInFlight: parseIntEnv(env.API_MAX_IN_FLIGHT, 64),
     apiRetryAfterSeconds: parseIntEnv(env.API_RETRY_AFTER_SECONDS, 1),

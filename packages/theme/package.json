@@ -1,0 +1,8 @@
+{
+  "name": "@filspay/theme",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Shared 'confidential case file' design tokens for apps/web and apps/admin.",
+  "files": ["case-file.css"],
+  "exports": { "./case-file.css": "./case-file.css" }
+}

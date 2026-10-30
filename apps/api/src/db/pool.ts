@@ -18,6 +18,10 @@ export function createPool(config: Config): Pool {
     max: config.pgPoolMax,
     idleTimeoutMillis: config.pgPoolIdleTimeoutMs,
     connectionTimeoutMillis: config.pgPoolConnectionTimeoutMs,
+    // Sent as startup parameters on every new connection, so they hold for
+    // pool.query and withTransaction alike. 0 = Postgres default (off).
+    statement_timeout: config.pgStatementTimeoutMs,
+    idle_in_transaction_session_timeout: config.pgIdleInTransactionTimeoutMs,
   });
 
   // `pg` emits 'error' on the pool when an idle client's connection dies

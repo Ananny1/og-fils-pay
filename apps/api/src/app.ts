@@ -7,7 +7,9 @@ import { multipartPlugin } from "./plugins/multipart.js";
 import { errorHandler } from "./plugins/errorHandler.js";
 import { loadSheddingPlugin } from "./plugins/loadShedding.js";
 import { securityHeadersPlugin } from "./plugins/securityHeaders.js";
+import { corsPlugin } from "./plugins/cors.js";
 import { healthRoutes } from "./routes/health.js";
+import { assistantRoutes } from "./routes/assistant.js";
 import { authRoutes } from "./routes/auth.js";
 import { businessProfileRoutes } from "./routes/businessProfile.js";
 import { kycRoutes } from "./routes/kyc.js";
@@ -69,6 +71,7 @@ export function buildApp(config: Config, pool: Pool, options: BuildAppOptions = 
     retryAfterSeconds: config.apiRetryAfterSeconds,
   });
   app.register(securityHeadersPlugin, { config });
+  app.register(corsPlugin);
   app.register(cookiesPlugin);
   app.register(multipartPlugin, { config });
   app.setErrorHandler(errorHandler);
@@ -89,6 +92,7 @@ export function buildApp(config: Config, pool: Pool, options: BuildAppOptions = 
   app.register(settlementRoutes, { prefix: "/v1/settlement" });
   app.register(analyticsRoutes, { prefix: "/v1/analytics" });
   app.register(reportingRoutes, { prefix: "/v1/reporting" });
+  app.register(assistantRoutes, { prefix: "/v1/assistant" });
   // BUG-007: the acquirer signature is the only auth — inboundVerify now always requires it
   app.register(acquirerCallbackRoutes, { prefix: "/v1/acquirer" }); // public — acquirer signature is the only auth
   // The admin plane, including KYC review

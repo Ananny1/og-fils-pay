@@ -1,0 +1,28 @@
+# Merchant dashboard + hosted checkout (apps/web) and the public/merchant API.
+root /usr/share/nginx/html/web;
+include /etc/nginx/conf.d/filspay-common-locations.inc;
+
+# The admin plane is only reachable through the admin host.
+location ^~ /v1/admin/ {
+    include /etc/nginx/conf.d/filspay-headers.inc;
+    default_type application/json;
+    return 404 '{"error":"not_found"}';
+}
+
+# Brute-force-sensitive merchant endpoints: login, OTP, signup.
+location ^~ /v1/auth/ {
+    limit_req  zone=fp_auth burst=${NGINX_AUTH_BURST} nodelay;
+    limit_conn fp_conn ${NGINX_CONN_PER_IP};
+    include /etc/nginx/conf.d/filspay-proxy.inc;
+}
+location = /v1/merchants {
+    limit_req  zone=fp_auth burst=${NGINX_AUTH_BURST} nodelay;
+    limit_conn fp_conn ${NGINX_CONN_PER_IP};
+    include /etc/nginx/conf.d/filspay-proxy.inc;
+}
+
+location /v1/ {
+    limit_req  zone=fp_api burst=${NGINX_API_BURST} nodelay;
+    limit_conn fp_conn ${NGINX_CONN_PER_IP};
+    include /etc/nginx/conf.d/filspay-proxy.inc;
+}

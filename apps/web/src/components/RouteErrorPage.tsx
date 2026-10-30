@@ -1,18 +1,29 @@
 import { Link, isRouteErrorResponse, useRouteError } from "react-router-dom";
-import "../dashboard.css";
+import { Compass, TriangleAlert } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
+
+function Screen({ icon, title, body }: { icon: React.ReactNode; title: string; body: string }) {
+  return (
+    <main className="flex min-h-svh items-center justify-center p-6">
+      <Empty className="max-w-md border border-[var(--card-border)] bg-card">
+        <EmptyHeader>
+          <EmptyMedia variant="icon">{icon}</EmptyMedia>
+          <EmptyTitle className="font-heading text-xl uppercase">{title}</EmptyTitle>
+          <EmptyDescription>{body}</EmptyDescription>
+        </EmptyHeader>
+        <EmptyContent>
+          <Button render={<Link to="/dashboard" />}>Go to the dashboard</Button>
+        </EmptyContent>
+      </Empty>
+    </main>
+  );
+}
 
 /** Unknown URL: a plain sentence and a way back, instead of the router's
  *  default developer error screen. */
 export function NotFoundPage() {
-  return (
-    <main className="dash-centered">
-      <h1>Page not found</h1>
-      <p className="dash-muted">There is no page at this address.</p>
-      <p>
-        <Link to="/dashboard">Go to the dashboard</Link>
-      </p>
-    </main>
-  );
+  return <Screen icon={<Compass />} title="Page not found" body="There is no page at this address." />;
 }
 
 /** `errorElement` for every route: a render error or an unmatched route lands
@@ -23,12 +34,10 @@ export function RouteErrorPage() {
     return <NotFoundPage />;
   }
   return (
-    <main className="dash-centered">
-      <h1>Something went wrong</h1>
-      <p className="dash-error">This page could not be shown. Please reload, or go back to the dashboard.</p>
-      <p>
-        <Link to="/dashboard">Go to the dashboard</Link>
-      </p>
-    </main>
+    <Screen
+      icon={<TriangleAlert />}
+      title="Something went wrong"
+      body="This page could not be shown. Please reload, or go back to the dashboard."
+    />
   );
 }

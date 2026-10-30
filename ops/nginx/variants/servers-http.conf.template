@@ -1,0 +1,13 @@
+# Plain-HTTP servers (TLS=off, or TLS=on before the first certificate exists).
+
+server {
+    listen 80 default_server;
+    server_name ${WEB_DOMAIN};
+    include /etc/nginx/conf.d/filspay-web-locations.inc;
+}
+
+server {
+    listen 80;
+    server_name ${ADMIN_DOMAIN};
+    include /etc/nginx/conf.d/filspay-admin-locations.inc;
+}

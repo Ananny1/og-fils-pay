@@ -7,3 +7,5 @@
 ops/.env*
 .env*
 docs/challenge/evidence
+docs
+ops/loadtest/results
