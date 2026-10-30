@@ -80,7 +80,14 @@ export function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
-  const redirectTo = (location.state as { from?: string } | null)?.from ?? "/dashboard/transactions";
+  const routeState = location.state as { from?: string; reason?: string } | null;
+  const redirectTo = routeState?.from ?? "/dashboard/overview";
+  const arrivalNotice =
+    routeState?.reason === "expired"
+      ? "Your session ended. Please sign in again."
+      : routeState?.reason === "signed-out"
+        ? "You have signed out."
+        : null;
 
   if (status === "authenticated") {
     return <Navigate to={redirectTo} replace />;
@@ -258,10 +265,10 @@ export function LoginPage() {
 
                 <CardContent className="flex flex-col gap-4">
                   <ErrorAlert message={error} title="Sign-in failed" />
-                  {notice ? (
+                  {notice ?? (!isOtp && !error ? arrivalNotice : null) ? (
                     <Alert>
                       <Info className="text-info" />
-                      <AlertDescription>{notice}</AlertDescription>
+                      <AlertDescription>{notice ?? arrivalNotice}</AlertDescription>
                     </Alert>
                   ) : null}
 
