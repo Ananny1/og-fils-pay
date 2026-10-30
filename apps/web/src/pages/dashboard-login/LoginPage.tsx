@@ -175,18 +175,18 @@ export function LoginPage() {
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-6xl px-4 md:px-6">
+      <main className="mx-auto w-full max-w-6xl overflow-x-clip px-4 md:px-6">
         {/* Hero + sign-in */}
         <section className="grid items-start gap-10 py-10 md:py-16 lg:grid-cols-[1.1fr_minmax(22rem,26rem)] lg:gap-16">
-          <div className="space-y-7">
+          <div className="min-w-0 space-y-7">
             <FadeContent trigger="mount" duration={0.5}>
               <span className="flex flex-wrap items-center gap-3">
                 <span className="case-stamp text-[11px]">Confidential</span>
-                <span className="case-label min-w-48 flex-1">AI-powered merchant dashboard</span>
+                <span className="case-label min-w-0 flex-1 sm:min-w-48">AI-powered merchant dashboard</span>
               </span>
             </FadeContent>
 
-            <h1 className="font-heading text-5xl font-bold uppercase leading-[0.98] tracking-[-0.01em] md:text-7xl">
+            <h1 className="font-heading text-4xl font-bold uppercase leading-[0.98] tracking-[-0.01em] break-words sm:text-5xl md:text-7xl">
               <BlurText
                 text="Card payments for Bahrain,"
                 trigger="load"
@@ -232,7 +232,7 @@ export function LoginPage() {
             </FadeContent>
           </div>
 
-          <div className="flex flex-col gap-14 lg:sticky lg:top-24">
+          <div className="flex min-w-0 flex-col gap-14 lg:sticky lg:top-24">
           <FadeContent trigger="mount" duration={0.7} delay={0.15}>
               <Card className="w-full rounded-2xl border-border/70 shadow-elegant">
                 <CardHeader>
