@@ -40,6 +40,15 @@ export function CheckoutPage() {
   const [payState, setPayState] = useState<PayState>({ kind: "idle" });
   const [card, setCard] = useState<SimulatedCardInput>(EMPTY_CARD);
   const [brandHint, setBrandHint] = useState<string | null>(null);
+  // Expiry is typed as text so "01" stays "01"; it becomes numbers only on submit.
+  const [expiry, setExpiry] = useState({ month: "", year: "" });
+
+  // After a retryable decline, put the cursor back in the card number so the
+  // customer can fix it or try another card straight away. (The shadcn Input
+  // doesn't forward refs on React 18, so look it up by id.)
+  useEffect(() => {
+    if (payState.kind === "declined") document.getElementById("checkout-pan")?.focus();
+  }, [payState]);
 
   // FH: memory leak — this effect never aborts the fetch on unmount (React warning in console?)
   // theres a cancelled flag in the cleanup tho. warning must be from somewhere else — am
@@ -73,7 +82,11 @@ export function CheckoutPage() {
     setPayState({ kind: "submitting" });
 
     try {
-      const result = await payPaymentLink(token, { card }, idempotencyKey);
+      const result = await payPaymentLink(
+        token,
+        { card: { ...card, expiryMonth: Number(expiry.month), expiryYear: Number(expiry.year) } },
+        idempotencyKey,
+      );
       setPayState({ kind: "success", result });
     } catch (err) {
       if (err instanceof ApiError) {
@@ -288,7 +301,9 @@ export function CheckoutPage() {
                   inputMode="numeric"
                   autoComplete="cc-number"
                   required
-                  className="font-mono"
+                  maxLength={23}
+                  placeholder="1234 5678 9012 3456"
+                  className="h-11 font-mono"
                   value={card.pan}
                   onChange={(e) => {
                     const pan = e.target.value;
@@ -307,29 +322,34 @@ export function CheckoutPage() {
                   <FieldLabel htmlFor="checkout-exp-month">Month</FieldLabel>
                   <Input
                     id="checkout-exp-month"
-                    type="number"
+                    type="text"
                     inputMode="numeric"
                     autoComplete="cc-exp-month"
-                    min={1}
-                    max={12}
+                    maxLength={2}
+                    pattern="0?[1-9]|1[0-2]"
+                    title="Month, 01 to 12"
+                    placeholder="MM"
                     required
-                    className="font-mono"
-                    value={card.expiryMonth}
-                    onChange={(e) => setCard({ ...card, expiryMonth: Number(e.target.value) })}
+                    className="h-11 font-mono"
+                    value={expiry.month}
+                    onChange={(e) => setExpiry({ ...expiry, month: e.target.value.replace(/\D/g, "") })}
                   />
                 </Field>
                 <Field>
                   <FieldLabel htmlFor="checkout-exp-year">Year</FieldLabel>
                   <Input
                     id="checkout-exp-year"
-                    type="number"
+                    type="text"
                     inputMode="numeric"
                     autoComplete="cc-exp-year"
-                    min={new Date().getFullYear()}
+                    maxLength={4}
+                    pattern="\d{4}"
+                    title="Four digits, for example 2028"
+                    placeholder="YYYY"
                     required
-                    className="font-mono"
-                    value={card.expiryYear}
-                    onChange={(e) => setCard({ ...card, expiryYear: Number(e.target.value) })}
+                    className="h-11 font-mono"
+                    value={expiry.year}
+                    onChange={(e) => setExpiry({ ...expiry, year: e.target.value.replace(/\D/g, "") })}
                   />
                 </Field>
                 <Field>
@@ -340,7 +360,9 @@ export function CheckoutPage() {
                     inputMode="numeric"
                     autoComplete="cc-csc"
                     required
-                    className="font-mono"
+                    maxLength={4}
+                    placeholder="123"
+                    className="h-11 font-mono"
                     value={card.cvv}
                     onChange={(e) => setCard({ ...card, cvv: e.target.value })}
                   />
