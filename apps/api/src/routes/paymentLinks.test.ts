@@ -414,3 +414,25 @@ test(
     assert.equal(finalLink.rows[0]!.transaction_id, txnId);
   },
 );
+
+test("BUG-063: a mistyped or unsupported card is refused with 400 before any charge, and the link stays payable", async () => {
+  const { rawKey, merchantId } = await createApprovedMerchantWithApiKey("bad-card");
+  const link = await createLink(rawKey, merchantId);
+
+  for (const [card, code] of [
+    [{ ...APPROVED_CARD, pan: "4242424242424241" }, "invalid_card_number"], // one digit wrong (Luhn)
+    [{ ...APPROVED_CARD, pan: "378282246310005" }, "unsupported_card_brand"], // Amex
+    [{ ...APPROVED_CARD, expiryMonth: 13 }, "invalid_expiry"],
+    [{ ...APPROVED_CARD, expiryYear: 2020 }, "card_expired"],
+    [{ ...APPROVED_CARD, cvv: "12" }, "invalid_cvv"],
+  ] as const) {
+    const res = await pay(link.token, card);
+    assert.equal(res.statusCode, 400, res.body);
+    assert.equal(res.json().error, code);
+  }
+
+  const txns = await pool.query<{ c: string }>(`SELECT count(*) AS c FROM transactions WHERE merchant_id = $1`, [merchantId]);
+  assert.equal(Number(txns.rows[0]!.c), 0);
+  const ok = await pay(link.token, APPROVED_CARD);
+  assert.equal(ok.statusCode, 200, ok.body);
+});

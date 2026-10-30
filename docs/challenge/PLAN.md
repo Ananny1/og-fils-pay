@@ -102,6 +102,7 @@ the screens (Tier 7) and hand-in (Tier 8).
 | 5.6 | BUG-054 | Reconciliation uses `merchants.mdr_bps` (no sync trigger) | ★ | — | 5.5 | ✅ (Sayed) |
 | 5.65 | BUG-059 | Reporting consumer writes `merchant_id = NULL` into `merchant_daily_volume` (4 reporting tests red) | ★★ | T1 | — | ✅ |
 | 5.66 | BUG-060 | Webhook retry backoff differs from config (test 332 red) | ★ | T1 | — | ✅ |
+| 5.67 | BUG-063 | Card number / expiry / CVV never checked (Luhn, Visa+Mastercard only, MC 2221–2720) | ★ | — | — | ✅ |
 | 5.7 | BUG-055 | Rollups / metrics / analytics bucketed by UTC date | ★ | — | 4.2 | ✅ part (Sayed, his BUG-037) |
 | **Tier 6** | | **FP-300 Refunds (the missing feature)** | | | | |
 | 6.0 | BUG-061 | Refund insert violates `chk_refunds_reason_not_null` (11 refund tests red; R8) | ★★ | T1 | — | ✅ |

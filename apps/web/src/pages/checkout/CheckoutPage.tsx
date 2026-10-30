@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { getPaymentLink, payPaymentLink } from "../../api/paymentLinks.js";
 import { ApiError } from "../../api/client.js";
-import { formatCardBrandHint } from "../../utils/helpers.js";
+import { formatCardBrandHint, isValidCardNumber } from "../../utils/helpers.js";
 import type { PaymentLinkPublicDto, PayPaymentLinkResponse, SimulatedCardInput } from "../../types.js";
 // ENH-011: English / Arabic checkout
 import { formatCheckoutAmount, formatCheckoutDateTime, textDirection, type CheckoutMessageKey } from "../../i18n/checkout.js";
@@ -34,7 +34,16 @@ type PayState =
   | { kind: "declined"; message: CheckoutMessageKey; detail?: string; retryable: boolean }
   | { kind: "terminal"; message: CheckoutMessageKey };
 
-const EMPTY_CARD: SimulatedCardInput = { pan: "", expiryMonth: 1, expiryYear: new Date().getFullYear() + 1, cvv: "" };
+/** 400 codes from the API's card check (BUG-063) → the message shown. */
+const CARD_PROBLEM_MESSAGES: Record<string, CheckoutMessageKey> = {
+  invalid_card_number: "invalidCardNumber",
+  unsupported_card_brand: "unsupportedCard",
+  invalid_expiry: "invalidExpiry",
+  card_expired: "cardExpired",
+  invalid_cvv: "invalidCvv",
+};
+
+const EMPTY_CARD: SimulatedCardInput ={ pan: "", expiryMonth: 1, expiryYear: new Date().getFullYear() + 1, cvv: "" };
 
 export function CheckoutPage() {
   const { token } = useParams<{ token: string }>();
@@ -83,6 +92,12 @@ export function CheckoutPage() {
   async function handleSubmit(event: React.FormEvent): Promise<void> {
     event.preventDefault();
     if (!token) return;
+    // Same rules as the server (BUG-063), so a typo is caught before any request.
+    if (!isValidCardNumber(card.pan)) {
+      const brandKnown = formatCardBrandHint(card.pan) !== "unknown";
+      setPayState({ kind: "declined", message: brandKnown ? "invalidCardNumber" : "unsupportedCard", retryable: true });
+      return;
+    }
 
     // A fresh Idempotency-Key per explicit user action — every click,
     // including a "try again" after a decline, is a new attempt.
@@ -112,6 +127,8 @@ export function CheckoutPage() {
           setPayState({ kind: "declined", message: "inProgress", retryable: true });
         } else if (statusCode === 410) {
           setPayState({ kind: "terminal", message: "expired" });
+        } else if (statusCode === 400 && typeof body.error === "string" && body.error in CARD_PROBLEM_MESSAGES) {
+          setPayState({ kind: "declined", message: CARD_PROBLEM_MESSAGES[body.error]!, retryable: true });
         } else {
           setPayState({ kind: "declined", message: "generic", detail: body.message, retryable: true });
         }
@@ -406,14 +423,14 @@ export function CheckoutPage() {
       <div className="text-center text-xs leading-relaxed text-muted-foreground">
         <p className="font-medium text-foreground/80">{t.testCardsTitle}</p>
         <p>
-          {([["0002", t.testCard0002], ["0119", t.testCard0119], ["0069", t.testCard0069]] as const).map(([ending, text], i) => (
+          {([["4000 0000 0000 0002", t.testCard0002], ["4000 0000 0000 0119", t.testCard0119], ["4000 0000 0000 0069", t.testCard0069]] as const).map(([ending, text], i) => (
             <span key={ending}>
               {i > 0 ? " · " : null}
               {t.testCardEnding} <code dir="ltr" className="font-mono text-foreground">{ending}</code> {text}
             </span>
           ))}
           {" · "}
-          {t.testCardsApprove}
+          {t.testCardEnding} <code dir="ltr" className="font-mono text-foreground">4242 4242 4242 4242</code> {t.testCardsApprove}
         </p>
       </div>
     </CheckoutShell>

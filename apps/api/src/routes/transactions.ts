@@ -11,6 +11,7 @@ import { getTransactionById, listTransactions } from "../transactions/query.js";
 import { listTransactionEvents } from "../transactions/events.js";
 import { BadRequestError, NotFoundError } from "../lib/errors.js";
 import type { SimulatedCardInput } from "../acquirer/types.js";
+import { checkCard } from "../acquirer/cardCheck.js";
 
 interface AuthorizeBody {
   amountFils?: number;
@@ -72,6 +73,10 @@ export async function transactionRoutes(app: FastifyInstance): Promise<void> {
       const { amountFils, card, reference } = request.body ?? {};
       if (amountFils === undefined || !card) {
         throw new BadRequestError("invalid_request", "amountFils and card are required");
+      }
+      const cardProblem = checkCard(card);
+      if (cardProblem) {
+        throw new BadRequestError(cardProblem);
       }
 
       const input: AuthorizeInput = {

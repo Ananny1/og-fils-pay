@@ -11,6 +11,7 @@ import { cancelPaymentLink } from "../paymentLinks/cancel.js";
 import { listPaymentLinks } from "../paymentLinks/query.js";
 import { BadRequestError, ConflictError, ForbiddenError, NotFoundError } from "../lib/errors.js";
 import type { SimulatedCardInput } from "../acquirer/types.js";
+import { checkCard } from "../acquirer/cardCheck.js";
 
 interface MerchantIdParams {
   merchantId: string;
@@ -158,6 +159,10 @@ export async function paymentLinkPublicRoutes(app: FastifyInstance): Promise<voi
     const { card } = request.body ?? {};
     if (!card) {
       throw new BadRequestError("invalid_request", "card is required");
+    }
+    const cardProblem = checkCard(card);
+    if (cardProblem) {
+      throw new BadRequestError(cardProblem);
     }
 
     const result = await payPaymentLink(

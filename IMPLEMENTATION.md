@@ -212,6 +212,7 @@ Planned queue (from the audit, in fix order):
 | BUG-060 | Medium | Webhook retry backoff differs from config (API test 332 red at T1) → [write-up](docs/bugs/BUG-060-webhook-backoff-jitter-and-cap.md) | ✅ |
 | BUG-061 | High | Refund insert violates `chk_refunds_reason_not_null` (11 refund tests red at T1; R8) → [write-up](docs/bugs/BUG-061-refund-reason-null.md) | ✅ |
 | BUG-062 | High | Reporting worker crashes (and stalls for everyone) when a closed batch's day has captures but no rollup row → [write-up](docs/bugs/BUG-062-reporting-stalls-on-missing-rollup.md) | ✅ |
+| BUG-063 | Medium | Card number, expiry and CVV never checked (no Luhn, wrong Mastercard range, Amex accepted) → [write-up](docs/bugs/BUG-063-card-number-not-validated.md) | ✅ |
 | SEC-1 | High | Login/OTP brute force: no limit per IP or account → 5/min per IP+account, 30/min per IP, 15-min lockout, state in Postgres → [write-up](docs/bugs/SEC-1-login-brute-force-limiter.md) | ✅ |
 | SEC-2 | Medium | No idle timeout: an open dashboard stayed logged in 12 h → 60 min shops / 30 min staff, throttled last_seen → [write-up](docs/bugs/SEC-2-idle-session-timeout.md) | ✅ |
 | SEC-3 | Medium | No security headers; 500s leaked internals; no body/time limits → [write-up](docs/bugs/SEC-3-security-headers-errors-limits.md) | ✅ |

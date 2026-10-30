@@ -92,14 +92,35 @@ export function randomId(prefix?: string): string {
 }
 
 /** Recognizes a card PAN's network from its leading digits — Visa (4),
- *  Mastercard (51–55, or the 2221–2720 range), Amex (34/37). Cosmetic
- *  only: a checkout-page brand hint, never sent to the server or used for
- *  any validation or routing decision — the simulated acquirer accepts
- *  any PAN shape regardless of what this returns. */
-export function formatCardBrandHint(pan: string): "visa" | "mastercard" | "amex" | "unknown" {
+ *  Mastercard (51–55, or 2221–2720 checked on four digits). FilsPay takes
+ *  only these two. Same rule as the API's `acquirer/cardCheck.ts` (BUG-063),
+ *  which is the real check; this one only drives the badge and the inline
+ *  error on the checkout page. */
+export function formatCardBrandHint(pan: string): "visa" | "mastercard" | "unknown" {
   const digits = pan.replace(/\D/g, "");
   if (/^4/.test(digits)) return "visa";
-  if (/^5[1-5]/.test(digits) || /^2(2[2-9]|[3-6]\d|7[01])/.test(digits)) return "mastercard";
-  if (/^3[47]/.test(digits)) return "amex";
+  if (/^5[1-5]/.test(digits)) return "mastercard";
+  const first4 = Number(digits.slice(0, 4));
+  if (digits.length >= 4 && first4 >= 2221 && first4 <= 2720) return "mastercard";
   return "unknown";
+}
+
+/** Brand prefix, length for that brand (Visa 13/16/19, Mastercard 16) and
+ *  the Luhn check digit. Spaces and dashes are ignored. */
+export function isValidCardNumber(pan: string): boolean {
+  const digits = pan.replace(/[\s-]/g, "");
+  if (!/^\d+$/.test(digits)) return false;
+  const brand = formatCardBrandHint(digits);
+  if (brand === "unknown") return false;
+  if (!(brand === "visa" ? [13, 16, 19] : [16]).includes(digits.length)) return false;
+  let total = 0;
+  for (let i = digits.length - 1, double = false; i >= 0; i--, double = !double) {
+    let digit = digits.charCodeAt(i) - 48;
+    if (double) {
+      digit *= 2;
+      if (digit > 9) digit -= 9;
+    }
+    total += digit;
+  }
+  return total % 10 === 0;
 }

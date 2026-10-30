@@ -27,6 +27,11 @@ export type CheckoutMessageKey =
   | "alreadyPaid"
   | "canceled"
   | "expired"
+  | "invalidCardNumber"
+  | "unsupportedCard"
+  | "invalidExpiry"
+  | "cardExpired"
+  | "invalidCvv"
   | "generic";
 
 export interface CheckoutStrings {
@@ -94,6 +99,11 @@ const en: CheckoutStrings = {
     alreadyPaid: "This has already been paid. Nothing more to do.",
     canceled: "This link isn't available any more.",
     expired: "This link has expired. Ask the shop to send a new one.",
+    invalidCardNumber: "This card number is not valid. Check the digits and try again.",
+    unsupportedCard: "Only Visa and Mastercard cards are accepted.",
+    invalidExpiry: "Enter a valid expiry month (01 to 12) and year.",
+    cardExpired: "This card has expired. Use another card.",
+    invalidCvv: "The CVV is the 3 digits on the back of your card.",
     generic: "Something went wrong. Please try again.",
   },
   successTitle: "Payment successful",
@@ -108,8 +118,8 @@ const en: CheckoutStrings = {
   processingTitle: "Payment processing",
   processingBody: "Someone is paying this link right now. Wait a moment, then refresh.",
   testCardsTitle: "Test cards (simulated acquirer, no real charge)",
-  testCardsApprove: "Any other number approves.",
-  testCardEnding: "Ending",
+  testCardsApprove: "approves (any other valid Visa or Mastercard number approves too)",
+  testCardEnding: "Card",
   testCard0002: "always declines (do not honor)",
   testCard0119: "always declines (insufficient funds)",
   testCard0069: "always errors",
@@ -142,6 +152,11 @@ const ar: CheckoutStrings = {
     alreadyPaid: "تم دفع هذا المبلغ مسبقاً، ولا حاجة لأي إجراء آخر.",
     canceled: "هذا الرابط لم يعد متاحاً.",
     expired: "انتهت صلاحية هذا الرابط. اطلب من المتجر إرسال رابط جديد.",
+    invalidCardNumber: "رقم البطاقة غير صحيح. تحقق من الأرقام وحاول مرة أخرى.",
+    unsupportedCard: "نقبل بطاقات فيزا وماستركارد فقط.",
+    invalidExpiry: "أدخل شهر انتهاء صحيحاً (من 01 إلى 12) وسنة صحيحة.",
+    cardExpired: "انتهت صلاحية هذه البطاقة. استخدم بطاقة أخرى.",
+    invalidCvv: "رمز التحقق هو الأرقام الثلاثة على ظهر البطاقة.",
     generic: "حدث خطأ ما. يُرجى المحاولة مرة أخرى.",
   },
   successTitle: "تم الدفع بنجاح",
@@ -156,8 +171,8 @@ const ar: CheckoutStrings = {
   processingTitle: "الدفع قيد المعالجة",
   processingBody: "هناك عملية دفع جارية لهذا الرابط الآن. انتظر قليلاً ثم حدّث الصفحة.",
   testCardsTitle: "بطاقات تجريبية (محاكاة، لا يُخصم أي مبلغ فعلي)",
-  testCardsApprove: "أي رقم آخر تتم الموافقة عليه.",
-  testCardEnding: "المنتهية بـ",
+  testCardsApprove: "تتم الموافقة عليها (وكذلك أي رقم فيزا أو ماستركارد صحيح آخر)",
+  testCardEnding: "البطاقة",
   testCard0002: "تُرفض دائماً (عدم الاعتماد)",
   testCard0119: "تُرفض دائماً (رصيد غير كافٍ)",
   testCard0069: "تُرجع خطأً دائماً",
