@@ -325,7 +325,7 @@ export async function adminRoutes(app: FastifyInstance, options: AdminRoutesOpti
    * window and completes the audit trail.
    */
   app.post<{ Params: GrantIdParams }>(
-    // YA: disabled admins' grants keep working until they expire — should end-all on disable? FP-238
+    // A disabled admin's grants stop resolving on the next request (lookupImpersonationGrant, SEC-RT-1).
     "/impersonation/:grantId/end",
     { preHandler: [requireAdminSession] },
     async (request, reply) => {

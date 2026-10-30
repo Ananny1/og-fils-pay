@@ -67,7 +67,7 @@ async function grantFor(role: AdminRole) {
   );
   const merchantId = await createMerchant();
   const started = await startImpersonation(pool, { adminUserId: admin.rows[0]!.id, merchantId, ttlMinutes: 10 });
-  return { merchantId, rawToken: started.rawToken, cookie: `${config.impersonationCookieName}=${started.rawToken}` };
+  return { adminUserId: admin.rows[0]!.id, merchantId, rawToken: started.rawToken, cookie: `${config.impersonationCookieName}=${started.rawToken}` };
 }
 
 for (const role of ["support", "finance", "super_admin"] as const) {
@@ -101,3 +101,16 @@ for (const role of ["support", "finance", "super_admin"] as const) {
     assert.equal(filters.rowCount, 0);
   });
 }
+
+// SEC-RT-1: disabling an admin must kill their live "view as merchant" grant
+// on the next request, the same way it kills their admin session.
+test("a disabled admin's impersonation grant no longer resolves or reads merchant data", async () => {
+  const { adminUserId, rawToken, cookie } = await grantFor("support");
+  assert.ok(await lookupImpersonationGrant(pool, rawToken), "live grant resolves before the disable");
+
+  await pool.query(`UPDATE admin_users SET status = 'disabled' WHERE id = $1`, [adminUserId]);
+
+  assert.equal(await lookupImpersonationGrant(pool, rawToken), null);
+  const read = await app.inject({ method: "GET", url: "/v1/transactions", headers: { cookie } });
+  assert.equal(read.statusCode, 401, read.body);
+});
