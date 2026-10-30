@@ -16,7 +16,6 @@ import BlurText from "@/components/ui/BlurText";
 import FadeContent from "@/components/ui/FadeContent";
 import GradientText from "@/components/ui/GradientText";
 import Magnet from "@/components/ui/Magnet";
-import StarBorder from "@/components/ui/StarBorder";
 import { BatchPreview } from "@/components/dashboard/batch-preview";
 import { BotIcon } from "@/components/dashboard/bot-icon";
 import { CaseDossier } from "@/components/dashboard/case-dossier";
@@ -512,22 +511,9 @@ export function LoginPage() {
                 Sign in above. Not a merchant yet? Our onboarding takes a licence, an ID and one working day.
               </p>
               <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
-                <StarBorder
-                  as="a"
-                  href="#login-merchant-id"
-                  color="hsl(4 90% 55%)"
-                  trailColor="hsl(220 55% 35%)"
-                  duration={5}
-                  thickness={1}
-                  radius={12}
-                  glow={0.5}
-                  theme="light"
-                  backgroundColor="hsl(4 90% 55%)"
-                  textColor="#fff"
-                  className="inline-flex h-11 items-center gap-2 px-6 text-[15px] font-medium"
-                >
-                  Go to sign in <ArrowRight className="size-4" />
-                </StarBorder>
+                <Button size="lg" render={<a href="#login-merchant-id" />}>
+                  Go to sign in <ArrowRight />
+                </Button>
                 <Button size="lg" variant="outline" render={<a href="mailto:support@filspay.example" />}>
                   Talk to onboarding
                 </Button>
