@@ -289,11 +289,20 @@ export function saveCheckoutLang(lang: CheckoutLang, storage: MinimalStorage | u
   }
 }
 
-/** The text a merchant shares: an English line, an Arabic line, then the link once. */
+/** Right-to-left embedding (U+202B … U+202C). Chat apps lay a whole message
+ *  out in the direction of its first letter, so without it the Arabic line of
+ *  an English-first message is ordered left to right: the merchant's name and
+ *  "FilsPay" jump around and the colon lands on the wrong side. */
+const RTL_START = "‫";
+const RTL_END = "‬";
+
+/** The text a merchant shares: an English line, an Arabic line (kept
+ *  right-to-left), a blank line, then the link once on its own line. */
 export function buildShareText(amountFils: number, merchant: string, url: string): string {
   return [
     en.shareLine(formatCheckoutAmount(amountFils, "en"), merchant),
-    ar.shareLine(formatCheckoutAmount(amountFils, "ar"), merchant),
+    RTL_START + ar.shareLine(formatCheckoutAmount(amountFils, "ar"), merchant) + RTL_END,
+    "",
     url,
   ].join("\n");
 }

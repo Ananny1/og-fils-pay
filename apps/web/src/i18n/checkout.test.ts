@@ -155,9 +155,13 @@ test("the WhatsApp share text carries both languages and the exact link once", (
   const text = buildShareText(12500, "Delta Wholesale", url);
   assert.deepEqual(text.split("\n"), [
     "Pay BD 12.500 to Delta Wholesale securely with FilsPay:",
-    "ادفع 12.500 د.ب إلى Delta Wholesale بأمان عبر FilsPay:",
+    // Wrapped in a right-to-left embedding so an English-first chat bubble
+    // keeps the Arabic word order (merchant name and colon in place).
+    "‫ادفع 12.500 د.ب إلى Delta Wholesale بأمان عبر FilsPay:‬",
+    "",
     url,
   ]);
+  assert.equal(text.split(url).length, 2, "the link appears exactly once");
   const share = whatsappShareUrl(text);
   assert.ok(share.startsWith("https://wa.me/?text="));
   assert.equal(decodeURIComponent(share.slice("https://wa.me/?text=".length)), text);
