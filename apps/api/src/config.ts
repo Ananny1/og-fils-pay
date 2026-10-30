@@ -40,6 +40,9 @@ export interface Config {
   assistantMaxHistory: number;
   /** Longest user message accepted, in characters. */
   assistantMaxMessageChars: number;
+  /** Paid AI calls allowed per merchant per minute / per day (ENH-009). */
+  assistantPerMinute: number;
+  assistantPerDay: number;
 
   /** Load shedding (CAP-2, plugins/loadShedding.ts): requests allowed in
    *  flight at once before the api answers 503 + Retry-After. 0 = off. */
@@ -342,6 +345,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     assistantMaxToolRounds: parseIntEnv(env.ASSISTANT_MAX_TOOL_ROUNDS, 3),
     assistantMaxHistory: parseIntEnv(env.ASSISTANT_MAX_HISTORY, 12),
     assistantMaxMessageChars: parseIntEnv(env.ASSISTANT_MAX_MESSAGE_CHARS, 2000),
+    assistantPerMinute: parseIntEnv(env.ASSISTANT_PER_MINUTE, 6),
+    assistantPerDay: parseIntEnv(env.ASSISTANT_PER_DAY, 100),
 
     apiMaxInFlight: parseIntEnv(env.API_MAX_IN_FLIGHT, 64),
     apiRetryAfterSeconds: parseIntEnv(env.API_RETRY_AFTER_SECONDS, 1),

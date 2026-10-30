@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import type { BetaMessageStream } from "@anthropic-ai/sdk/lib/BetaMessageStream";
 import type { FastifyInstance } from "fastify";
 import { requireMerchantAuth } from "../auth/requireMerchantAuth.js";
+import { reserveAssistantCall } from "../assistant/usageLimit.js";
 import { BadRequestError, NotFoundError } from "../lib/errors.js";
 import { ASSISTANT_TOOLS, runAssistantTool, type ToolContext } from "../assistant/tools.js";
 import { loadPayoutFacts, PAYOUT_SYSTEM_PROMPT } from "../assistant/payoutExplanation.js";
@@ -74,6 +75,11 @@ export async function assistantRoutes(app: FastifyInstance): Promise<void> {
       const cached = explanationCache.get(key);
       if (cached) return { explanation: cached, facts, cached: true };
 
+      // Only a call that reaches the paid AI service counts (ENH-009).
+      await reserveAssistantCall(app.db, request.merchantAuth!.merchantId, {
+        perMinute: cfg.assistantPerMinute,
+        perDay: cfg.assistantPerDay,
+      });
       client ??= new Anthropic({ apiKey: cfg.anthropicApiKey });
       try {
         const message = await client.beta.messages.create({
@@ -108,6 +114,11 @@ export async function assistantRoutes(app: FastifyInstance): Promise<void> {
     if (!cfg.anthropicApiKey) {
       return reply.code(503).send({ error: "assistant_not_configured", message: "Set ANTHROPIC_API_KEY on the API to enable the assistant." });
     }
+    // Per-merchant budget before any paid AI call (ENH-009).
+    await reserveAssistantCall(app.db, request.merchantAuth!.merchantId, {
+      perMinute: cfg.assistantPerMinute,
+      perDay: cfg.assistantPerDay,
+    });
 
     const raw = Array.isArray(request.body?.messages) ? request.body.messages : [];
     const history: Anthropic.Beta.BetaMessageParam[] = raw
