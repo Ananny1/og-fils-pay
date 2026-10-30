@@ -1,4 +1,4 @@
-import { ArrowLeftRight, LayoutDashboard, Link2, Moon, Plus, Scale, Search, Sun, Wallet, Webhook } from "lucide-react";
+import { ArrowLeftRight, LayoutDashboard, Link2, Plus, Scale, Search, Wallet, Webhook } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -15,13 +15,14 @@ import {
   CommandShortcut,
 } from "@/components/ui/command";
 import { Kbd } from "@/components/ui/kbd";
+import { THEME_OPTIONS } from "@/components/dashboard/theme-toggle";
 
 /** ⌘K palette: jump to any section, start common actions, flip the theme. */
 export function CommandMenu() {
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
   const { me } = useDashboardAuth();
-  const { resolvedTheme, setTheme } = useTheme();
+  const { theme, setTheme } = useTheme();
   const canWrite = me?.role === "owner" || me?.role === "finance";
 
   useEffect(() => {
@@ -98,15 +99,19 @@ export function CommandMenu() {
           ) : null}
           <CommandSeparator />
           <CommandGroup heading="Appearance">
-            <CommandItem
-              onSelect={() => {
-                setTheme(resolvedTheme === "dark" ? "light" : "dark");
-                setOpen(false);
-              }}
-            >
-              {resolvedTheme === "dark" ? <Sun /> : <Moon />}
-              {resolvedTheme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
-            </CommandItem>
+            {THEME_OPTIONS.map((option) => (
+              <CommandItem
+                key={option.value}
+                data-checked={theme === option.value}
+                onSelect={() => {
+                  setTheme(option.value);
+                  setOpen(false);
+                }}
+              >
+                <option.icon />
+                {option.label}
+              </CommandItem>
+            ))}
           </CommandGroup>
         </CommandList>
       </CommandDialog>

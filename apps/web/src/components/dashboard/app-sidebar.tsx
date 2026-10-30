@@ -4,9 +4,7 @@ import {
   LayoutDashboard,
   Link2,
   LogOut,
-  Moon,
   Scale,
-  Sun,
   Wallet,
   Webhook,
 } from "lucide-react";
@@ -21,9 +19,12 @@ import {
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { THEME_OPTIONS } from "@/components/dashboard/theme-toggle";
 import {
   Sidebar,
   SidebarContent,
@@ -82,7 +83,7 @@ export function AppSidebar() {
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const { isMobile, setOpenMobile } = useSidebar();
-  const { resolvedTheme, setTheme } = useTheme();
+  const { theme, setTheme } = useTheme();
 
   async function handleSignOut(): Promise<void> {
     try {
@@ -187,10 +188,17 @@ export function AppSidebar() {
                   </DropdownMenuLabel>
                 </DropdownMenuGroup>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}>
-                  {resolvedTheme === "dark" ? <Sun /> : <Moon />}
-                  {resolvedTheme === "dark" ? "Light mode" : "Dark mode"}
-                </DropdownMenuItem>
+                <DropdownMenuGroup>
+                  <DropdownMenuLabel className="text-xs text-muted-foreground">Theme</DropdownMenuLabel>
+                  <DropdownMenuRadioGroup value={theme ?? "system"} onValueChange={(value) => setTheme(String(value))}>
+                    {THEME_OPTIONS.map((option) => (
+                      <DropdownMenuRadioItem key={option.value} value={option.value}>
+                        <option.icon />
+                        {option.label}
+                      </DropdownMenuRadioItem>
+                    ))}
+                  </DropdownMenuRadioGroup>
+                </DropdownMenuGroup>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem variant="destructive" onClick={() => void handleSignOut()}>
                   <LogOut />
