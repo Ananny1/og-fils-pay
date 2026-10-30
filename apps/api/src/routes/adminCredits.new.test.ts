@@ -56,7 +56,8 @@ async function signedInAdmin(role: "support" | "finance" | "super_admin", label:
     payload: { code: loginRes.json().devOtpCode },
   });
   assert.equal(verify.statusCode, 200, verify.body);
-  return cookie;
+  // The session token is rotated at OTP verify (BUG-032): use the new cookie.
+  return parseCookie(verify.headers["set-cookie"], config.adminCookieName);
 }
 
 test("BUG-035: a support admin cannot issue a credit; finance can", async () => {

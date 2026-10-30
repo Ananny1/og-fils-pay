@@ -23,8 +23,8 @@ function deferred(): { promise: Promise<void>; resolve: () => void } {
   return { promise, resolve };
 }
 
-test("requests above MAX_IN_FLIGHT_REQUESTS get 503 + Retry-After at once; capacity frees up afterwards", { timeout: 5000 }, async () => {
-  const config = loadConfig({ ...baseEnv, MAX_IN_FLIGHT_REQUESTS: "2" });
+test("requests above API_MAX_IN_FLIGHT get 503 + Retry-After at once; capacity frees up afterwards", { timeout: 5000 }, async () => {
+  const config = loadConfig({ ...baseEnv, API_MAX_IN_FLIGHT: "2" });
   const pool = new Pool({ connectionString: config.databaseUrl, max: 1 });
   const app = buildApp(config, pool);
   const gate = deferred();
@@ -42,7 +42,7 @@ test("requests above MAX_IN_FLIGHT_REQUESTS get 503 + Retry-After at once; capac
     const third = await app.inject({ method: "GET", url: "/test/slow" });
     assert.equal(third.statusCode, 503);
     assert.equal(third.headers["retry-after"], "1");
-    assert.equal(third.json().error, "overloaded");
+    assert.equal(third.json().error, "service_unavailable");
     assert.ok(Date.now() - started < 200, "rejection must be immediate, not queued");
 
     // Health probes are never shed, so Docker/nginx can still see the instance.
