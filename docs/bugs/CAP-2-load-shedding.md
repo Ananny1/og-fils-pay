@@ -52,12 +52,19 @@ call any `/v1` route. The request hangs for `PG_POOL_CONNECTION_TIMEOUT_MS` (5 s
 | `apps/api/src/config.ts` | `apiMaxInFlight` (`API_MAX_IN_FLIGHT`, default 64, 0 = off), `apiRetryAfterSeconds` (`API_RETRY_AFTER_SECONDS`, default 1) |
 | `apps/api/src/plugins/errorHandler.ts` | pool wait timeout / connect timeout / `ECONNREFUSED` / `57P03` → `503` + `Retry-After` instead of `500` |
 | `ops/docker-compose.prod.yml`, `ops/.env.prod.example` | production values (tuned in CAP-1) |
+| `apps/api/src/plugins/loadShedding.ts` | (review fix) `request.url` includes the query string, so `/healthz?x=1` was not in `NEVER_SHED` and got a 503 under load. Now the path before `?` is matched. |
+| `apps/api/src/plugins/errorHandler.ts` | (review fix) `"Connection terminated unexpectedly"` (pg's error when the DB closes an open connection, e.g. restart) is also DB-unavailable → `503` + `Retry-After`, not `500` |
 
 No new npm dependency. A shed request costs one counter check: no body parsing, no DB, no auth.
 
 Why it is safe for money: a shed request does nothing at all, and a request that fails waiting for
 the pool fails *before* its transaction starts, so nothing is half-written. The buyer's retry with
 the same `Idempotency-Key` is handled by the existing idempotency logic.
+
+Review fix note: a connection dropped **mid-transaction** may leave the client unsure whether the
+write committed. Postgres rolls back an uncommitted transaction when the connection drops, and money
+writes are retried with the same `Idempotency-Key`, so a retry is safe; a 500 told the client the
+same "unknown" with no retry hint.
 
 ## 5. Options considered (ranked)
 
@@ -68,6 +75,8 @@ the same `Idempotency-Key` is handled by the existing idempotency logic.
 | 3 | Only lower `PG_POOL_CONNECTION_TIMEOUT_MS` | one env var | still a 500 and still a wait; the event loop still takes unlimited work | |
 | 4 (creative) | nginx `limit_conn`/`limit_req` in front | sheds before Node at all | judges load-test from one IP, so per-IP limits would hit them unfairly; nginx can't see pool state | |
 
+Review follow-up options (health path): (1, chosen) strip the query before the set lookup: one line, no Fastify internals; (2) use `request.routeOptions.url` (the matched route): also exact, but is `undefined` for 404s and depends on routing having run in `onRequest`; (3) `startsWith("/healthz")`: would also exempt any future `/healthz-something` route.
+
 **Why we chose #1:** it answers in about 1 ms under overload, keeps accepted requests at normal
 speed, and needs no new package. nginx still adds a fast 503 when the api is down (HOST-1).
 
@@ -77,6 +86,8 @@ speed, and needs no new package. nginx still adds a fast 503 when the api is dow
 |---|---|---|---|
 | `requests over API_MAX_IN_FLIGHT get an immediate 503 with Retry-After; health checks are never shed` | `apps/api/src/plugins/loadShedding.test.ts` | ❌ fails (`apiMaxInFlight` undefined; third request is served) | ✅ passes |
 | `a request that cannot get a DB connection in time gets 503 + Retry-After, not a 500` | same | ❌ fails (`actual: 500`, after the pool timeout) | ✅ passes |
+| (review) same first test, extra check `/healthz?probe=1` under full load | same | ❌ `actual: 503` | ✅ 200 |
+| (review) `a DB connection dropped mid-request (DB restarting) gets 503 + Retry-After, not a 500` | same | ❌ `actual: 500` | ✅ passes |
 
 ```bash
 docker compose -f ops/docker-compose.yml run --rm --no-deps -T \
@@ -86,4 +97,4 @@ docker compose -f ops/docker-compose.yml run --rm --no-deps -T \
 
 Live numbers under overload (k6 against the hosted stack): `docs/challenge/CAPACITY.md`.
 
-Existing tests changed: none.
+Existing tests changed: the first test gained one extra assertion (`/healthz?probe=1`) in the review fix; nothing removed.

@@ -25,7 +25,8 @@ export const loadSheddingPlugin = fp(async (app: FastifyInstance, opts: LoadShed
   let inFlight = 0;
 
   app.addHook("onRequest", async (request, reply) => {
-    if (NEVER_SHED.has(request.url)) return;
+    // request.url includes the query string ("/healthz?x=1"); match the path only.
+    if (NEVER_SHED.has(request.url.split("?", 1)[0]!)) return;
     if (inFlight >= opts.maxInFlight) {
       reply.header("Retry-After", String(opts.retryAfterSeconds));
       reply.code(503);

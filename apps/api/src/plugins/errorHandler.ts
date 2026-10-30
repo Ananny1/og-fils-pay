@@ -7,12 +7,14 @@ import { formatIsoDate } from "../lib/dateFormat.js";
  * should throw an `AppError` subclass; this is the single place that turns
  * one into `{ "error": "code", "message"?: "string" }`.
  */
-/** pg-pool's wait timeout, a connect timeout, or a refused connection. */
+/** pg-pool's wait timeout, a connect timeout, a refused connection, or an
+ *  open connection closed by the server (DB restarting). */
 function isDbUnavailable(err: Error): boolean {
   const code = (err as { code?: string }).code;
   return (
     err.message === "timeout exceeded when trying to connect" ||
     err.message === "Connection terminated due to connection timeout" ||
+    err.message === "Connection terminated unexpectedly" ||
     code === "ECONNREFUSED" ||
     code === "57P03" // cannot_connect_now (Postgres starting up)
   );

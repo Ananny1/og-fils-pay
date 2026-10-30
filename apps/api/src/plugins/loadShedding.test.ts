@@ -54,6 +54,9 @@ test("requests over API_MAX_IN_FLIGHT get an immediate 503 with Retry-After; hea
 
     const health = await app.inject({ method: "GET", url: "/healthz" });
     assert.equal(health.statusCode, 200);
+    // request.url carries the query string; a probe with one is still a probe.
+    const healthWithQuery = await app.inject({ method: "GET", url: "/healthz?probe=1" });
+    assert.equal(healthWithQuery.statusCode, 200);
 
     release();
     assert.equal((await slow1).statusCode, 200);
@@ -80,6 +83,25 @@ test("a request that cannot get a DB connection in time gets 503 + Retry-After, 
     assert.equal(res.json().error, "service_unavailable");
   } finally {
     held.release();
+    await app.close();
+    await pool.end();
+  }
+});
+
+test("a DB connection dropped mid-request (DB restarting) gets 503 + Retry-After, not a 500", async () => {
+  const config = testConfig({});
+  const pool = new Pool({ connectionString: databaseUrl, max: 1 });
+  const app = buildApp(config, pool);
+  // The exact error pg raises when the server closes an open connection.
+  app.get("/test/db-dropped", async () => {
+    throw new Error("Connection terminated unexpectedly");
+  });
+  try {
+    const res = await app.inject({ method: "GET", url: "/test/db-dropped" });
+    assert.equal(res.statusCode, 503);
+    assert.equal(res.headers["retry-after"], "1");
+    assert.equal(res.json().error, "service_unavailable");
+  } finally {
     await app.close();
     await pool.end();
   }
