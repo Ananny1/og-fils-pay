@@ -35,6 +35,8 @@ type BlurTextProps = {
   color?: string;
   fromColor?: string;
   focusOnHover?: boolean;
+  /** Element to render (default 'p'); page titles pass 'h1'. */
+  as?: 'p' | 'h1' | 'h2' | 'h3' | 'span' | 'div';
 };
 
 interface EffectConfig {
@@ -234,7 +236,8 @@ const BlurText = ({
   loopDelay = 2,
   color,
   fromColor,
-  focusOnHover = false
+  focusOnHover = false,
+  as: Tag = 'p'
 }: BlurTextProps) => {
   const ref = useRef<HTMLParagraphElement>(null);
   const [phase, setPhase] = useState<Phase>(() => startPhase(trigger));
@@ -412,7 +415,7 @@ const BlurText = ({
 
   return (
     <MotionConfig reducedMotion="user">
-      <p
+      <Tag
         ref={ref}
         className={`blur-text flex flex-wrap ${trigger === 'click' ? 'cursor-pointer' : ''} ${className}`}
         style={{ color }}
@@ -431,7 +434,7 @@ const BlurText = ({
             {indices.map(renderPiece)}
           </span>
         ))}
-      </p>
+      </Tag>
     </MotionConfig>
   );
 };

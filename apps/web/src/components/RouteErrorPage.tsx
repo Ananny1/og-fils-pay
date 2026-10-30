@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Link, isRouteErrorResponse, useRouteError } from "react-router-dom";
 import { Compass, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -6,6 +7,12 @@ import { BrandMark } from "@/components/dashboard/public-shell";
 import { ThemeToggle } from "@/components/dashboard/theme-toggle";
 
 function Screen({ icon, title, body }: { icon: React.ReactNode; title: string; body: string }) {
+  useEffect(() => {
+    document.title = `${title} · FilsPay`;
+    return () => {
+      document.title = "FilsPay";
+    };
+  }, [title]);
   return (
     <div className="flex min-h-svh flex-col">
       {/* Same dark header strip as the login page, with the theme toggle. */}
@@ -19,7 +26,10 @@ function Screen({ icon, title, body }: { icon: React.ReactNode; title: string; b
         <Empty className="max-w-md border border-[var(--card-border)] bg-card">
           <EmptyHeader>
             <EmptyMedia variant="icon">{icon}</EmptyMedia>
-            <EmptyTitle className="font-heading text-xl uppercase">{title}</EmptyTitle>
+            <EmptyTitle className="font-heading text-xl uppercase">
+              {/* Preflight makes h1 inherit size and weight, so it keeps the title style. */}
+              <h1>{title}</h1>
+            </EmptyTitle>
             <EmptyDescription>{body}</EmptyDescription>
           </EmptyHeader>
           <EmptyContent>

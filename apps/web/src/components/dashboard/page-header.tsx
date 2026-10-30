@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import BlurText from "@/components/ui/BlurText";
 import { cn } from "@/lib/utils";
 
@@ -15,10 +15,17 @@ export function PageHeader({
   actions?: ReactNode;
   className?: string;
 }) {
+  useEffect(() => {
+    document.title = `${title} · FilsPay`;
+    return () => {
+      document.title = "FilsPay";
+    };
+  }, [title]);
   return (
     <div className={cn("flex flex-wrap items-end justify-between gap-4", className)}>
       <div className="space-y-1">
         <BlurText
+          as="h1"
           text={title}
           animateBy="words"
           direction="top"
