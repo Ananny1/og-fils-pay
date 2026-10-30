@@ -11,35 +11,12 @@ import { ConflictError, UnprocessableEntityError } from "../lib/errors.js";
 import { getEffectiveMdrBps } from "../fees/feeSchedule.js";
 import { getVolumeTierBonusBps } from "../fees/platformVolumeTier.js";
 
-async function recordCaptureMetric(
-  client: import("pg").PoolClient,
-  merchantId: string,
-  amountFils: Fils,
-  capturedAt: Date,
-): Promise<void> {
-  const dateStr = capturedAt.toISOString().slice(0, 10);
-  const existing = await client.query(
-    `SELECT merchant_id FROM merchant_daily_volume WHERE merchant_id = $1 AND volume_date = $2`,
-    [merchantId, dateStr],
-  );
-  if (existing.rows[0]) {
-    await client.query(
-      `UPDATE merchant_daily_volume
-          SET captured_count = captured_count + 1, captured_gross_fils = captured_gross_fils + $3
-        WHERE merchant_id = $1 AND volume_date = $2`,
-      [merchantId, dateStr, amountFils],
-    );
-  } else {
-    await client.query(
-      `INSERT INTO merchant_daily_volume (merchant_id, volume_date, captured_count, captured_gross_fils, voided_count)
-       VALUES ($1, $2, 1, $3, 0)
-       ON CONFLICT (merchant_id, volume_date)
-       DO UPDATE SET captured_count = merchant_daily_volume.captured_count + 1,
-                     captured_gross_fils = merchant_daily_volume.captured_gross_fils + $3`,
-      [merchantId, dateStr, amountFils],
-    );
-  }
-}
+// BUG-037: a never-called recordCaptureMetric() used to live here. It wrote
+// merchant_daily_volume bucketed by UTC date (toISOString().slice(0, 10)).
+// That table is owned by the reporting consumer (apps/reporting
+// applyEvent.ts), which buckets transaction.captured events by Asia/Bahrain
+// date; writing it from capture as well would double-count and put
+// 21:00-24:00 UTC captures on the wrong day. Removed rather than wired in.
 
 const ENDPOINT = "transactions.capture";
 
