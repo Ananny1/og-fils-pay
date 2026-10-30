@@ -7,7 +7,7 @@ Status of all tasks: `PLAN.md` → Master order. This file is the **detail of wh
 
 | Field | Value |
 |---|---|
-| Task | **4-hour sprint** (PLAN.md "4-hour sprint"): workflow run `wf_927692e7-c3a`, 10 streams S1–S10 in worktrees, test DBs filspay_s1…s8 |
+| Task | **Paused 17:05 (internet cut ~30 min).** All bug, refund, security and email-OTP work is merged and pushed (API 502/502, reporting 12/12, Go ok). In progress: HOST-2 agent (worktree `.claude/worktrees/agent-ad4408bb195862add`, uncommitted edits to prod nginx/env/seed) wiring per-IP edge limits into `ops/prod/nginx.conf` and re-measuring capacity. Next: merge HOST-2 → deploy to Dilmune (needs access from the 17:00 talk; ask Q-7) → after screenshots → Ebrahim opens the PR by 21:30. |
 | Owner | Ebrahim |
 | Branch | `ebrahim/track-b` |
 | Step | — (0-claimed · 1-understood · 2-planned · 3-test-red · 4-fixed · 5-verified · 6-documented · 7-pushed) |
