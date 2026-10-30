@@ -77,10 +77,17 @@ export async function listPaymentLinks(
   const statusArray = filters.status && filters.status.length > 0 ? filters.status : null;
   const decodedCursor = decodeCursor(filters.cursor);
 
+  // BUG-108: `expired` is never stored (0020): an 'active' row past
+  // expires_at is expired, exactly as the dashboard shows it (BUG-101). The
+  // filter matches on that displayed status, so ?status=active no longer
+  // returns dead links and ?status=expired finds them. Only the WHERE
+  // changes; the keyset order and cursor are untouched.
+
   const result = await pool.query<PaymentLinkRow & { created_at_text: string }>(
     `SELECT *, created_at::text AS created_at_text FROM payment_links
       WHERE merchant_id = $1
-        AND ($2::text[] IS NULL OR status = ANY($2))
+        AND ($2::text[] IS NULL OR
+             (CASE WHEN status = 'active' AND expires_at <= now() THEN 'expired' ELSE status END) = ANY($2))
         AND ($3::timestamptz IS NULL OR (created_at, id) < ($3, $4))
       ORDER BY created_at DESC, id DESC
       LIMIT $5`,
