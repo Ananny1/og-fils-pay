@@ -1,6 +1,6 @@
 import { ArrowRight, Info } from "lucide-react";
 import { useTheme } from "next-themes";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { login, resendOtp, verifyOtp } from "../../api/dashboardAuth.js";
 import { ApiError, describeError } from "../../api/client.js";
@@ -79,6 +79,26 @@ export function LoginPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [errorTitle, setErrorTitle] = useState("Sign-in failed");
+  // The server allows one resend per 30 s from the challenge's creation. This
+  // timer only mirrors that rule so the button isn't a guaranteed failure; a
+  // `resend_too_soon` reply from the server still wins.
+  const [resendAvailableAt, setResendAvailableAt] = useState(0);
+  const [now, setNow] = useState(() => Date.now());
+  const resendWaitSeconds = Math.max(0, Math.ceil((resendAvailableAt - now) / 1000));
+  const resendWaiting = resendWaitSeconds > 0;
+
+  useEffect(() => {
+    if (!resendWaiting) return;
+    const id = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, [resendWaiting]);
+
+  function startResendWait(): void {
+    const t = Date.now();
+    setNow(t);
+    setResendAvailableAt(t + 30_000);
+  }
 
   const routeState = location.state as { from?: string; reason?: string } | null;
   const redirectTo = routeState?.from ?? "/dashboard/overview";
@@ -96,6 +116,7 @@ export function LoginPage() {
   function backToCredentials(message: string | null): void {
     setStep({ kind: "credentials" });
     setCode("");
+    setErrorTitle("Sign-in failed");
     setError(message);
   }
 
@@ -104,9 +125,11 @@ export function LoginPage() {
     setSubmitting(true);
     setError(null);
     setNotice(null);
+    setErrorTitle("Sign-in failed");
     try {
       const challenge = await login({ merchantId: merchantId.trim(), email, password });
       setStep({ kind: "otp", challenge });
+      startResendWait();
       setPassword("");
     } catch (err) {
       setError(describeError(err));
@@ -122,6 +145,7 @@ export function LoginPage() {
     setSubmitting(true);
     setError(null);
     setNotice(null);
+    setErrorTitle("Sign-in failed");
     try {
       await verifyOtp({ code });
       writeLastMerchantId(merchantId.trim());
@@ -153,10 +177,15 @@ export function LoginPage() {
       setStep({ kind: "otp", challenge });
       setCode("");
       setNotice("A new code has been sent.");
+      startResendWait();
     } catch (err) {
       // Includes `429 resend_too_soon` — the server owns the cadence rule, so
-      // whatever it says is shown as-is rather than pre-empted by a
-      // client-side timer that could drift from it.
+      // whatever it says is shown as-is; the client timer is only a hint and
+      // restarts from the server's refusal.
+      if (err instanceof ApiError && err.statusCode === 429 && err.code === "resend_too_soon") {
+        startResendWait();
+      }
+      setErrorTitle("Couldn't send a new code");
       setError(describeError(err));
     } finally {
       setSubmitting(false);
@@ -264,7 +293,7 @@ export function LoginPage() {
                 </CardHeader>
 
                 <CardContent className="flex flex-col gap-4">
-                  <ErrorAlert message={error} title="Sign-in failed" />
+                  <ErrorAlert message={error} title={errorTitle} />
                   {notice ?? (!isOtp && !error ? arrivalNotice : null) ? (
                     <Alert>
                       <Info className="text-info" />
@@ -395,10 +424,13 @@ export function LoginPage() {
                             type="button"
                             variant="ghost"
                             size="sm"
-                            disabled={submitting}
+                            className="tabular-nums"
+                            disabled={submitting || resendWaiting}
                             onClick={() => void handleResend()}
                           >
-                            Resend code
+                            {resendWaiting
+                              ? `Resend code in ${Math.floor(resendWaitSeconds / 60)}:${String(resendWaitSeconds % 60).padStart(2, "0")}`
+                              : "Resend code"}
                           </Button>
                         </div>
                       </FieldGroup>
