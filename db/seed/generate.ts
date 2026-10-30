@@ -47,6 +47,34 @@ export const SEED_USER_PASSWORD = "FilsPaySeed!2026";
 export const SEED_ADMIN_PASSWORD = "FilsPayAdminSeed!2026";
 
 /**
+ * HOST-2: the two passwords above are public (they are in git), so a hosted
+ * box (NODE_ENV=production, seeded once by ops/prod/seed-once.ts) must not use
+ * them. In production both come from env (SEED_USER_PASSWORD /
+ * SEED_ADMIN_PASSWORD), at least 12 characters, different from each other
+ * and from the committed values; otherwise the seed refuses to run. Outside
+ * production the env values are optional and the committed ones stay the
+ * default, so local dev, CI and docs/challenge/SETUP.md are unchanged.
+ */
+export function seedPasswords(env: NodeJS.ProcessEnv): { user: string; admin: string } {
+  const user = env.SEED_USER_PASSWORD || SEED_USER_PASSWORD;
+  const admin = env.SEED_ADMIN_PASSWORD || SEED_ADMIN_PASSWORD;
+  if (env.NODE_ENV === "production") {
+    for (const [name, value, committed] of [
+      ["SEED_USER_PASSWORD", user, SEED_USER_PASSWORD],
+      ["SEED_ADMIN_PASSWORD", admin, SEED_ADMIN_PASSWORD],
+    ] as const) {
+      if (value === committed || value.length < 12) {
+        throw new Error(`seed: set ${name} (12+ characters, not the committed dev value) when NODE_ENV=production`);
+      }
+    }
+    if (user === admin) {
+      throw new Error("seed: SEED_USER_PASSWORD and SEED_ADMIN_PASSWORD must differ");
+    }
+  }
+  return { user, admin };
+}
+
+/**
  * One fixture admin per role, so the three-way role boundary
  * (`support` < `finance` < `super_admin`) can actually be exercised by hand:
  * logging in as `support@filspay.test` and hitting a finance-gated route is
@@ -183,8 +211,9 @@ interface InsertedMerchant {
 export async function generate(pool: Pool): Promise<SeedSummary> {
   const rng = createRng(SEED);
   const config = loadConfig(process.env);
-  const passwordHash = await hashPassword(SEED_USER_PASSWORD, config);
-  const adminPasswordHash = await hashPassword(SEED_ADMIN_PASSWORD, config);
+  const passwords = seedPasswords(process.env);
+  const passwordHash = await hashPassword(passwords.user, config);
+  const adminPasswordHash = await hashPassword(passwords.admin, config);
 
   const client = await pool.connect();
   const insertedMerchants: InsertedMerchant[] = [];

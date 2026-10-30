@@ -64,7 +64,8 @@ services:
       interval: 5s
       timeout: 3s
       retries: 20
-    cpus: 0.38
+    # HOST-2: 0.38 -> 0.35 to give settlement 0.05 (sum stays 1.0 vCPU).
+    cpus: 0.35
     mem_limit: 640m
     logging: *logging
 
@@ -111,6 +112,9 @@ services:
       PG_POOL_CONNECTION_TIMEOUT_MS: ${PG_POOL_CONNECTION_TIMEOUT_MS:-2000}
       # Leave head-room under the 512 MB cap for buffers and native modules.
       NODE_OPTIONS: --max-old-space-size=384
+    # No `ports:` on purpose (HOST-2): the api trusts X-Forwarded-For
+    # (TRUST_PROXY=true in .env.prod), which is safe only while nginx, which
+    # overwrites that header, is the one way in.
     volumes:
       - kyc:/app/data/kyc
     depends_on:
@@ -141,7 +145,10 @@ services:
     depends_on:
       seed:
         condition: service_completed_successfully
-    cpus: 0.02
+    # HOST-2 measured: idle during checkout; the daily batch and the admin
+    # "re-run / rebuild" calls (api waits up to 30 s) ran 3.5x slower at 0.02
+    # (run-batch 7.7 s -> 2.2 s, rebuild-balances 5.2 s -> 1.6 s at 0.05).
+    cpus: 0.05
     mem_limit: 128m
     logging: *logging
 
@@ -155,6 +162,9 @@ services:
     depends_on:
       seed:
         condition: service_completed_successfully
+    # HOST-2 measured: at full checkout load it uses its whole 0.02 but keeps
+    # up (backlog peaked at ~350 events, cleared within seconds). It is off
+    # the payment path, so it stays at 0.02.
     cpus: 0.02
     mem_limit: 256m
 
