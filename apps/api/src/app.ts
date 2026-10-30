@@ -39,12 +39,18 @@ export interface BuildAppOptions {
  * tests use `app.inject(...)` against this — no real socket needed.
  */
 export function buildApp(config: Config, pool: Pool, options: BuildAppOptions = {}): FastifyInstance {
-  const app = Fastify({ logger: true });
+  const app = Fastify({
+    logger: true,
+    bodyLimit: config.bodyLimitBytes,
+    requestTimeout: config.httpRequestTimeoutMs,
+  });
 
   app.decorate("db", pool);
   app.decorate("config", config);
   app.decorate("acquirer", createAcquirerSimulator(config));
   app.decorate("webhookTransport", options.webhookTransport ?? createFetchTransport());
+
+  installOverloadGuard(app, config.maxInFlightRequests);
 
   app.register(cookiesPlugin);
   app.register(multipartPlugin, { config });
@@ -79,4 +85,46 @@ export function buildApp(config: Config, pool: Pool, options: BuildAppOptions = 
   // consumer is likewise started by its own entrypoint, never from here.
 
   return app;
+}
+
+/** Probes must keep answering while the API sheds load, or Docker/nginx
+ *  would mark a busy-but-healthy instance dead. */
+const UNGUARDED_ROUTES = new Set(["/healthz", "/readyz"]);
+
+/**
+ * Load shedding (OPS-002). Counts requests currently being processed; once
+ * `maxInFlight` are in progress, a new request is answered at once with
+ * 503 + `Retry-After: 1` and never reaches a handler or the DB pool. The
+ * alternative — accepting everything — lets a burst queue up behind a
+ * 0.5 vCPU event loop and a small pg pool until *every* request is slow and
+ * times out (no one gets served). 0 disables the guard.
+ */
+function installOverloadGuard(app: FastifyInstance, maxInFlight: number): void {
+  if (maxInFlight <= 0) return;
+  let inFlight = 0;
+  app.addHook("onRequest", (request, reply, done) => {
+    if (UNGUARDED_ROUTES.has(request.routeOptions.url ?? "")) {
+      done();
+      return;
+    }
+    if (inFlight >= maxInFlight) {
+      reply
+        .code(503)
+        .header("retry-after", "1")
+        .send({ error: "overloaded", message: "server is busy, retry shortly" });
+      return;
+    }
+    inFlight += 1;
+    let released = false;
+    const release = (): void => {
+      if (released) return;
+      released = true;
+      inFlight -= 1;
+    };
+    // 'finish' = response fully written; 'close' also fires when the client
+    // goes away first. Either frees the slot, exactly once.
+    reply.raw.once("finish", release);
+    reply.raw.once("close", release);
+    done();
+  });
 }
