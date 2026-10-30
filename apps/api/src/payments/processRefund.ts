@@ -48,112 +48,117 @@ export async function processRefund(
     reason: input.reason ?? null,
   });
 
-  // 1 validate
-  const prepared = await withTransaction(pool, async (client) => {
-    const claim = await claimIdempotencyKey(client, {
-      merchantId: input.merchantId,
-      endpoint: ENDPOINT,
-      key: input.idempotencyKey,
-      requestHash,
+  // One transaction from the claim to the journal, with the transaction row
+  // locked FOR UPDATE through the acquirer call (BUG-034) -- the same shape
+  // as capture.ts. Two refunds on one sale now run one after the other, and
+  // the second validates against the first one's refunded_fils.
+  return withTransaction(pool, async (client) => {
+    // 1 validate
+    const prepared = await (async () => {
+      const claim = await claimIdempotencyKey(client, {
+        merchantId: input.merchantId,
+        endpoint: ENDPOINT,
+        key: input.idempotencyKey,
+        requestHash,
+      });
+
+      if (claim.outcome === "conflict_hash_mismatch") {
+        throw new UnprocessableEntityError("idempotency_key_reused");
+      }
+      if (claim.outcome === "conflict_in_progress") {
+        throw new ConflictError("request_in_progress");
+      }
+      if (claim.outcome === "replay") {
+        return {
+          kind: "settled" as const,
+          result: { statusCode: claim.row.responseStatusCode ?? 200, body: claim.row.responseBody },
+        };
+      }
+
+      const txnResult = await client.query<RefundTransactionRow>(
+        `SELECT id, merchant_id, status, amount_fils, captured_fils, refunded_fils, acquirer_reference
+           FROM transactions
+          WHERE id = $1
+            AND merchant_id = $2
+            FOR UPDATE`,
+        [input.transactionId, input.merchantId],
+      );
+      const txn = txnResult.rows[0];
+      if (!txn) {
+        const body = { error: "transaction_not_found" };
+        await completeIdempotencyKey(client, claim.row.id, { statusCode: 404, body });
+        return { kind: "settled" as const, result: { statusCode: 404, body } };
+      }
+
+      const amountAuthorized = toFils(Number(txn.amount_fils));
+      const capturedFils = toFils(Number(txn.captured_fils));
+      const refundedFils = toFils(Number(txn.refunded_fils));
+
+      // Only money that was actually captured can go back (BUG-035): the
+      // authorized amount includes headroom that never left the card.
+      const refundableFils = subtractFils(capturedFils, refundedFils);
+
+      const validation = validateRefundRequest(
+        {
+          id: txn.id,
+          merchantId: txn.merchant_id,
+          status: txn.status,
+          capturedFils,
+          refundableFils,
+        },
+        input.amountFils,
+      );
+
+      if (!validation.ok) {
+        const statusCode = validation.code === "transaction_not_refundable" ? 409 : 422;
+        await completeIdempotencyKey(client, claim.row.id, { statusCode, body: validation });
+        return { kind: "settled" as const, result: { statusCode, body: validation } };
+      }
+
+      // The fee this transaction was actually charged at capture, read from
+      // the ledger rather than recomputed from the merchant's current
+      // mdr_bps, so a rate change after capture can never retroactively alter
+      // what a refund reverses.
+      const feeResult = await client.query<{ fee_fils: string }>(
+        `SELECT COALESCE(SUM(amount_fils), 0)::text AS fee_fils
+           FROM ledger_entries
+          WHERE transaction_id = $1
+            AND account_id = 'platform_fee_revenue'
+            AND direction = 'credit'`,
+        [txn.id],
+      );
+      const feeRow = feeResult.rows[0];
+      if (!feeRow) {
+        throw new Error("processRefund: fee aggregate returned no row");
+      }
+
+      return {
+        kind: "proceed" as const,
+        claimId: claim.row.id,
+        attemptCount: claim.row.attemptCount,
+        transactionId: txn.id,
+        merchantId: txn.merchant_id,
+        acquirerReference: txn.acquirer_reference,
+        amountAuthorized,
+        capturedFils,
+        refundedFils,
+        feeChargedFils: toFils(Number(feeRow.fee_fils)),
+        requestedAmount: validation.amountFils,
+      };
+    })();
+
+    if (prepared.kind === "settled") {
+      return prepared.result;
+    }
+
+    // 2 acquirer (still holding the row lock)
+    const acquirerResult = await acquirer.refund({
+      acquirerReference: prepared.acquirerReference,
+      amountFils: prepared.requestedAmount,
+      idempotencyKey: `${prepared.claimId}:${prepared.attemptCount}`,
     });
 
-    if (claim.outcome === "conflict_hash_mismatch") {
-      throw new UnprocessableEntityError("idempotency_key_reused");
-    }
-    if (claim.outcome === "conflict_in_progress") {
-      throw new ConflictError("request_in_progress");
-    }
-    if (claim.outcome === "replay") {
-      return {
-        kind: "settled" as const,
-        result: { statusCode: claim.row.responseStatusCode ?? 200, body: claim.row.responseBody },
-      };
-    }
-
-    const txnResult = await client.query<RefundTransactionRow>(
-      `SELECT id, merchant_id, status, amount_fils, captured_fils, refunded_fils, acquirer_reference
-         FROM transactions
-        WHERE id = $1
-          AND merchant_id = $2`,
-      [input.transactionId, input.merchantId],
-    );
-    const txn = txnResult.rows[0];
-    if (!txn) {
-      const body = { error: "transaction_not_found" };
-      await completeIdempotencyKey(client, claim.row.id, { statusCode: 404, body });
-      return { kind: "settled" as const, result: { statusCode: 404, body } };
-    }
-
-    const amountAuthorized = toFils(Number(txn.amount_fils));
-    const capturedFils = toFils(Number(txn.captured_fils));
-    const refundedFils = toFils(Number(txn.refunded_fils));
-
-    // Only money that was actually captured can go back (BUG-035): the
-    // authorized amount includes headroom that never left the card.
-    const refundableFils = subtractFils(capturedFils, refundedFils);
-
-    const validation = validateRefundRequest(
-      {
-        id: txn.id,
-        merchantId: txn.merchant_id,
-        status: txn.status,
-        capturedFils,
-        refundableFils,
-      },
-      input.amountFils,
-    );
-
-    if (!validation.ok) {
-      const statusCode = validation.code === "transaction_not_refundable" ? 409 : 422;
-      await completeIdempotencyKey(client, claim.row.id, { statusCode, body: validation });
-      return { kind: "settled" as const, result: { statusCode, body: validation } };
-    }
-
-    // The fee this transaction was actually charged at capture, read from
-    // the ledger rather than recomputed from the merchant's current
-    // mdr_bps, so a rate change after capture can never retroactively alter
-    // what a refund reverses.
-    const feeResult = await client.query<{ fee_fils: string }>(
-      `SELECT COALESCE(SUM(amount_fils), 0)::text AS fee_fils
-         FROM ledger_entries
-        WHERE transaction_id = $1
-          AND account_id = 'platform_fee_revenue'
-          AND direction = 'credit'`,
-      [txn.id],
-    );
-    const feeRow = feeResult.rows[0];
-    if (!feeRow) {
-      throw new Error("processRefund: fee aggregate returned no row");
-    }
-
-    return {
-      kind: "proceed" as const,
-      claimId: claim.row.id,
-      attemptCount: claim.row.attemptCount,
-      transactionId: txn.id,
-      merchantId: txn.merchant_id,
-      acquirerReference: txn.acquirer_reference,
-      amountAuthorized,
-      capturedFils,
-      refundedFils,
-      feeChargedFils: toFils(Number(feeRow.fee_fils)),
-      requestedAmount: validation.amountFils,
-    };
-  });
-
-  if (prepared.kind === "settled") {
-    return prepared.result;
-  }
-
-  // 2 acquirer
-  const acquirerResult = await acquirer.refund({
-    acquirerReference: prepared.acquirerReference,
-    amountFils: prepared.requestedAmount,
-    idempotencyKey: `${prepared.claimId}:${prepared.attemptCount}`,
-  });
-
-  // 3 journal
-  return withTransaction(pool, async (client) => {
+    // 3 journal
     if (acquirerResult.outcome === "declined") {
       const body = { error: "refund_declined" };
       await completeIdempotencyKey(client, prepared.claimId, { statusCode: 402, body });

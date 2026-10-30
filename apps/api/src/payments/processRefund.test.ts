@@ -564,3 +564,44 @@ test("a refund can never exceed what was captured", async () => {
   ]);
   assert.equal(Number(row.rows[0]!.refunded_fils), 4_000);
 });
+
+// BUG-034 (R1, FP-209): two refunds with different keys at the same moment
+// both validated against refunded_fils = 0 and both went through.
+test("two refunds at the same moment cannot together exceed the captured amount", async () => {
+  const merchant = await createApprovedMerchantWithApiKey("refund-race");
+  const txn = await capturedTransaction(merchant.rawKey, 10_000);
+  const actor = await apiKeyActor(merchant.merchantId);
+
+  // A slow acquirer widens the window between validation and journal.
+  const slowAcquirer: AcquirerSimulator = {
+    ...approvingAcquirer,
+    async refund(req): Promise<AcquirerRefundResult> {
+      await new Promise((resolve) => setTimeout(resolve, 150));
+      return { outcome: "approved", acquirerReference: req.acquirerReference, latencyMs: 150 };
+    },
+  };
+
+  const results = await Promise.all(
+    [1, 2].map(() =>
+      processRefund(pool, slowAcquirer, {
+        transactionId: txn.id,
+        merchantId: merchant.merchantId,
+        amountFils: toFils(6_000),
+        idempotencyKey: randomUUID(),
+        actor,
+      }),
+    ),
+  );
+  const codes = results.map((r) => r.statusCode).sort();
+  assert.deepEqual(codes, [200, 422], JSON.stringify(results));
+
+  const row = await pool.query<{ refunded_fils: string }>(`SELECT refunded_fils FROM transactions WHERE id = $1`, [
+    txn.id,
+  ]);
+  assert.equal(Number(row.rows[0]!.refunded_fils), 6_000);
+  const refunds = await pool.query<{ total: string }>(
+    `SELECT COALESCE(SUM(amount_fils), 0)::text AS total FROM refunds WHERE transaction_id = $1`,
+    [txn.id],
+  );
+  assert.equal(Number(refunds.rows[0]!.total), 6_000);
+});
