@@ -653,6 +653,15 @@ button.admin-btn-danger:hover:not(:disabled) {
   color: var(--ink-ok);
 }
 
+/* Inactive / finished-without-effect states read grey, as in apps/web
+   (case-stamp--muted), not as red alerts. */
+.admin-status--expired,
+.admin-status--archived,
+.admin-status--disabled,
+.admin-status--canceled {
+  color: var(--text-muted);
+}
+
 /* In the profile list the dd itself becomes the stamp. */
 .admin-dl dd.admin-status {
   justify-self: start;
