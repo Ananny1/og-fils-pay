@@ -109,13 +109,13 @@ the screens (Tier 7) and hand-in (Tier 8).
 | 6.2 | BUG-035 | Refund more than was captured | ★★★ | S4 "refund more than charged" | — | ✅ |
 | 6.3 | BUG-036 | Refund another shop's transaction | ★★★ | — | — | ✅ |
 | 6.4 | BUG-056 | Fee reversal across partial refunds can exceed the original fee | ★★ | S2 "fees … right" | — | ✅ |
-| 6.5 | BUG-057 | Status after a full refund of a partial capture | ★ | — | — | ⬜ |
+| 6.5 | BUG-057 | Status after a full refund of a partial capture | ★ | — | — | ✅ |
 | 6.6 | FP-300.1 | Refund route + guards + required `Idempotency-Key` | ★★★ | S2 "through the API" | 6.1–6.3 | ✅ |
 | 6.7 | FP-300.2 | Ledger to the fil | ★★★ | S2 "ledger … fils" | 6.6 | ✅ |
 | 6.8 | FP-300.3 | Next settlement batch reduced by refunds (R9) | ★★★ | S2 "payouts" | 6.7 | ✅ |
 | 6.9 | FP-300.4 | `refund.succeeded` webhook (R6) | ★★ | S2 "right webhook" | 5.1, 6.6 | ✅ |
-| 6.10 | FP-300.5 | Timeline, reports, reconciliation (R7, R8) | ★★ | S2 "timeline … reconciliation" | 6.7 | ⬜ |
-| 6.11 | FP-300.6 | End-to-end refund tests | ★★ | S2 | 6.6–6.10 | ⬜ |
+| 6.10 | FP-300.5 | Timeline, reports, reconciliation (R7, R8) | ★★ | S2 "timeline … reconciliation" | 6.7 | ✅ |
+| 6.11 | FP-300.6 | End-to-end refund tests | ★★ | S2 | 6.6–6.10 | ✅ |
 | **Tier 7** | | **Screens** (Phase F, details below) | | | | |
 | 7.1 | F1–F13 | Frontend fixes (refund drawer, checkout, login, read-only impersonation, 3 decimals, …) | ★ | S2 "timeline" | per item | ⬜ |
 | 7.2 | T5 | Page checklist: every page × every state | ★ | — | 7.1 | ⬜ |
