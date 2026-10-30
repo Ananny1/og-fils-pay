@@ -186,7 +186,9 @@ export async function processRefund(
         prepared.requestedAmount,
         feeReversedFils,
         acquirerResult.acquirerReference,
-        input.reason ?? null,
+        // 0070 made reason NOT NULL (default 'unspecified'); an explicit
+        // NULL bypasses the column default, so send the default ourselves.
+        input.reason?.trim() || "unspecified",
         input.actor.type,
         input.actor.id,
       ],
