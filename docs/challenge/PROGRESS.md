@@ -20,7 +20,7 @@ Status of all tasks: `PLAN.md` → Master order. This file is the **detail of wh
 **If cut off:** resume the workflow with `Workflow({scriptPath: ~/.claude/projects/-home-ebrahim-Desktop-Cyber-Challenge-repo/612dc33b-9ffb-4dfa-bef5-f8aea6c4a5ae/workflows/scripts/filspay-4h-sprint-wf_927692e7-c3a.js, resumeFromRunId: "wf_927692e7-c3a"})`.
 Each stream commits on its own worktree branch (`git worktree list`). Organiser steps after it returns:
 cherry-pick every stream's commits onto `ebrahim/track-b` (resolve conflicts) → rebuild api → full TS suite + Go tests →
-fix reviewer issues → update IMPLEMENTATION / PLAN / TRAPS / PRESENTATION / FINDINGS-REPORT statuses → AFTER screenshots → push.
+fix reviewer issues → (security run `wf_ffea45a4-d8f`: merge branch `sec/integration` only after the red-team retest is clean) → update IMPLEMENTATION / PLAN / TRAPS / PRESENTATION / FINDINGS-REPORT statuses → AFTER screenshots → push.
 
 ## Done (newest first)
 
