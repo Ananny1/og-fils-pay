@@ -88,7 +88,9 @@ export async function processRefund(
     const capturedFils = toFils(Number(txn.captured_fils));
     const refundedFils = toFils(Number(txn.refunded_fils));
 
-    const refundableFils = subtractFils(amountAuthorized, refundedFils);
+    // Only money that was actually captured can go back (BUG-035): the
+    // authorized amount includes headroom that never left the card.
+    const refundableFils = subtractFils(capturedFils, refundedFils);
 
     const validation = validateRefundRequest(
       {

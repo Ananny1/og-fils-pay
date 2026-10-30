@@ -522,3 +522,45 @@ test("refunding another merchant's transaction answers 404 and moves no money", 
   assert.equal(row.rows[0]!.status, "captured");
   assert.equal(Number(row.rows[0]!.refunded_fils), 0);
 });
+
+// BUG-035 (R2): the ceiling was authorized - refunded, not captured - refunded.
+test("a refund can never exceed what was captured", async () => {
+  const merchant = await createApprovedMerchantWithApiKey("refund-over-capture");
+  const txn = await capturedTransaction(merchant.rawKey, 10_000, 4_000);
+  const actor = await apiKeyActor(merchant.merchantId);
+
+  const tooMuch = await processRefund(pool, approvingAcquirer, {
+    transactionId: txn.id,
+    merchantId: merchant.merchantId,
+    amountFils: toFils(10_000),
+    idempotencyKey: randomUUID(),
+    actor,
+  });
+  assert.equal(tooMuch.statusCode, 422, JSON.stringify(tooMuch.body));
+  assert.deepEqual(tooMuch.body, { ok: false, code: "refund_exceeds_refundable", refundableFils: 4_000 });
+
+  // Omitting the amount refunds only what was captured.
+  const all = await processRefund(pool, approvingAcquirer, {
+    transactionId: txn.id,
+    merchantId: merchant.merchantId,
+    idempotencyKey: randomUUID(),
+    actor,
+  });
+  assert.equal(all.statusCode, 200, JSON.stringify(all.body));
+  assert.equal((all.body as { amountFils: number }).amountFils, 4_000);
+
+  // Nothing is left: a further 1 fil is refused.
+  const more = await processRefund(pool, approvingAcquirer, {
+    transactionId: txn.id,
+    merchantId: merchant.merchantId,
+    amountFils: toFils(1),
+    idempotencyKey: randomUUID(),
+    actor,
+  });
+  assert.equal(more.statusCode, 422, JSON.stringify(more.body));
+
+  const row = await pool.query<{ refunded_fils: string }>(`SELECT refunded_fils FROM transactions WHERE id = $1`, [
+    txn.id,
+  ]);
+  assert.equal(Number(row.rows[0]!.refunded_fils), 4_000);
+});
