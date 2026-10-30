@@ -223,6 +223,52 @@ func CloseBatch(ctx context.Context, db *pgxpool.Pool, merchantID uuid.UUID, bus
 	}
 	netPayout := NetPayableFils(batchGross, batchFee)
 
+	// Step 8b (BUG-070): manual credits. postCreditToLedger (apps/api
+	// admin/credits.ts) credits merchant_payable and the balance cache when a
+	// credit is posted, so the merchant is owed it — but nothing else pays it
+	// out. Every posted credit up to the end of this business day that no
+	// batch has claimed yet is added to this payout, claimed by
+	// settlement_batch_id under FOR UPDATE so it is paid exactly once. Added
+	// before refunds so a refund can be netted against it.
+	var creditClaimed money.Fils
+	var claimedCreditIDs []uuid.UUID
+	creditRows, err := tx.Query(ctx, `
+		SELECT id, base_amount_fils + fee_reversal_fils
+		  FROM credit_requests
+		 WHERE merchant_id = $1
+		   AND status = 'posted'
+		   AND settlement_batch_id IS NULL
+		   AND posted_at < $2
+		 ORDER BY posted_at, id
+		 FOR UPDATE
+	`, merchantID, end)
+	if err != nil {
+		return BatchResult{}, fmt.Errorf("settlement: CloseBatch: select unbatched credits: %w", err)
+	}
+	for creditRows.Next() {
+		var id uuid.UUID
+		var amount int64
+		if err := creditRows.Scan(&id, &amount); err != nil {
+			creditRows.Close()
+			return BatchResult{}, fmt.Errorf("settlement: CloseBatch: scan credit: %w", err)
+		}
+		creditClaimed += money.Fils(amount)
+		claimedCreditIDs = append(claimedCreditIDs, id)
+	}
+	if err := creditRows.Err(); err != nil {
+		return BatchResult{}, fmt.Errorf("settlement: CloseBatch: iterate credits: %w", err)
+	}
+	creditRows.Close()
+	if len(claimedCreditIDs) > 0 {
+		netPayout += creditClaimed
+		_, err = tx.Exec(ctx, `
+			UPDATE credit_requests SET settlement_batch_id = $2 WHERE id = ANY($1)
+		`, claimedCreditIDs, batchID)
+		if err != nil {
+			return BatchResult{}, fmt.Errorf("settlement: CloseBatch: mark credits batched: %w", err)
+		}
+	}
+
 	// Step 9 (FP-300.3, decision Q-2): refunds are deducted from the
 	// merchant's next batch. Every succeeded refund up to the end of this
 	// business day that no batch has claimed yet is taken off the payout,
@@ -345,8 +391,11 @@ func CloseBatch(ctx context.Context, db *pgxpool.Pool, merchantID uuid.UUID, bus
 		return BatchResult{}, fmt.Errorf("settlement: CloseBatch: enqueue outbox event: %w", err)
 	}
 
-	// Step 14: incrementally update the merchant_balances cache.
-	if err := balances.ApplyBatchClose(ctx, tx, merchantID, batchID, netPayout); err != nil {
+	// Step 14: incrementally update the merchant_balances cache. Claimed
+	// credits were already added to the cache when they were posted
+	// (BUG-070), so only the rest of the payout is new here; the payout
+	// then takes the whole net, credits included, back off.
+	if err := balances.ApplyBatchClose(ctx, tx, merchantID, batchID, netPayout-creditClaimed); err != nil {
 		return BatchResult{}, fmt.Errorf("settlement: CloseBatch: apply balance cache delta: %w", err)
 	}
 
