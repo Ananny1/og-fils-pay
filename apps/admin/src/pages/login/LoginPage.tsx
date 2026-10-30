@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { login, verifyOtp } from "../../api/auth.js";
 import { ApiError, describeError } from "../../api/client.js";
@@ -29,6 +29,10 @@ export function LoginPage() {
   const [code, setCode] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    document.title = "Sign in · FilsPay Admin";
+  }, []);
 
   const redirectTo =
     (location.state as { from?: string } | null)?.from ?? "/merchants";

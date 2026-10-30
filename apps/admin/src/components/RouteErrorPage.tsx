@@ -1,8 +1,12 @@
+import { useEffect } from "react";
 import { Link, isRouteErrorResponse, useRouteError } from "react-router-dom";
 
 /** Unknown URL: a plain sentence and a way back, instead of the router's
  *  default developer error screen. */
 export function NotFoundPage() {
+  useEffect(() => {
+    document.title = "Page not found · FilsPay Admin";
+  }, []);
   return (
     <main className="admin-centered">
       <h1>Page not found</h1>
@@ -18,6 +22,9 @@ export function NotFoundPage() {
  *  here instead of a blank page or a stack trace. */
 export function RouteErrorPage() {
   const error = useRouteError();
+  useEffect(() => {
+    document.title = "Something went wrong · FilsPay Admin";
+  }, []);
   if (isRouteErrorResponse(error) && error.status === 404) {
     return <NotFoundPage />;
   }

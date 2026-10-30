@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAdminAuth } from "../auth/AdminAuthContext.js";
 import { describeError, WEB_BASE_URL } from "../api/client.js";
 import { ImpersonationBanner } from "./ImpersonationBanner.js";
@@ -8,11 +8,26 @@ import { ThemeToggle } from "./ThemeToggle.js";
 /** Nav shell for every admin-plane screen: who you are signed in as, the
  *  section links, a logout, and — above all of it — the impersonation
  *  banner when a grant is live. */
+const PAGE_TITLES: Array<[prefix: string, title: string]> = [
+  ["/merchants", "Merchants"],
+  ["/credits", "Credits"],
+  ["/settlement", "Settlement ops"],
+  ["/adjustment-imports", "Import adjustments"],
+  ["/webhooks", "Webhook replay"],
+];
+
 // YA: nav order per Huda's request (Credits first)
 export function AdminLayout() {
   const { admin, signOut, impersonation } = useAdminAuth();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const [error, setError] = useState<string | null>(null);
+
+  // One tab title per section, so several open console tabs can be told apart.
+  useEffect(() => {
+    const page = PAGE_TITLES.find(([prefix]) => pathname.startsWith(prefix))?.[1];
+    document.title = page ? `${page} · FilsPay Admin` : "FilsPay Admin";
+  }, [pathname]);
 
   async function handleSignOut(): Promise<void> {
     setError(null);
