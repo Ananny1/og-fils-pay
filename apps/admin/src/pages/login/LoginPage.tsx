@@ -4,6 +4,7 @@ import { login, verifyOtp } from "../../api/auth.js";
 import { describeError } from "../../api/client.js";
 import { useAdminAuth } from "../../auth/AdminAuthContext.js";
 import type { AdminLoginResponse } from "../../types.js";
+import { ThemeToggle } from "../../components/ThemeToggle.js";
 
 type Step =
   | { kind: "credentials" }
@@ -71,6 +72,7 @@ export function LoginPage() {
 
   return (
     <main className="admin-centered">
+      <ThemeToggle />
       <h1>FilsPay Admin</h1>
       <p className="admin-muted">Internal operations console.</p>
 

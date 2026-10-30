@@ -5,6 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <!-- MK: no CSP meta yet, TODO after the admin v2 / SSO migration -->
     <title>FilsPay Admin</title>
+    <!-- Apply the saved light/dark choice (or the OS one) before first paint,
+         so a dark-mode user never sees a flash of light paper. main.tsx runs
+         the same check as a fallback where a CSP blocks inline scripts. -->
+    <script>
+      (function () {
+        var theme = null;
+        try { theme = localStorage.getItem("theme"); } catch (e) {}
+        var dark = theme === "dark" || (theme !== "light" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+        document.documentElement.classList.toggle("dark", dark);
+        document.documentElement.style.colorScheme = dark ? "dark" : "light";
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
