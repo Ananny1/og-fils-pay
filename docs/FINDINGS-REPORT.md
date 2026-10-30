@@ -184,6 +184,28 @@ Feature steps (not bugs, listed so nothing is missed):
 
 ---
 
+### I. Security hardening and red-team findings (built and attacked on 2026-10-30)
+
+We built five protections, then four red-team agents attacked the result twice. Every hole they
+reproduced is fixed with a failing test first.
+
+| ID | Severity | What's wrong | Root cause | Impact | Status | Write-up |
+|---|---|---|---|---|---|---|
+| SEC-1 | High | Passwords and OTPs could be guessed without limit | No per-IP or per-account counter on `/v1/auth/*` and `/v1/admin/auth/*` | Brute force, password spraying | ✅ | [SEC-1](bugs/SEC-1-login-brute-force-limiter.md) |
+| SEC-2 | Medium | A dashboard left open stayed logged in for 12 h | Sessions had only an absolute expiry, no idle check | Shared/stolen machines | ✅ | [SEC-2](bugs/SEC-2-idle-session-timeout.md) |
+| SEC-3 | Medium | No security headers; 500 errors could show internals; no body/time limits | The error handler returned raw messages; Fastify defaults | Info leak, slow-loris | ✅ | [SEC-3](bugs/SEC-3-security-headers-errors-limits.md) |
+| SEC-4 | High | KYC documents (IDs, CR copies) stored in plain files; the leaked acquirer secret still accepted | `onboarding/kyc.ts` wrote raw bytes; config had no deny-list | Identity theft from a disk copy; forged callbacks | ✅ | [KYC](bugs/SEC-4-kyc-encrypted-at-rest.md), [secret](bugs/SEC-4-leaked-secret-refused.md) |
+| SEC-5 | High | No edge limits against floods | No nginx rate/connection rules | DDoS | ✅ | [SEC-5](bugs/SEC-5-edge-rate-limits.md) |
+| SEC-RT-1 | Medium | A disabled admin kept a working "view as shop" grant | `lookupImpersonationGrant` didn't check `admin_users.status` (comment claimed a trigger did) | Ex-staff keep reading shop data | ✅ | [SEC-RT-1](bugs/SEC-RT-1-disabled-admin-impersonation.md) |
+| SEC-RT-2 | Medium | A suspended/closed shop kept its live sessions | `lookupSession` didn't check `merchants.status` | Suspension doesn't take effect | ✅ | [SEC-RT-2](bugs/SEC-RT-2-suspended-merchant-session.md) |
+| SEC-RT-3 | Medium | `GET /v1/reporting/export-summary` had no auth | Missing `preHandler: requireMerchantAuth` | Unauthenticated access / 500 | ✅ | [SEC-RT-3](bugs/SEC-RT-3-export-summary-no-auth.md) |
+| SEC-RT-4 | Medium | The public payment-link page leaked the shop's API key hash and prefix | `paymentLinks/read.ts` joined `api_keys` into a public reply | Key fingerprinting | ✅ | [SEC-RT-4](bugs/SEC-RT-4-public-link-leaks-api-key-hash.md) |
+| SEC-RT-5 | High | Any shop could read a marketplace seller's transaction report | `reporting/scope.ts` checked "is a split child" not "is **my** split child" | Cross-shop data leak | ✅ | [SEC-RT-5](bugs/SEC-RT-5-report-reads-other-shops-split-child.md) |
+| SEC-RT-6 | Low | A malformed id or date crashed the request with 500 | Postgres parse errors fell through to the generic handler | Log flooding, looks like a crash | ✅ | [SEC-RT-6](bugs/SEC-RT-6-bad-input-500.md) |
+
+The full control map (Confidentiality / Integrity / Availability) is in `docs/challenge/SECURITY.md`;
+the edge (DDoS) layers in `docs/challenge/DDOS.md`.
+
 ## 4. Other observations (not numbered, low points)
 
 Found in the audit and documented, but not scheduled: API keys bypass merchant role gates

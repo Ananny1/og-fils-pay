@@ -130,6 +130,8 @@ Each decision: **context → decision → why → consequences**. A decision is 
 | 25 | 2026-10-29 | BUG-032: rotate the session token at OTP verify and set it with the full TTL (merchant + admin); test helpers take the verify cookie (D-004) | Copied pre-OTP cookie: 200 → 401; merchant cookie 600 s → 43200 s; API 371/383 (= baseline 12) | D-003, D-004 |
 | 26 | 2026-10-29 | BUG-010: every admin role views a shop as `support`; `requireMerchantAuth` refuses non-GET on an impersonation grant | Live super-admin view: payment link 201 → 403, saved filter 201 → 403, reads 200; 6 new tests; API 377/389 (= baseline 12) | D-003 |
 | 27 | 2026-10-30 | 4-hour sprint (D-016): 9 parallel streams merged by the organiser — 30 bugs (BUG-003…061) + FP-300.1–.4 refunds; worktrees started from old `main`, so every stream was cherry-picked onto `ebrahim/track-b` and re-tested; one test helper updated for BUG-032 | Fresh DB: API 431/432 → 432/432 after the helper fix; reporting 11/11; Go all ok with `-p 1` (packages share one DB; parallel packages race on merchant_balances) | D-016 |
+| 28 | 2026-10-30 | Review fixes (BUG-005 one connection per checkout, FP-300.3 recalc keeps refund deduction, BUG-008 queued duplicates, BUG-029 per-day guard, CAP-2 health checks), ENH-001 email OTP, BUG-062 reporting stall | API 450/450, reporting 12/12, Go ok | D-016 |
+| 29 | 2026-10-30 | Security sprint: SEC-1…5 built in parallel, integrated, attacked by 4 red-team agents; 4 holes fixed (SEC-RT-1…4), round 2 found SEC-RT-5 (cross-shop report) + SEC-RT-6, fixed by the organiser | API 502/502, reporting 12/12, Go ok | D-016 |
 
 ---
 
@@ -208,6 +210,17 @@ Planned queue (from the audit, in fix order):
 | BUG-060 | Medium | Webhook retry backoff differs from config (API test 332 red at T1) → [write-up](docs/bugs/BUG-060-webhook-backoff-jitter-and-cap.md) | ✅ |
 | BUG-061 | High | Refund insert violates `chk_refunds_reason_not_null` (11 refund tests red at T1; R8) → [write-up](docs/bugs/BUG-061-refund-reason-null.md) | ✅ |
 | BUG-062 | High | Reporting worker crashes (and stalls for everyone) when a closed batch's day has captures but no rollup row → [write-up](docs/bugs/BUG-062-reporting-stalls-on-missing-rollup.md) | ✅ |
+| SEC-1 | High | Login/OTP brute force: no limit per IP or account → 5/min per IP+account, 30/min per IP, 15-min lockout, state in Postgres → [write-up](docs/bugs/SEC-1-login-brute-force-limiter.md) | ✅ |
+| SEC-2 | Medium | No idle timeout: an open dashboard stayed logged in 12 h → 60 min shops / 30 min staff, throttled last_seen → [write-up](docs/bugs/SEC-2-idle-session-timeout.md) | ✅ |
+| SEC-3 | Medium | No security headers; 500s leaked internals; no body/time limits → [write-up](docs/bugs/SEC-3-security-headers-errors-limits.md) | ✅ |
+| SEC-4 | High | KYC documents stored in plaintext; leaked acquirer secret still accepted in production → [write-up](docs/bugs/SEC-4-kyc-encrypted-at-rest.md) | ✅ |
+| SEC-5 | High | No edge rate/connection limits (DDoS) → nginx per-IP rules → [write-up](docs/bugs/SEC-5-edge-rate-limits.md) | ✅ |
+| SEC-RT-1 | Medium | Disabled admin kept a working view-as-merchant grant (red team) → [write-up](docs/bugs/SEC-RT-1-disabled-admin-impersonation.md) | ✅ |
+| SEC-RT-2 | Medium | Suspended/closed merchant kept live dashboard sessions (red team) → [write-up](docs/bugs/SEC-RT-2-suspended-merchant-session.md) | ✅ |
+| SEC-RT-3 | Medium | GET /v1/reporting/export-summary had no auth (red team) → [write-up](docs/bugs/SEC-RT-3-export-summary-no-auth.md) | ✅ |
+| SEC-RT-4 | Medium | Public payment-link page leaked the merchant API key hash and prefix (red team) → [write-up](docs/bugs/SEC-RT-4-public-link-leaks-api-key-hash.md) | ✅ |
+| SEC-RT-5 | High | Any shop could read a marketplace child shop's transaction report (red team, round 2) → [write-up](docs/bugs/SEC-RT-5-report-reads-other-shops-split-child.md) | ✅ |
+| SEC-RT-6 | Low | Malformed ids/dates crashed requests with 500 (red team) → [write-up](docs/bugs/SEC-RT-6-bad-input-500.md) | ✅ |
 | BUG-037 | — | Public signup accepts an existing user's email. ⏭ Reclassified as **ENH-008** (D-015) | ⏭ |
 | BUG-050 | Critical | AI instruction files (`CLAUDE.md`, `AGENTS.md`, `.cursorrules`) told agents to keep the bugs → [write-up](docs/bugs/BUG-050-poisoned-agent-instructions.md) | ✅ |
 
@@ -221,11 +234,11 @@ reasons and cost is in `docs/challenge/PLAN.md` → Enhancements.
 
 | ID | Title | Supports | Status |
 |---|---|---|---|
-| ENH-001 | Email OTP delivery: "chattrix" = Gmail SMTP + app password (free), Mailpit locally → [write-up](docs/enhancements/ENH-001-email-otp-chattrix.md) | BUG-031 | ✔️ approved |
+| ENH-001 | Email OTP delivery: "chattrix" = Gmail SMTP + app password (free), Mailpit locally → [write-up](docs/enhancements/ENH-001-email-otp-chattrix.md) | BUG-031 | ✅ |
 | ENH-002 | Authenticator-app (TOTP) second factor | Tier 1 | 💡 |
 | ENH-003 | CORS allowlist for production | F12, DEPLOY | 💡 |
 | ENH-004 | Make `sqlFilter` refuse empty filters or delete it | BUG-009 | 💡 |
-| ENH-005 | Rate limiting on login / OTP resend | BUG-011 | 💡 |
+| ENH-005 | Rate limiting on login / OTP resend → done as SEC-1 | BUG-011 | ✅ |
 | ENH-006 | Per-service DB roles + TLS | D5 | 💡 |
 | ENH-008 | Email verification at signup | BUG-037 | 💡 |
 | ENH-007 | Deleted now-unused `apps/api/src/auth/users.ts` (`findOtpRecipient`, the cross-shop email lookup behind BUG-002); approved by Ebrahim 2026-10-30 | BUG-002 | ✅ |

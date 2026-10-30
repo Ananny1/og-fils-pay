@@ -103,3 +103,18 @@ The old team pasted AI answers into comments as proof. Every one below was **fal
 **Talking point:** same tools we use, opposite result. They trusted the AI's words; we made every
 claim pass a failing test first. **121 traps** recorded in total (`TRAPS.md`).
 
+
+---
+
+## 6. We attacked our own fixes (red team)
+
+After building the protections (login limiter + lockout, idle timeout, headers and safe errors,
+encrypted KYC files, nginx DDoS rules), **four attacker agents** tried to break the result, each
+with one lens: login, sessions, input/injection, access control.
+
+| Round | Real holes found | Blocked attacks recorded |
+|---|---|---|
+| 1 | 4 medium (disabled admin keeps access, suspended shop keeps sessions, an unauthenticated report route, API key hash on a public page) | 40 |
+| 2 (after fixes) | 1 high (one shop reading another's report via a filter) + 1 low (bad input → 500) | 37 |
+
+All six fixed with a failing test first. **Talking point:** we didn't trust our own fixes either.

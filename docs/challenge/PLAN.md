@@ -120,19 +120,19 @@ the screens (Tier 7) and hand-in (Tier 8).
 | 7.1 | F1–F13 | Frontend fixes (refund drawer, checkout, login, read-only impersonation, 3 decimals, …) | ★ | S2 "timeline" | per item | ⬜ |
 | 7.2 | T5 | Page checklist: every page × every state | ★ | — | 7.1 | ⬜ |
 | **Tier 8** | | **Hand-in** (rubric: Capacity 20 · Hosting 10 · AI 10 · Defence 20, see `RUBRIC.md`) | | | | |
-| 8.0 | UX-0 | **"Before" screenshots** of checkout, merchant dashboard, admin console (every main page), taken **before** any Tier 7 change | ★★ | S5 UI/UX "before and after evidence" | — | ⬜ |
-| 8.0a | HOST-1 | Production compose: API 0.5 vCPU / 512 MB, whole stack ≤ 1 vCPU / 2 GB, `restart: unless-stopped`, health checks, compiled API (no `tsx`), static web/admin (no Vite dev servers) | ★★★ | S5 Hosting + Capacity | Tiers 1–6 | ⬜ |
-| 8.0b | CAP-1 | Load test the **checkout** scenario locally under the same limits (k6 or autocannon); find the max users that stay fast and correct | ★★ | S5 Capacity | HOST-1 | ⬜ |
-| 8.0c | CAP-2 | **Turn away excess** quickly (429/503 + `Retry-After`) instead of queueing until timeouts: in-flight / rate limit (was ENH-005) | ★★ | S5 Capacity | CAP-1 | ⬜ |
-| 8.0d | CAP-3 | Crash and overload drills: kill the API / Postgres mid-checkout → restarts, **no lost or doubled payments** | ★★ | S5 Capacity | CAP-2 | ⬜ |
-| 8.0e | CAP-4 | Write and send our **capacity estimate** (number + how measured) | ★★ | S5 Capacity "send us your estimate" | CAP-3 | ⬜ |
-| 8.1 | T2–T4 | Full suite green, API smoke script, frontend tests | — | — | Tiers 1–7 | ⬜ |
-| 8.2 | D4, D5, D7 | Rotate leaked secret; no public DB / internal ports; `readyz` checks DB | ★★ | — | — | ⬜ |
+| 8.0 | UX-0 | **"Before" screenshots** of checkout, merchant dashboard, admin console (every main page), taken **before** any Tier 7 change | ★★ | S5 UI/UX "before and after evidence" | — | ✅ |
+| 8.0a | HOST-1 | Production compose: API 0.5 vCPU / 512 MB, whole stack ≤ 1 vCPU / 2 GB, `restart: unless-stopped`, health checks, compiled API (no `tsx`), static web/admin (no Vite dev servers) | ★★★ | S5 Hosting + Capacity | Tiers 1–6 | ✅ |
+| 8.0b | CAP-1 | Load test the **checkout** scenario locally under the same limits (k6 or autocannon); find the max users that stay fast and correct | ★★ | S5 Capacity | HOST-1 | ⏳ (re-measure: HOST-2) |
+| 8.0c | CAP-2 | **Turn away excess** quickly (429/503 + `Retry-After`) instead of queueing until timeouts: in-flight / rate limit (was ENH-005) | ★★ | S5 Capacity | CAP-1 | ✅ |
+| 8.0d | CAP-3 | Crash and overload drills: kill the API / Postgres mid-checkout → restarts, **no lost or doubled payments** | ★★ | S5 Capacity | CAP-2 | ✅ |
+| 8.0e | CAP-4 | Write and send our **capacity estimate** (number + how measured) | ★★ | S5 Capacity "send us your estimate" | CAP-3 | ⏳ (HOST-2) |
+| 8.1 | T2–T4 | Full suite green, API smoke script, frontend tests | — | — | Tiers 1–7 | ✅ (suite green; frontend tests are Sayed's) |
+| 8.2 | D4, D5, D7 | Rotate leaked secret; no public DB / internal ports; `readyz` checks DB | ★★ | — | — | ✅ (SEC-4 leaked secret refused; HOST-1 no public DB; readyz) |
 | 8.3 | DEPLOY | Live on Dilmune Cloud. **🔔 Before starting, ask Ebrahim Q-7** (demo data: load once or on every restart?) **and set up ENH-001's Gmail app password on the box** | ★★★ | S1, S2 | 8.2 | ⬜ |
 | 8.4 | T6, T7 | Fresh-clone check; final read of every write-up | — | — | 8.3 | ⬜ |
-| 8.5 | REPORT | **Findings report**: every bug's root cause in one document (built from `docs/bugs/`) | ★★★ | S5 Correctness | Tiers 1–6 | ⬜ |
-| 8.6 | AI-1 | Submission document: AI setup files + **3 annotated transcript excerpts showing how we checked the AI** (candidates in `RUBRIC.md`) | ★★ | S5 AI usage | — | ⬜ |
-| 8.7 | DEF-1 | Slide deck (from `PRESENTATION.md`) + live demo script + **brief Sayed on every fix** (judges pick who answers) | ★★★ | S5 Technical defence | 8.5 | ⬜ |
+| 8.5 | REPORT | **Findings report**: every bug's root cause in one document (built from `docs/bugs/`) | ★★★ | S5 Correctness | Tiers 1–6 | ✅ |
+| 8.6 | AI-1 | Submission document: AI setup files + **3 annotated transcript excerpts showing how we checked the AI** (candidates in `RUBRIC.md`) | ★★ | S5 AI usage | — | ✅ |
+| 8.7 | DEF-1 | Slide deck (from `PRESENTATION.md`) + live demo script + **brief Sayed on every fix** (judges pick who answers) | ★★★ | S5 Technical defence | 8.5 | ⏳ (outline + Q&A done; slides + Sayed brief left) |
 
 **Later (low points):** A12 API keys bypass role gates (documented) · B4 "Adjust balance" is
 cache-only · S10 daemon closes on boot · S11 rebuild vs CloseBatch race · W8 replay keeps delivery
