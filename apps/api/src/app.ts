@@ -40,7 +40,12 @@ export interface BuildAppOptions {
  * tests use `app.inject(...)` against this — no real socket needed.
  */
 export function buildApp(config: Config, pool: Pool, options: BuildAppOptions = {}): FastifyInstance {
-  const app = Fastify({ logger: true });
+  const app = Fastify({
+    logger: true,
+    // CAP-1: two JSON log lines per request cost real CPU on a 0.5 vCPU box.
+    // In production nginx keeps the access log; errors are still logged.
+    disableRequestLogging: config.nodeEnv === "production",
+  });
 
   app.decorate("db", pool);
   app.decorate("config", config);

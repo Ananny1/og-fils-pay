@@ -49,6 +49,9 @@ CMD ["node", "dist/api.mjs"]
 
 # ---- static front ends + reverse proxy ----
 FROM nginx:1.27-alpine AS web
+# One worker: nginx's default is one per host core, and many workers under a
+# small CPU cap spend their quota fighting each other (CAP-1).
+RUN sed -i 's/^worker_processes .*/worker_processes 1;/' /etc/nginx/nginx.conf
 COPY ops/prod/nginx.conf /etc/nginx/conf.d/default.conf
 COPY ops/prod/security-headers.conf /etc/nginx/snippets/security-headers.conf
 COPY --from=build /app/static/web /usr/share/nginx/html

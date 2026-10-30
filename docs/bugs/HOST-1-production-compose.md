@@ -67,7 +67,7 @@ What the stack guarantees:
 
 | Rubric need | How |
 |---|---|
-| One server, 1 vCPU / 2 GB | caps: api 0.5 / 512m, postgres 0.3 / 640m, reporting 0.1 / 256m, settlement 0.05 / 128m, nginx 0.05 / 64m = **1.0 vCPU / 1.6 GB** |
+| One server, 1 vCPU / 2 GB | caps: api 0.5 / 512m, postgres 0.38 / 640m, nginx 0.08 / 64m, reporting 0.02 / 256m, settlement 0.02 / 128m = **1.0 vCPU / 1.6 GB** (split tuned in CAP-1) |
 | API 0.5 vCPU / 512 MB | `cpus: 0.5`, `mem_limit: 512m`, `--max-old-space-size=384` |
 | Restarts itself | `restart: unless-stopped` + `init: true` (tini), so a killed node process exits the container and comes back (one-off jobs `restart: "no"`) |
 | Health checks | postgres `pg_isready`; api `GET /healthz`; nginx `GET /` |

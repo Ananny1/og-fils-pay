@@ -12,7 +12,8 @@
 #   - order on boot: postgres healthy -> migrate -> seed-once -> services
 #   - every long-running service restarts by itself (restart: unless-stopped)
 #   - CPU / memory caps: api 0.5 vCPU / 512 MB (rubric); all long-running
-#     services together = 1.0 vCPU / 1.6 GB
+#     services together = 1.0 vCPU / 1.6 GB (split measured in
+#     docs/challenge/CAPACITY.md)
 #   - data on named volumes (pgdata, kyc), so a restart or rebuild keeps it
 
 x-logging: &logging
@@ -63,7 +64,7 @@ services:
       interval: 5s
       timeout: 3s
       retries: 20
-    cpus: 0.3
+    cpus: 0.38
     mem_limit: 640m
     logging: *logging
 
@@ -105,8 +106,8 @@ services:
       # CAP-2 load shedding: over this many requests in flight -> instant
       # 503 + Retry-After; a request waiting longer than the pool timeout
       # for a DB connection -> 503 too. Values measured in CAP-1.
-      API_MAX_IN_FLIGHT: ${API_MAX_IN_FLIGHT:-64}
-      PG_POOL_MAX: ${PG_POOL_MAX:-10}
+      API_MAX_IN_FLIGHT: ${API_MAX_IN_FLIGHT:-24}
+      PG_POOL_MAX: ${PG_POOL_MAX:-16}
       PG_POOL_CONNECTION_TIMEOUT_MS: ${PG_POOL_CONNECTION_TIMEOUT_MS:-2000}
       # Leave head-room under the 512 MB cap for buffers and native modules.
       NODE_OPTIONS: --max-old-space-size=384
@@ -140,7 +141,7 @@ services:
     depends_on:
       seed:
         condition: service_completed_successfully
-    cpus: 0.05
+    cpus: 0.02
     mem_limit: 128m
     logging: *logging
 
@@ -154,7 +155,7 @@ services:
     depends_on:
       seed:
         condition: service_completed_successfully
-    cpus: 0.1
+    cpus: 0.02
     mem_limit: 256m
 
   # The only public port: static shop app (/) + staff console (/admin/),
@@ -175,7 +176,7 @@ services:
       interval: 10s
       timeout: 3s
       retries: 3
-    cpus: 0.05
+    cpus: 0.08
     mem_limit: 64m
     logging: *logging
 
