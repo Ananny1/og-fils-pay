@@ -287,3 +287,34 @@ test("applyBatchClosed (via applyEvent): real captures but no rollup row warns a
   assert.equal(warnings.length, 1);
   assert.match(String(warnings[0]![0]), /rollup=0 ground_truth=1/);
 });
+
+test("refund.succeeded (via applyEvent): adds the refund to merchant_daily_volume, bucketed by Asia/Bahrain date (FP-300.5)", async () => {
+  const merchantId = await createMerchant("refund");
+  // 22:30 UTC on 5 Jan is 01:30 on 6 Jan in Bahrain: the Bahrain date, never the UTC one.
+  const row = makeRow({
+    event_type: "refund.succeeded",
+    created_at: new Date("2026-01-05T22:30:00Z"),
+    // processRefund.ts's exact payload
+    payload: {
+      merchantId,
+      refundId: randomUUID(),
+      amountFils: 1_250,
+      feeReversedFils: 31,
+      refundedTotalFils: 1_250,
+      newStatus: "partially_refunded",
+    },
+  });
+
+  await withTransaction(pool, (client) => applyEvent(client, row));
+  await withTransaction(pool, (client) => applyEvent(client, { ...row, payload: { ...row.payload, amountFils: 750 } }));
+
+  const result = await pool.query(
+    `SELECT volume_date::text AS d, refund_count, refund_gross_fils, captured_count FROM merchant_daily_volume WHERE merchant_id = $1`,
+    [merchantId],
+  );
+  assert.equal(result.rows.length, 1);
+  assert.equal(result.rows[0].d, "2026-01-06");
+  assert.equal(result.rows[0].refund_count, 2);
+  assert.equal(Number(result.rows[0].refund_gross_fils), 2_000);
+  assert.equal(result.rows[0].captured_count, 0);
+});

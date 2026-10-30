@@ -56,8 +56,8 @@ test("export-summary with credentials returns only the caller's own totals", asy
   const a = await merchantWithKey();
   const b = await merchantWithKey();
   await pool.query(
-    `INSERT INTO merchant_daily_volume (merchant_id, volume_date, captured_count, captured_gross_fils, voided_count)
-     VALUES ($1, '2026-01-01', 1, 1500, 0), ($1, '2026-01-02', 1, 2500, 0), ($2, '2026-01-01', 1, 99000, 0)`,
+    `INSERT INTO merchant_daily_volume (merchant_id, volume_date, captured_count, captured_gross_fils, voided_count, refund_count, refund_gross_fils)
+     VALUES ($1, '2026-01-01', 1, 1500, 0, 1, 500), ($1, '2026-01-02', 1, 2500, 0, 0, 0), ($2, '2026-01-01', 1, 99000, 0, 0, 0)`,
     [a.merchantId, b.merchantId],
   );
 
@@ -67,5 +67,5 @@ test("export-summary with credentials returns only the caller's own totals", asy
     headers: { authorization: `Bearer ${a.rawKey}` },
   });
   assert.equal(res.statusCode, 200, res.body);
-  assert.deepEqual(res.json(), { totalDays: 2, grossFils: 4000 });
+  assert.deepEqual(res.json(), { totalDays: 2, grossFils: 4000, refundedFils: 500, netFils: 3500 });
 });

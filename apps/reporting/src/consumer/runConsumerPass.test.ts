@@ -170,3 +170,41 @@ test("runConsumerPass: atomicity — an apply failure partway through a multi-ev
   const cursorFinal = await getCursor();
   assert.ok(cursorFinal >= goodEvent.id, "watermark now past the previously-blocked good event");
 });
+
+test("runConsumerPass: a refund.succeeded event is applied to the daily rollup exactly once (FP-300.5)", async () => {
+  const merchantId = await createMerchant("refund-once");
+  const txnId = randomUUID();
+  await enqueueEvent(pool, {
+    eventType: "transaction.captured",
+    aggregateType: "transaction",
+    aggregateId: txnId,
+    payload: { merchantId, amountCapturedFils: 8_000, feeFils: 200, newStatus: "captured", capturedTotalFils: 8_000 },
+  });
+  const refundEvent = await enqueueEvent(pool, {
+    eventType: "refund.succeeded",
+    aggregateType: "transaction",
+    aggregateId: txnId,
+    payload: {
+      merchantId,
+      refundId: randomUUID(),
+      amountFils: 3_000,
+      feeReversedFils: 75,
+      refundedTotalFils: 3_000,
+      newStatus: "partially_refunded",
+    },
+  });
+
+  await runConsumerPass(pool, config);
+  assert.ok((await getCursor()) >= refundEvent.id, "watermark moved past the refund event");
+  // A second pass (or a NOTIFY + poll race) must not count it again.
+  await runConsumerPass(pool, config);
+
+  const result = await pool.query(
+    `SELECT captured_gross_fils, refund_count, refund_gross_fils FROM merchant_daily_volume WHERE merchant_id = $1`,
+    [merchantId],
+  );
+  assert.equal(result.rows.length, 1);
+  assert.equal(Number(result.rows[0].captured_gross_fils), 8_000);
+  assert.equal(result.rows[0].refund_count, 1);
+  assert.equal(Number(result.rows[0].refund_gross_fils), 3_000);
+});

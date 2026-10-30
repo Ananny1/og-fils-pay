@@ -69,7 +69,7 @@ test("builds a header plus one line per matching transaction", async () => {
   const csv = await buildTransactionsExportCsv(pool, { merchantId });
   const lines = csv.split("\n");
 
-  assert.equal(lines[0], "id,status,amount_bhd,captured_bhd,reference,occurred_at");
+  assert.equal(lines[0], "id,status,amount_bhd,captured_bhd,reference,occurred_at,refunded_bhd");
   assert.equal(lines.length, 3);
 
   // Rows come back in ascending occurred_at order, so the first data line is
@@ -81,6 +81,7 @@ test("builds a header plus one line per matching transaction", async () => {
     "12.500",
     "order-1",
     "2026-04-01T10:00:00.000Z",
+    "0.000",
   ]);
 
   // A null reference renders as an empty field, not the string "null".
@@ -230,4 +231,18 @@ test("a plain reference is not changed by the formula guard", async () => {
   });
   const csv = await buildTransactionsExportCsv(pool, { merchantId });
   assert.equal(csv.split("\n")[1]!.split(",")[4], "order-7");
+});
+
+test("a refunded transaction shows its refunded amount in BD (FP-300.5)", async () => {
+  const merchantId = await createMerchant();
+  const id = await insertTransaction(merchantId, {
+    status: "partially_refunded",
+    amountFils: 12500,
+    capturedFils: 12500,
+    reference: "order-r",
+    occurredAt: "2026-04-01T10:00:00Z",
+  });
+  await pool.query(`UPDATE transactions SET refunded_fils = 2005 WHERE id = $1`, [id]);
+  const csv = await buildTransactionsExportCsv(pool, { merchantId });
+  assert.equal(csv.split("\n")[1]!.split(",")[6], "2.005");
 });

@@ -158,18 +158,25 @@ async function applyBatchClosed(client: PoolClient, row: OutboxEventRow): Promis
 
 
 /**
- * Rolls up a running daily refund summary, keyed by calendar date.
- * Called from the refund event path once refund events are wired into
- * the outbox (the consumer SELECT in runConsumerPass will include
- * "transaction.refunded" once the refund flow lands).
+ * refund.succeeded — sums the exact per-refund amountFils delta
+ * processRefund.ts enqueued (never refunded_fils, a running total), into
+ * the refund columns added by 0091 (FP-300.5). Bucketed by Asia/Bahrain
+ * date from the outbox created_at, exactly like captures — the old UTC
+ * `toISOString().slice(0, 10)` put refunds made after 21:00 UTC on the
+ * previous Bahrain day.
  */
+async function applyRefundSucceeded(client: PoolClient, row: OutboxEventRow): Promise<void> {
+  const payload = row.payload as { merchantId: string; amountFils: number };
+  await applyDailySummaryRollup(client, payload.merchantId, row.created_at, payload.amountFils);
+}
+
 export async function applyDailySummaryRollup(
   client: PoolClient,
   merchantId: string,
   occurredAt: Date,
   amountFils: number,
 ): Promise<void> {
-  const summaryDate = occurredAt.toISOString().slice(0, 10);
+  const summaryDate = toBahrainDateString(occurredAt);
   await client.query(
     `INSERT INTO merchant_daily_volume (merchant_id, volume_date, refund_count, refund_gross_fils, last_updated_at)
      VALUES ($1, $2, 1, $3, now())
@@ -207,6 +214,8 @@ export async function applyEvent(client: PoolClient, row: OutboxEventRow): Promi
       return applyTransactionVoided(client, row);
     case "settlement.batch_closed":
       return applyBatchClosed(client, row);
+    case "refund.succeeded":
+      return applyRefundSucceeded(client, row);
     default:
       throw new Error(`applyEvent: unhandled event_type ${row.event_type}`);
   }
