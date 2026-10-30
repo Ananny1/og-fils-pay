@@ -10,6 +10,7 @@ import {
   revokeSession,
 } from "../auth/sessions.js";
 import { withTransaction } from "../db/withTransaction.js";
+import { UUID_RE } from "../admin/merchants.js";
 import {
   assertNotThrottled,
   clearFailures,
@@ -77,6 +78,10 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     if (!merchantId || !email || !password) {
       throw new BadRequestError("invalid_request", "merchantId, email and password are required");
     }
+    // BUG-102: a non-string (e.g. an object) crashed merchantSubject below with a 500.
+    if (typeof merchantId !== "string" || typeof email !== "string" || typeof password !== "string") {
+      throw new BadRequestError("invalid_request", "merchantId, email and password must be strings");
+    }
 
     // Counted before the lookup, for real and unknown accounts alike (SEC-1).
     const throttleKey: ThrottleKey = {
@@ -86,13 +91,17 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     };
     const attemptId = await reserveAttempt(app.db, app.config, throttleKey);
 
-    const userResult = await app.db.query<MerchantUserRow>(
-      `SELECT mu.id, mu.merchant_id, mu.email, mu.role, mu.password_hash
-         FROM merchant_users mu
-         JOIN merchants m ON m.id = mu.merchant_id
-        WHERE mu.merchant_id = $1 AND mu.email = $2 AND m.status = 'active'`,
-      [merchantId, email],
-    );
+    // BUG-102: a merchantId that is not a UUID can match no row; skip the
+    // query (Postgres would reject the uuid cast) and fail like any unknown user.
+    const userResult = UUID_RE.test(merchantId)
+      ? await app.db.query<MerchantUserRow>(
+          `SELECT mu.id, mu.merchant_id, mu.email, mu.role, mu.password_hash
+             FROM merchant_users mu
+             JOIN merchants m ON m.id = mu.merchant_id
+            WHERE mu.merchant_id = $1 AND mu.email = $2 AND m.status = 'active'`,
+          [merchantId, email],
+        )
+      : { rows: [] as MerchantUserRow[] };
     const user = userResult.rows[0];
 
     // timing-safe: hashes against a dummy when the user is missing. correct — FH
